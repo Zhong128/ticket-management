@@ -19,6 +19,26 @@ spring:
           max-idle: 8     # 连接池最大空闲连接数
           min-idle: 0     # 连接池最小空闲连接数
           max-wait: -1ms  # 连接池最大阻塞等待时间
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: tm
+    password: 123456
+    virtual-host: /tm
+    # 开启生产者确认模式
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        # 消费者手动确认
+        acknowledge-mode: manual
+        # 消费失败重试
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1000ms
+
   mail:
     host: smtp.qq.com
     port: 587
@@ -38,6 +58,20 @@ mybatis:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
     map-underscore-to-camel-case: true
+
+# Redisson配置
+redisson:
+  config: |
+    singleServerConfig:
+      address: "redis://localhost:6379"
+      database: 0
+      connectionMinimumIdleSize: 10
+      connectionPoolSize: 64
+      subscriptionConnectionPoolSize: 50
+      timeout: 3000
+      retryAttempts: 3
+      retryInterval: 1500
+
 
 # 微信测试号配置
 wechat:

@@ -1,0 +1,89 @@
+// org/example/ticketmanagement/util/RabbitMQUtil.java
+package org.example.ticketmanagement.util;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.example.ticketmanagement.constant.SeckillConstant;
+import org.example.ticketmanagement.dto.SeckillMessageDTO;
+import org.example.ticketmanagement.dto.StockReturnMessageDTO;
+import org.springframework.amqp.core.MessageDeliveryMode;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.stereotype.Component;
+
+import java.util.UUID;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class RabbitMQUtil {
+
+    private final RabbitTemplate rabbitTemplate;
+
+    /**
+     * 发送抢票订单消息
+     */
+    public void sendSeckillOrderMessage(SeckillMessageDTO message) {
+        try {
+            String correlationId = UUID.randomUUID().toString();
+
+            rabbitTemplate.convertAndSend(
+                    SeckillConstant.SECKILL_ORDER_EXCHANGE,
+                    SeckillConstant.SECKILL_ORDER_ROUTING_KEY,
+                    message,
+                    msg -> {
+                        // 添加订单号到消息头，方便死信消费者处理
+                        msg.getMessageProperties().setHeader("orderNo",message.getOrderNo());
+                        msg.getMessageProperties().setCorrelationId(correlationId);
+                        // 设置消息持久化
+                        msg.getMessageProperties().setDeliveryMode(MessageDeliveryMode.PERSISTENT);
+                        return msg;
+                    }
+            );
+
+            log.debug("抢票订单消息发送成功: {}, correlationId: {}", message.getOrderNo(), correlationId);
+        } catch (Exception e) {
+            log.error("抢票订单消息发送失败: {}", message.getOrderNo(), e);
+            throw new RuntimeException("消息发送失败", e);
+        }
+    }
+
+    /**
+     * 发送库存回退消息
+     */
+    public void sendStockReturnMessage(StockReturnMessageDTO message) {
+        try {
+            rabbitTemplate.convertAndSend(
+                    "stock.return.exchange",
+                    "stock.return.routing.key",
+                    message
+            );
+
+            log.debug("库存回退消息发送成功: {}", message);
+        } catch (Exception e) {
+            log.error("库存回退消息发送失败: {}", message, e);
+            throw new RuntimeException("库存回退消息发送失败", e);
+        }
+    }
+
+    /**
+     * 发送TTL延迟消息（基于队列TTL设置）
+     */
+    public void sendTtlDelayedMessage(String queueName, Object message, int ttl) {
+        try {
+            rabbitTemplate.convertAndSend(
+                    "",
+                    queueName,
+                    message,
+                    msg -> {
+                        msg.getMessageProperties().setExpiration(String.valueOf(ttl));
+                        return msg;
+                    }
+            );
+
+            log.debug("TTL延迟消息发送成功: {}, queue: {}, ttl: {}ms", message, queueName, ttl);
+        } catch (Exception e) {
+            log.error("TTL延迟消息发送失败: {}", message, e);
+            throw new RuntimeException("TTL延迟消息发送失败", e);
+        }
+    }
+}
