@@ -79,7 +79,7 @@ public class HomeController {
      * 根据指定城市获取首页推荐
      */
     @Operation(summary = "根据城市获取首页推荐", tags = {"首页推荐-用户端"})
-    @GetMapping("/recommend/city/{cityId}")
+    @GetMapping("/user/recommend/city/{cityId}")
     @SaCheckLogin
     public Result<HomeRecommendVO> getHomeRecommendByCity(
             @PathVariable Long cityId,
@@ -100,8 +100,8 @@ public class HomeController {
      * 获取客户端IP和用户状态信息（调试用）
      */
     @Operation(summary = "获取调试信息", tags = {"首页推荐-用户端"})
-    @GetMapping("/debug/info")
-    @SaCheckLogin
+    @GetMapping("/public/debug/info")
+    @SaCheckDisable
     public Result<Object> getDebugInfo(HttpServletRequest request) {
         try {
             Long userId = (Long) request.getAttribute("userId");

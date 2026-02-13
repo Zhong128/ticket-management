@@ -80,7 +80,7 @@ public class UserController {
      * 获取当前用户信息
      */
     @Operation(summary = "获取当前用户信息", tags = {"用户信息-用户端"})
-    @GetMapping("/profile")
+    @GetMapping("/user/profile")
     @SaCheckLogin
     public Result<UserDTO> getCurrentUser(HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("userId");
@@ -107,7 +107,7 @@ public class UserController {
      * 修改个人信息
      */
     @Operation(summary = "修改个人信息", tags = {"用户信息-用户端"})
-    @PutMapping("/profile")
+    @PutMapping("/user/profile")
     @SaCheckLogin
     public Result<Void> updateProfile(@Valid @RequestBody UserProfileDTO profileDTO, HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("userId");
@@ -144,7 +144,7 @@ public class UserController {
      * 修改密码
      */
     @Operation(summary = "修改密码", tags = {"用户信息-用户端"})
-    @PutMapping("/password")
+    @PutMapping("/user/password")
     @SaCheckLogin
     public Result<Void> updatePassword(@RequestParam String oldPassword,
                                        @RequestParam String newPassword,

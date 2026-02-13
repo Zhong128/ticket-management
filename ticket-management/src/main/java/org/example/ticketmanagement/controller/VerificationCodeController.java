@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/auth/public/verification")
+@RequestMapping("/api/verification/public/")
 @Tag(name = "验证码/短信验证码", description = "验证码发送与验证相关接口")
 @SaCheckDisable
 public class VerificationCodeController {
