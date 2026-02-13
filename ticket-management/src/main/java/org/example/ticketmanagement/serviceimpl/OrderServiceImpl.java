@@ -1,26 +1,26 @@
 // org/example/ticketmanagement/service/impl/OrderServiceImpl.java
 package org.example.ticketmanagement.serviceimpl;
 
+import cn.dev33.satoken.stp.StpUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.ticketmanagement.constant.SeckillConstant;
+import org.example.ticketmanagement.constant.OrderConstant;
+import org.example.ticketmanagement.constant.RoleConstant;
+import org.example.ticketmanagement.dto.OrderQueryDTO;
+import org.example.ticketmanagement.dto.OrderUpdateDTO;
 import org.example.ticketmanagement.dto.SeckillMessageDTO;
 import org.example.ticketmanagement.dto.StockReturnMessageDTO;
-import org.example.ticketmanagement.mapper.EventMapper;
-import org.example.ticketmanagement.mapper.EventSessionMapper;
-import org.example.ticketmanagement.mapper.OrderInfoMapper;
-import org.example.ticketmanagement.mapper.TicketTierMapper;
-import org.example.ticketmanagement.pojo.Event;
-import org.example.ticketmanagement.pojo.EventSession;
-import org.example.ticketmanagement.pojo.OrderInfo;
-import org.example.ticketmanagement.pojo.TicketTier;
+import org.example.ticketmanagement.mapper.*;
+import org.example.ticketmanagement.pojo.*;
 import org.example.ticketmanagement.service.OrderService;
 import org.example.ticketmanagement.service.StockService;
+import org.example.ticketmanagement.util.OrderNoGenerator;
 import org.example.ticketmanagement.util.RabbitMQUtil;
 import org.example.ticketmanagement.vo.OrderInfoVO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -34,8 +34,11 @@ public class OrderServiceImpl implements OrderService {
     private final TicketTierMapper ticketTierMapper;
     private final EventMapper eventMapper;
     private final EventSessionMapper eventSessionMapper;
+    private final UserMapper userMapper;
     private final StockService stockService;
     private final RabbitMQUtil rabbitMQUtil;
+
+    // ==================== 基础订单操作 ====================
 
     @Override
     @Transactional
@@ -60,7 +63,7 @@ public class OrderServiceImpl implements OrderService {
             orderInfo.setTierId(seckillMessage.getTierId());
             orderInfo.setQuantity(seckillMessage.getQuantity());
             orderInfo.setTotalAmount(seckillMessage.getTotalAmount());
-            orderInfo.setOrderStatus(SeckillConstant.ORDER_STATUS_PENDING); // 待支付
+            orderInfo.setOrderStatus(OrderConstant.ORDER_STATUS_PENDING);
             orderInfo.setCreateTime(LocalDateTime.now());
             orderInfo.setUpdateTime(LocalDateTime.now());
 
@@ -79,72 +82,20 @@ public class OrderServiceImpl implements OrderService {
 
         } catch (Exception e) {
             log.error("创建订单失败: orderNo={}", seckillMessage.getOrderNo(), e);
-
-            // 5. 创建订单失败，恢复库存
+            // 创建订单失败，恢复库存
             stockService.restoreStock(seckillMessage.getTierId(), seckillMessage.getQuantity());
-
-            // 6. 删除用户抢票记录
+            // 删除用户抢票记录
             stockService.deleteUserSeckillRecord(seckillMessage.getUserId(), seckillMessage.getTierId());
-
             throw new RuntimeException("订单创建失败", e);
         }
     }
 
-
     @Override
     public OrderInfoVO getOrderByOrderNo(String orderNo) {
         OrderInfo orderInfo = orderInfoMapper.selectByOrderNo(orderNo);
-        if (orderInfo == null) {
-            return null;
-        }
         return convertToVO(orderInfo);
     }
 
-    @Override
-    public OrderInfoVO getOrderById(Long orderId) {
-        OrderInfo orderInfo = orderInfoMapper.selectById(orderId);
-        if (orderInfo == null) {
-            return null;
-        }
-        return convertToVO(orderInfo);
-    }
-
-    @Override
-    public List<OrderInfoVO> getOrdersByUserId(Long userId) {
-        List<OrderInfo> orders = orderInfoMapper.selectByUserId(userId);
-        return orders.stream()
-                .map(this::convertToVO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional
-    public boolean updateOrderStatus(Long orderId, Integer orderStatus) {
-        OrderInfo orderInfo = orderInfoMapper.selectById(orderId);
-        if (orderInfo == null) {
-            log.warn("订单不存在: orderId={}", orderId);
-            return false;
-        }
-
-        orderInfo.setOrderStatus(orderStatus);
-        orderInfo.setUpdateTime(LocalDateTime.now());
-
-        // 如果订单已支付，设置支付时间
-        if (orderStatus.equals(SeckillConstant.ORDER_STATUS_PAID)) {
-            orderInfo.setPayTime(LocalDateTime.now());
-        }
-
-        int result = orderInfoMapper.updateStatus(orderInfo);
-        boolean success = result > 0;
-
-        if (success) {
-            log.info("更新订单状态成功: orderId={}, status={}", orderId, orderStatus);
-        } else {
-            log.error("更新订单状态失败: orderId={}, status={}", orderId, orderStatus);
-        }
-
-        return success;
-    }
 
     @Override
     @Transactional
@@ -155,32 +106,29 @@ public class OrderServiceImpl implements OrderService {
             return false;
         }
 
-        // 只能取消待支付状态的订单（幂等性）
-        if (!orderInfo.getOrderStatus().equals(SeckillConstant.ORDER_STATUS_PENDING)) {
+        // 只能取消待支付状态的订单
+        if (!orderInfo.getOrderStatus().equals(OrderConstant.ORDER_STATUS_PENDING)) {
             log.warn("订单状态不是待支付，无法取消: orderId={}, status={}",
                     orderId, orderInfo.getOrderStatus());
             return false;
         }
 
         try {
-            // 1. 恢复库存（原子操作）
+            // 1. 恢复库存
             stockService.restoreStock(orderInfo.getTierId(), orderInfo.getQuantity());
 
-            // 2. 删除用户抢票记录（防重记录）
+            // 2. 删除用户抢票记录
             stockService.deleteUserSeckillRecord(orderInfo.getUserId(), orderInfo.getTierId());
 
             // 3. 更新订单状态为已取消
-            orderInfo.setOrderStatus(SeckillConstant.ORDER_STATUS_CANCELED);
+            orderInfo.setOrderStatus(OrderConstant.ORDER_STATUS_CANCELED);
             orderInfo.setUpdateTime(LocalDateTime.now());
 
             int result = orderInfoMapper.updateStatus(orderInfo);
             boolean success = result > 0;
 
             if (success) {
-                log.info("取消订单成功: orderId={}, orderNo={}, tierId={}, quantity={}",
-                        orderId, orderInfo.getOrderNo(), orderInfo.getTierId(), orderInfo.getQuantity());
-            } else {
-                log.error("取消订单失败: orderId={}", orderId);
+                log.info("取消订单成功: orderId={}, orderNo={}", orderId, orderInfo.getOrderNo());
             }
 
             return success;
@@ -191,13 +139,171 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
+    // ==================== 客户端订单接口 ====================
+
+    /**
+     * 客户端分页查询订单列表
+     */
+    @Override
+    public PageResult<OrderInfoVO> getUserOrders(OrderQueryDTO queryDTO, Long userId) {
+        log.debug("用户查询订单列表: userId={}, page={}, size={}", userId, queryDTO.getPage(), queryDTO.getSize());
+
+        // 强制设置用户ID，防止查询他人订单
+        queryDTO.setUserId(userId);
+
+        // 执行分页查询 - 使用selectByCondition
+        List<OrderInfo> orderList = orderInfoMapper.selectByCondition(queryDTO);
+        Long total = orderInfoMapper.countByCondition(queryDTO);
+
+        // 转换为VO
+        List<OrderInfoVO> voList = orderList.stream()
+                .map(this::convertToSimpleVO)
+                .collect(Collectors.toList());
+
+        return new PageResult<>(voList, total, queryDTO);
+    }
+
+    @Override
+    public OrderInfoVO getOrderDetail(Long orderId, Long userId) {
+        log.debug("用户查询订单详情: orderId={}, userId={}", orderId, userId);
+
+        OrderInfo orderInfo = orderInfoMapper.selectById(orderId);
+        if (orderInfo == null) {
+            throw new RuntimeException("订单不存在");
+        }
+
+        // 验证权限：只能查看自己的订单
+        if (!orderInfo.getUserId().equals(userId)) {
+            log.warn("用户越权访问订单: userId={}, orderUserId={}", userId, orderInfo.getUserId());
+            throw new RuntimeException("无权查看此订单");
+        }
+
+        return convertToVO(orderInfo);
+    }
+
+    @Override
+    @Transactional
+    public boolean userCancelOrder(Long orderId, Long userId) {
+        log.info("用户取消订单: orderId={}, userId={}", orderId, userId);
+
+        OrderInfo orderInfo = orderInfoMapper.selectById(orderId);
+        if (orderInfo == null) {
+            throw new RuntimeException("订单不存在");
+        }
+
+        // 验证权限
+        if (!orderInfo.getUserId().equals(userId)) {
+            log.warn("用户越权取消订单: userId={}, orderUserId={}", userId, orderInfo.getUserId());
+            throw new RuntimeException("无权操作此订单");
+        }
+
+        // 检查订单状态
+        if (!orderInfo.getOrderStatus().equals(OrderConstant.ORDER_STATUS_PENDING)) {
+            throw new RuntimeException("当前订单状态不可取消");
+        }
+
+        // 检查订单是否超时（可选：超时订单只能由系统取消）
+        LocalDateTime deadline = orderInfo.getCreateTime().plusMinutes(OrderConstant.ORDER_TIMEOUT_MINUTES);
+        if (LocalDateTime.now().isAfter(deadline)) {
+            throw new RuntimeException("订单已超时，请联系客服");
+        }
+
+        return cancelOrder(orderId);
+    }
+
+    // ==================== 管理端订单接口 ====================
+
+    /**
+     * 管理端分页查询订单列表
+     */
+    @Override
+    public PageResult<OrderInfoVO> adminQueryOrders(OrderQueryDTO queryDTO) {
+        log.info("管理员查询订单列表: {}", queryDTO);
+
+        // 管理端使用联表查询 - 使用selectAdminByCondition
+        List<OrderInfoVO> voList = orderInfoMapper.selectAdminByCondition(queryDTO);
+        Long total = orderInfoMapper.countAdminByCondition(queryDTO);
+
+        return new PageResult<>(voList, total, queryDTO);
+    }
+
+    @Override
+    public OrderInfoVO adminGetOrderDetail(Long orderId) {
+        log.debug("管理员查询订单详情: orderId={}", orderId);
+
+        OrderInfo orderInfo = orderInfoMapper.selectById(orderId);
+        if (orderInfo == null) {
+            throw new RuntimeException("订单不存在");
+        }
+
+        return convertToAdminVO(orderInfo);
+    }
+
+    @Override
+    @Transactional
+    public boolean adminUpdateOrder(Long orderId, OrderUpdateDTO updateDTO, Long adminId) {
+        log.info("管理员修改订单: orderId={}, adminId={}, updateDTO={}",
+                orderId, adminId, updateDTO);
+
+        OrderInfo orderInfo = orderInfoMapper.selectById(orderId);
+        if (orderInfo == null) {
+            throw new RuntimeException("订单不存在");
+        }
+
+        // 记录原状态
+        Integer oldStatus = orderInfo.getOrderStatus();
+
+        // 更新订单信息
+        boolean needUpdate = false;
+
+        if (updateDTO.getOrderStatus() != null) {
+            orderInfo.setOrderStatus(updateDTO.getOrderStatus());
+            needUpdate = true;
+
+            // 如果状态改为已支付，设置支付时间
+            if (updateDTO.getOrderStatus().equals(OrderConstant.ORDER_STATUS_PAID)
+                    && orderInfo.getPayTime() == null) {
+                orderInfo.setPayTime(LocalDateTime.now());
+            }
+        }
+
+        if (updateDTO.getTotalAmount() != null) {
+            orderInfo.setTotalAmount(updateDTO.getTotalAmount());
+            needUpdate = true;
+        }
+
+        if (updateDTO.getQuantity() != null) {
+            orderInfo.setQuantity(updateDTO.getQuantity());
+            needUpdate = true;
+        }
+
+        if (!needUpdate) {
+            log.warn("没有需要更新的字段");
+            return false;
+        }
+
+        orderInfo.setUpdateTime(LocalDateTime.now());
+        int result = orderInfoMapper.updateOrderInfo(orderInfo);
+        boolean success = result > 0;
+
+        if (success) {
+            log.info("管理员修改订单成功: orderId={}, oldStatus={}, newStatus={}, adminId={}",
+                    orderId, oldStatus, orderInfo.getOrderStatus(), adminId);
+
+            // TODO: 记录操作日志
+            // adminLogService.logOrderUpdate(orderId, adminId, oldStatus, updateDTO);
+        }
+
+        return success;
+    }
+
+    // ==================== 定时任务/系统内部调用 ====================
+
     @Override
     public void processTimeoutOrders(Integer timeoutMinutes, Integer batchSize) {
         log.info("开始处理超时未支付订单: timeoutMinutes={}, batchSize={}", timeoutMinutes, batchSize);
 
-        Integer actualTimeout = SeckillConstant.PAY_TIMEOUT_MINUTES + 1; // +1分钟，让死信队列优先处理
-
-        // 查询超时未支付订单
+        Integer actualTimeout = OrderConstant.ORDER_TIMEOUT_MINUTES + 1;
         List<OrderInfo> timeoutOrders = orderInfoMapper.selectTimeoutOrders(actualTimeout, batchSize);
 
         if (timeoutOrders.isEmpty()) {
@@ -212,11 +318,9 @@ public class OrderServiceImpl implements OrderService {
                 boolean success = cancelOrder(order.getId());
                 if (success) {
                     log.info("成功取消超时订单: orderId={}, orderNo={}", order.getId(), order.getOrderNo());
-                } else {
-                    log.error("取消超时订单失败: orderId={}", order.getId());
                 }
             } catch (Exception e) {
-                log.error("处理超时订单异常: orderId={}", order.getId(), e);
+                log.error("取消超时订单异常: orderId={}", order.getId(), e);
             }
         }
     }
@@ -224,21 +328,16 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public boolean cancelOrderByOrderNo(String orderNo) {
         log.info("根据订单号取消订单: orderNo={}", orderNo);
-
         OrderInfo orderInfo = orderInfoMapper.selectByOrderNo(orderNo);
         if (orderInfo == null) {
             log.warn("订单不存在: orderNo={}", orderNo);
             return false;
         }
-
         return cancelOrder(orderInfo.getId());
     }
 
     @Override
     public int countTimeoutOrders(Integer timeoutMinutes) {
-        log.debug("统计超时订单数量，timeoutMinutes={}", timeoutMinutes);
-
-        // 使用现有Mapper方法，查询超时订单但限制数量为0，只为了计数
         List<OrderInfo> timeoutOrders = orderInfoMapper.selectTimeoutOrders(timeoutMinutes, 0);
         return timeoutOrders != null ? timeoutOrders.size() : 0;
     }
@@ -253,26 +352,21 @@ public class OrderServiceImpl implements OrderService {
         log.info("批量取消订单，数量：{}", orderIds.size());
 
         int successCount = 0;
-        int failCount = 0;
-
         for (Long orderId : orderIds) {
             try {
-                boolean success = cancelOrder(orderId);
-                if (success) {
+                if (cancelOrder(orderId)) {
                     successCount++;
-                } else {
-                    failCount++;
-                    log.warn("批量取消订单失败：orderId={}", orderId);
                 }
             } catch (Exception e) {
-                failCount++;
                 log.error("批量取消订单异常：orderId={}", orderId, e);
             }
         }
 
-        log.info("批量取消订单完成：成功={}，失败={}", successCount, failCount);
+        log.info("批量取消订单完成：成功={}", successCount);
         return successCount;
     }
+
+    // ==================== 私有辅助方法 ====================
 
     /**
      * 发送库存回退消息到延迟队列
@@ -287,13 +381,16 @@ public class OrderServiceImpl implements OrderService {
 
         rabbitMQUtil.sendStockReturnMessage(message);
         log.debug("发送库存回退消息: orderId={}, tierId={}, quantity={}, delay={}分钟",
-                orderInfo.getId(), orderInfo.getTierId(), orderInfo.getQuantity(), SeckillConstant.PAY_TIMEOUT_MINUTES);
+                orderInfo.getId(), orderInfo.getTierId(), orderInfo.getQuantity(),
+                OrderConstant.ORDER_TIMEOUT_MINUTES);
     }
 
     /**
-     * 将OrderInfo转换为OrderInfoVO
+     * 转换为完整VO（包含所有关联信息）
      */
     private OrderInfoVO convertToVO(OrderInfo orderInfo) {
+        if (orderInfo == null) return null;
+
         OrderInfoVO vo = new OrderInfoVO();
         vo.setId(orderInfo.getId());
         vo.setOrderNo(orderInfo.getOrderNo());
@@ -312,17 +409,44 @@ public class OrderServiceImpl implements OrderService {
         TicketTier ticketTier = ticketTierMapper.selectById(orderInfo.getTierId());
         if (ticketTier != null) {
             vo.setTierName(ticketTier.getTierName());
+            vo.setTierPrice(ticketTier.getCurrentPrice());
         }
 
         Event event = eventMapper.selectById(orderInfo.getEventId());
         if (event != null) {
             vo.setEventName(event.getName());
+            vo.setEventImage(event.getCoverImage());
         }
 
         EventSession session = eventSessionMapper.selectById(orderInfo.getSessionId());
         if (session != null) {
             vo.setSessionName(session.getSessionName());
             vo.setSessionTime(session.getSessionTime());
+        }
+
+        return vo;
+    }
+
+    /**
+     * 转换为简单VO（客户端用，不带敏感信息）
+     */
+    private OrderInfoVO convertToSimpleVO(OrderInfo orderInfo) {
+        OrderInfoVO vo = convertToVO(orderInfo);
+        // 客户端不需要用户ID等敏感信息
+        vo.setUserId(null);
+        return vo;
+    }
+
+    /**
+     * 转换为管理端VO（包含用户信息等）
+     */
+    private OrderInfoVO convertToAdminVO(OrderInfo orderInfo) {
+        OrderInfoVO vo = convertToVO(orderInfo);
+
+        // 查询用户信息
+        User user = userMapper.getUserById(orderInfo.getUserId());
+        if (user != null) {
+            vo.setUserName(user.getUsername());
         }
 
         return vo;

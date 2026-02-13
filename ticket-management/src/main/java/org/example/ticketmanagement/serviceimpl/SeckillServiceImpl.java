@@ -1,4 +1,4 @@
-// org/example/ticketmanagement/service/impl/SeckillServiceImpl.java
+
 package org.example.ticketmanagement.serviceimpl;
 
 import lombok.RequiredArgsConstructor;
@@ -6,15 +6,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.constant.SeckillConstant;
 import org.example.ticketmanagement.dto.SeckillMessageDTO;
 import org.example.ticketmanagement.dto.SeckillOrderDTO;
-import org.example.ticketmanagement.mapper.EventMapper;
 import org.example.ticketmanagement.mapper.EventSessionMapper;
 import org.example.ticketmanagement.mapper.TicketTierMapper;
-import org.example.ticketmanagement.pojo.Event;
 import org.example.ticketmanagement.pojo.EventSession;
 import org.example.ticketmanagement.pojo.TicketTier;
 import org.example.ticketmanagement.service.SeckillService;
 import org.example.ticketmanagement.service.StockService;
 import org.example.ticketmanagement.service.SeckillLockService;
+import org.example.ticketmanagement.util.OrderNoGenerator;
 import org.example.ticketmanagement.util.RabbitMQUtil;
 import org.example.ticketmanagement.vo.SeckillResultVO;
 import org.springframework.stereotype.Service;
@@ -22,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.concurrent.ThreadLocalRandom;
+
 
 @Slf4j
 @Service
@@ -30,11 +29,11 @@ import java.util.concurrent.ThreadLocalRandom;
 public class SeckillServiceImpl implements SeckillService {
 
     private final TicketTierMapper ticketTierMapper;
-    private final EventMapper eventMapper;
     private final EventSessionMapper eventSessionMapper;
     private final StockService stockService;
     private final SeckillLockService seckillLockService;
     private final RabbitMQUtil rabbitMQUtil;
+    private final OrderNoGenerator orderNoGenerator;
 
     @Override
     public SeckillResultVO seckill(Long userId, SeckillOrderDTO seckillOrderDTO) {
@@ -98,7 +97,7 @@ public class SeckillServiceImpl implements SeckillService {
 
         try {
             // 6. 生成订单号
-            String orderNo = generateOrderNo();
+            String orderNo = orderNoGenerator.generateOrderNo();
 
             // 7. 设置用户抢票记录（防重，过期时间30分钟）
             stockService.setUserSeckillRecord(userId, tierId, 30 * 60);
@@ -177,15 +176,6 @@ public class SeckillServiceImpl implements SeckillService {
     @Override
     public void restoreStock(Long tierId, Integer quantity) {
         stockService.restoreStock(tierId, quantity);
-    }
-
-    @Override
-    public String generateOrderNo() {
-        // 简单实现：时间戳 + 随机数
-        // 实际项目中可以使用雪花算法等分布式ID生成器
-        long timestamp = System.currentTimeMillis();
-        int random = ThreadLocalRandom.current().nextInt(1000, 9999);
-        return "ORDER" + timestamp + random;
     }
 
     @Override

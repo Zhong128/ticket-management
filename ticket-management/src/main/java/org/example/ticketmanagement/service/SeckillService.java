@@ -42,12 +42,6 @@ public interface SeckillService {
     void restoreStock(Long tierId, Integer quantity);
 
     /**
-     * 生成订单号（分布式唯一ID）
-     * @return 订单号
-     */
-    String generateOrderNo();
-
-    /**
      * 获取票档实时库存（从Redis）
      * @param tierId 票档ID
      * @return 实时库存数量
