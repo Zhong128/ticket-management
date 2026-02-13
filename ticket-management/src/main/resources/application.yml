@@ -87,3 +87,56 @@ verification:
     expire-time: 15     # 验证码过期时间（默认15分钟）
     send-interval: 60   # 发送间隔时间（默认60秒）
     length: 6           # 验证码长度（默认6位）
+
+# SaToken 配置
+sa-token:
+  # token名称 (同时也是cookie名称)
+  token-name: ticket-token
+  # token有效期，单位秒，默认30天，-1代表永不过期
+  timeout: 2592000
+  # token临时有效期 (指定时间内无操作就视为token过期) 单位: 秒
+  active-timeout: 7200
+  # 是否允许同一账号并发登录 (为true时允许一起登录, 为false时新登录挤掉旧登录)
+  is-concurrent: true
+  # 在多人登录同一账号时，是否共用一个token
+  is-share: true
+  # token风格
+  token-style: uuid
+  # 是否输出操作日志
+  is-log: false
+  # 是否从cookie中读取token
+  is-read-cookie: false
+  # 是否从header中读取token
+  is-read-header: true
+  # 是否从body中读取token
+  is-read-body: false
+  # 是否在登录后自动生成token
+  is-write-header: true
+  # 使用Redis存储token（如果启用Redis）
+  is-read-redis: true
+
+  # 账号封禁配置
+  disable:
+    # 是否开启账号封禁功能
+    is-disabled: true
+    # 账号封禁服务实现类
+    disable-service-impl: org.example.ticketmanagement.service.impl.SaDisableServiceImpl
+
+  # 二级认证配置
+  safe:
+    # 是否开启二级认证
+    is-safe: false
+    # 二级认证有效时间，单位秒
+    safe-time: 120
+
+  # 注解校验配置
+  check:
+    # 是否打印注解校验日志
+    is-log: false
+
+  # JWT集成配置（如果需要）
+  jwt:
+    # jwt秘钥
+    secret-key: ticket-management-secret-key-2024
+    # 是否开启JWT
+    is-enabled: false

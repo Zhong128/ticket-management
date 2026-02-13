@@ -1,6 +1,7 @@
 
-package org.example.ticketmanagement.controller.common;
+package org.example.ticketmanagement.controller;
 
+import cn.dev33.satoken.annotation.SaCheckDisable;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
@@ -14,8 +15,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/captcha")
-@Tag(name = "公共功能型接口/验证码", description = "图形验证码相关接口")
+@RequestMapping("/api/captcha/public")
+@Tag(name = "验证码/图形验证码", description = "图形验证码相关接口")
+@SaCheckDisable
 public class CaptchaController {
 
     @Autowired
@@ -24,7 +26,7 @@ public class CaptchaController {
     /**
      * 获取图形验证码
      */
-    @Operation(summary = "获取图形验证码", tags = {"公共功能型接口/验证码"})
+    @Operation(summary = "获取图形验证码", tags = {"图形验证码"})
     @GetMapping
     public Result<CaptchaResult> getCaptcha() {
         try {

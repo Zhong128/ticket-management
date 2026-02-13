@@ -1,6 +1,7 @@
-// org/example/ticketmanagement/controller/user/UserSeckillController.java
-package org.example.ticketmanagement.controller.user;
 
+package org.example.ticketmanagement.controller;
+
+import cn.dev33.satoken.annotation.SaCheckLogin;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -14,10 +15,11 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/user/seckill")
+@RequestMapping("/api/seckill/user")
 @RequiredArgsConstructor
-@Tag(name = "客户端/抢票", description = "抢票相关接口")
-public class UserSeckillController {
+@SaCheckLogin
+@Tag(name = "抢票", description = "抢票相关接口")
+public class SeckillController {
 
     private final SeckillService seckillService;
 
@@ -25,7 +27,7 @@ public class UserSeckillController {
      * 抢票接口
      * POST /api/user/seckill
      */
-    @Operation(summary = "抢票", tags = {"客户端/抢票"})
+    @Operation(summary = "抢票", tags = {"抢票"})
     @PostMapping
     public Result<SeckillResultVO> seckill(@Valid @RequestBody SeckillOrderDTO seckillOrderDTO,
                                            @RequestAttribute Long userId) {
@@ -51,7 +53,7 @@ public class UserSeckillController {
      * 检查抢票资格
      * GET /api/user/seckill/check
      */
-    @Operation(summary = "检查抢票资格", tags = {"客户端/抢票"})
+    @Operation(summary = "检查抢票资格", tags = {"抢票"})
     @GetMapping("/check")
     public Result<Boolean> checkSeckillQualification(
             @RequestParam Long tierId,
@@ -72,7 +74,7 @@ public class UserSeckillController {
      * 获取实时库存
      * GET /api/user/seckill/stock/{tierId}
      */
-    @Operation(summary = "获取实时库存", tags = {"客户端/抢票"})
+    @Operation(summary = "获取实时库存", tags = {"抢票"})
     @GetMapping("/stock/{tierId}")
     public Result<Integer> getRealTimeStock(@PathVariable Long tierId) {
         log.debug("获取实时库存: tierId={}", tierId);

@@ -1,5 +1,6 @@
-package org.example.ticketmanagement.controller.user;
+package org.example.ticketmanagement.controller;
 
+import cn.dev33.satoken.annotation.SaCheckDisable;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -14,8 +15,9 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/auth/verification")
-@Tag(name = "客户端/验证码", description = "验证码发送与验证相关接口")
+@RequestMapping("/api/auth/public/verification")
+@Tag(name = "验证码/短信验证码", description = "验证码发送与验证相关接口")
+@SaCheckDisable
 public class VerificationCodeController {
 
     @Autowired
@@ -27,7 +29,7 @@ public class VerificationCodeController {
     /**
      * 发送验证码
      */
-    @Operation(summary = "发送验证码", tags = {"客户端/验证码"})
+    @Operation(summary = "发送验证码", tags = {"验证码"})
     @PostMapping("/send")
     public Result<Void> sendVerificationCode(@Valid @RequestBody SendCodeRequestDTO requestDTO,
                                              @RequestParam(required = false) String captchaKey,
@@ -64,7 +66,7 @@ public class VerificationCodeController {
     /**
      * 重新发送验证码
      */
-    @Operation(summary = "重新发送验证码", tags = {"客户端/验证码"})
+    @Operation(summary = "重新发送验证码", tags = {"验证码"})
     @PostMapping("/resend")
     public Result<Void> resendVerificationCode(@Valid @RequestBody SendCodeRequestDTO requestDTO) {
         log.info("重新发送验证码，邮箱: {}", requestDTO.getEmail());
@@ -91,7 +93,7 @@ public class VerificationCodeController {
     /**
      * 验证验证码
      */
-    @Operation(summary = "验证验证码", tags = {"客户端/验证码"})
+    @Operation(summary = "验证验证码", tags = {"验证码"})
     @PostMapping("/verify")
     public Result<Boolean> verifyCode(@Valid @RequestBody VerificationCodeDTO verificationCodeDTO) {
         log.info("验证验证码，邮箱: {}", verificationCodeDTO.getEmail());
@@ -112,7 +114,7 @@ public class VerificationCodeController {
     /**
      * 获取验证码剩余时间
      */
-    @Operation(summary = "获取验证码剩余时间", tags = {"客户端/验证码"})
+    @Operation(summary = "获取验证码剩余时间", tags = {"验证码"})
     @GetMapping("/remaining-time/{email}")
     public Result<Long> getRemainingTime(@PathVariable String email) {
         log.info("获取验证码剩余时间，邮箱: {}", email);
@@ -125,4 +127,5 @@ public class VerificationCodeController {
             return Result.error("查询失败");
         }
     }
+
 }

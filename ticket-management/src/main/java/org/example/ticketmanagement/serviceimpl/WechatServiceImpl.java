@@ -1,12 +1,14 @@
+// org/example/ticketmanagement/serviceimpl/WechatServiceImpl.java
 package org.example.ticketmanagement.serviceimpl;
 
+import cn.dev33.satoken.stp.StpUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.config.WechatConfig;
 import org.example.ticketmanagement.dto.*;
 import org.example.ticketmanagement.mapper.UserMapper;
 import org.example.ticketmanagement.pojo.User;
 import org.example.ticketmanagement.service.WechatService;
-import org.example.ticketmanagement.util.JwtUtils;
+import org.example.ticketmanagement.constant.RoleConstant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -15,8 +17,6 @@ import org.springframework.web.client.RestTemplate;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -75,11 +75,10 @@ public class WechatServiceImpl implements WechatService {
             user.setLastLoginTime(LocalDateTime.now());
             userMapper.updateUserWechatInfo(user);
 
-            // 5. 生成JWT token
-            Map<String, Object> claims = new HashMap<>();
-            claims.put("id", user.getId());
-            claims.put("username", user.getUsername());
-            String token = JwtUtils.generateToken(claims);
+            // 5. 使用SaToken登录（替换原来的JWT）
+            StpUtil.login(user.getId());
+            StpUtil.getSession().set("role", user.getRole());
+            String token = StpUtil.getTokenValue();
 
             // 6. 判断是否为新用户
             boolean isNewUser = user.getCreateTime().isAfter(LocalDateTime.now().minusMinutes(1));
@@ -126,6 +125,7 @@ public class WechatServiceImpl implements WechatService {
             user.setAvatar(wechatUser.getHeadimgurl());
             user.setUsername(generateUsername(wechatUser.getOpenid()));
             user.setEmail(""); // 微信登录可以没有邮箱
+            user.setRole(RoleConstant.USER); // 使用常量
             user.setStatus(1);
             user.setLastLoginTime(LocalDateTime.now());
             user.setCreateTime(LocalDateTime.now());
