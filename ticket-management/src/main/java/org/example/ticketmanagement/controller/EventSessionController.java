@@ -21,7 +21,7 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping("/api/sessions")
-@Tag(name = "演出场次", description = "演出场次管理接口")
+@Tag(name = "演出场次管理", description = "演出场次管理接口")
 public class EventSessionController {
 
     @Autowired

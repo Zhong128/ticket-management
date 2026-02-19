@@ -19,7 +19,6 @@ import java.util.concurrent.TimeUnit;
 public class StockServiceImpl implements StockService {
 
     private final RedisTemplate<String, Object> redisTemplate;
-    private final RedisTemplate<String, Integer> integerRedisTemplate;
     private final LuaScriptLoader luaScriptLoader;
 
     /**
@@ -40,7 +39,7 @@ public class StockServiceImpl implements StockService {
     public void initStock(Long tierId, Integer totalStock) {
         String stockKey = getStockKey(tierId);
         // 如果库存不存在，则初始化
-        if (Boolean.FALSE.equals(redisTemplate.hasKey(stockKey))) {
+        if (!redisTemplate.hasKey(stockKey)) {
             redisTemplate.opsForValue().set(stockKey, totalStock);
             log.info("初始化票档库存: tierId={}, stock={}", tierId, totalStock);
         }
@@ -115,7 +114,7 @@ public class StockServiceImpl implements StockService {
 
         try {
             Boolean exists = redisTemplate.hasKey(userKey);
-            return Boolean.TRUE.equals(exists);
+            return exists;
         } catch (Exception e) {
             log.error("检查用户抢票记录失败: userId={}, tierId={}", userId, tierId, e);
             return false;

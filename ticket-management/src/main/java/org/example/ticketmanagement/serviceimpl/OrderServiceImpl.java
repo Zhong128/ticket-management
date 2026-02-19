@@ -366,6 +366,42 @@ public class OrderServiceImpl implements OrderService {
         return successCount;
     }
 
+    @Override
+    @Transactional
+    public boolean updateOrderStatus(Long orderId, Integer orderStatus) {
+        log.info("更新订单状态: orderId={}, newStatus={}", orderId, orderStatus);
+
+        OrderInfo orderInfo = orderInfoMapper.selectById(orderId);
+        if (orderInfo == null) {
+            log.warn("订单不存在: orderId={}", orderId);
+            return false;
+        }
+
+        // 记录原状态
+        Integer oldStatus = orderInfo.getOrderStatus();
+
+        // 更新状态
+        orderInfo.setOrderStatus(orderStatus);
+        orderInfo.setUpdateTime(LocalDateTime.now());
+
+        // 如果是支付成功，设置支付时间
+        if (orderStatus.equals(OrderConstant.ORDER_STATUS_PAID)) {
+            orderInfo.setPayTime(LocalDateTime.now());
+        }
+
+        int result = orderInfoMapper.updateStatus(orderInfo);
+        boolean success = result > 0;
+
+        if (success) {
+            log.info("更新订单状态成功: orderId={}, oldStatus={}, newStatus={}",
+                    orderId, oldStatus, orderStatus);
+        } else {
+            log.error("更新订单状态失败: orderId={}, status={}", orderId, orderStatus);
+        }
+
+        return success;
+    }
+
     // ==================== 私有辅助方法 ====================
 
     /**

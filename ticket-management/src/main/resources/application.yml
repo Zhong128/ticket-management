@@ -42,8 +42,8 @@ spring:
   mail:
     host: smtp.qq.com
     port: 587
-    username: your-email@qq.com  # 你的邮箱
-    password: your-authorization-code  # 邮箱授权码，不是登录密码
+    username: 3197209971@qq.com  # 你的邮箱
+    password: cikiahobyowodghc  # 邮箱授权码，不是登录密码
     protocol: smtp
     default-encoding: UTF-8
     properties:
@@ -112,31 +112,27 @@ sa-token:
   is-read-body: false
   # 是否在登录后自动生成token
   is-write-header: true
-  # 使用Redis存储token（如果启用Redis）
-  is-read-redis: true
 
-  # 账号封禁配置
-  disable:
-    # 是否开启账号封禁功能
-    is-disabled: true
-    # 账号封禁服务实现类
-    disable-service-impl: org.example.ticketmanagement.service.impl.SaDisableServiceImpl
 
-  # 二级认证配置
-  safe:
-    # 是否开启二级认证
-    is-safe: false
-    # 二级认证有效时间，单位秒
-    safe-time: 120
-
-  # 注解校验配置
-  check:
-    # 是否打印注解校验日志
-    is-log: false
-
-  # JWT集成配置（如果需要）
-  jwt:
-    # jwt秘钥
-    secret-key: ticket-management-secret-key-2024
-    # 是否开启JWT
-    is-enabled: false
+# 添加支付宝配置
+alipay:
+  # 沙箱环境APPID（从支付宝沙箱后台获取）
+  app-id: 9021000161666460
+  # 商户私钥（你的应用私钥）
+  merchant-private-key: |
+    MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCvGd8dFvz5bYABsd0uf8hwO4Wp+S71N+yqYzvQ4Ty+2A/Wy9TzT+tfGbaQOTWPJ9QwMMurmhvWw9Z5ZV6eXu0FjGCAF1wPeNEOqAFPP7uN5viJWZX/BS2XryGUP3KjIz+BXBZzdK8Aq2KHxx/f4S//MWVOGlhpUo9iB93zeOWpftEnyXY+oolROBB1Ckz+NiYOQa8y98KSao02CCcxwarrjoGl495+7PHsqaTq6NKnxiVnfw/bdOATROuN4AXg6EWnXccCDcIePvgTcZv910sflQItprBp9m65o0uwmRjdkFscyC/Vgt/aq93QR9TVvYXSGEmcDotUjDYeG01/BkevAgMBAAECggEAXYSZzvWKIsVCyqTuFnmU2axQlRlK5Rj7Q31AYy0Ivnyy6OtwTorukJoxERIc8to4z4wgGwRxveBWWfuz7y2PtZjlqUPQnUrPjN5Z5LOLPhyPvPulytA/K3YTnxPL7ClVL4e5TeyR0u+17gKBmZaxhcAh9PbJJWc8wQSmm/SD5GO9P0UtVSZLHD7QQXSEmXHezKDOlQoKiSMnG+jXEIQ38jKu87jDTdVMmUr9/zaOGvukFHIchMsFXuovZIn9K/tpRKLkxugg3Ki0a9K7ShrQQUQJ1c2Tgvo3tIMf8iD2qBzhG7VdxZwRFaa2DobuV6ySDI8px0tSiaJX5sQajr/qgQKBgQDtM9xiJTxvqfYGGVZL1yWjn2qIVuELohfdg4ArNtOcKXHrdYYOOlownAhx1VOpyDbpkcH9z0lsBgI/O6dRzQMwg+uqP8BgQGaStrQGQdWFPM7lhy65Mjy7qwO2PDSFheOsxW3MZKaEKMnwtfW7FGa0B/3zxfI18vR1bJJh1/nFjwKBgQC8+ieGyvt2TS5RkGa2DdfESIxDeQKxPW2VvXGgQR542aShfkLgWqCiOghnRkn6Y8RPXMBL0grgTCm3SWQP6S13UckFHz2DTMGGX4posII+6kaYCVAB+snI8xLCXgU56k5s83EyZsxOdXTzoeIiMOXwdJ/IGtpdGQDmeAS/zpWL4QKBgQDsguNhsQMby/oVhrn3EOTkyxVsMERgVxU4t9/aNua0NNb0EdDC6wf2o/3/ktfC2HF4Xu9w5XiuDye6aP6in6poe4FF1h85Wb1s2GOUQZxnJ4ScdDfwTNklvpUK5ejwodmr8YdTX6Bw8kK4kpYcHXFyXO2oXVzu0ftSAhnLGZBgnQKBgQCznIsO6UQBl6/LZBTLOfL2owF1a8FsVfce2BTz/JCKyklYGJpVhK2iIsgz6DGN418FEyHNrpAZySnpA78wBC7rdnc6AAxGDCDvp0T05baVN7Pq8wbxKry42pbc1+Hdvt3VXbgb8GqEs8x5d0ZnutQBK8dluGgNDiO16SKSbzXh4QKBgAWKYlE8LJKjxYll2dVYDpjsnBvuIpkmru5GEc9abUDqiJXGScFv7cM4qP4gM4tMhnXEB6Fpqqywyg2UczE8r3WW2k7UiFJAaPcKjfbkiPDdZ/JDKG5J01/pnLkcZjKs1KxrrpLMYxxQsbnBeWX3fF0jMm3opTEyl3vgmIIxm2k8
+  # 支付宝公钥（从沙箱后台获取）
+  alipay-public-key: |
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmBBPTNtMsjw0Sycf6kkgFkPJ1bD+OJ7pzRow2oZFTB+qH1SsdOvPcfX4oT4YyYD5EmkexK21NepnJvHKcAeb7NKiaAMTFwGVwNtPfj4zTtP92K1vGn5jpI1ZsyQL/ZB/0fqPVJU9mgRffvth1p36Ez9I05fCamtTgQLYPPO71KdUfIwNMz7FlfHwS/POtNmo+5T4TixyjtoJIeADq35GAFGO9aiQkHExyNwCTcP7vpzD8/qV8m1Zu0lFuh6wJGuhtER96/fvnlsEfBJBUX+ePVVh0xtZIOwmAKIb2UUNPNvFcYLGbxEVCxtoABmq+XFBj0VF1/FSMJNKIMJkONrFJwIDAQAB
+  # 支付宝网关（沙箱环境）
+  gateway-url: https://openapi-sandbox.dl.alipaydev.com/gateway.do
+  # 异步通知地址（需公网可访问，可用内网穿透）
+  notify-url: https://your-domain.ngrok.io/api/payment/notify
+  # 同步返回地址（用户支付成功后跳转的页面）
+  return-url: https://your-frontend-domain/payment/success
+  # 签名类型
+  sign-type: RSA2
+  # 字符集
+  charset: UTF-8
+  # 支付超时时间（分钟）
+  timeout-minutes: 30

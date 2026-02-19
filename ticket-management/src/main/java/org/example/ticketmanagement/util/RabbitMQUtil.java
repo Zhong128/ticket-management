@@ -1,4 +1,4 @@
-// org/example/ticketmanagement/util/RabbitMQUtil.java
+
 package org.example.ticketmanagement.util;
 
 import lombok.RequiredArgsConstructor;
@@ -10,6 +10,7 @@ import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -32,7 +33,7 @@ public class RabbitMQUtil {
                     message,
                     msg -> {
                         // 添加订单号到消息头，方便死信消费者处理
-                        msg.getMessageProperties().setHeader("orderNo",message.getOrderNo());
+                        msg.getMessageProperties().setHeader("orderNo", message.getOrderNo());
                         msg.getMessageProperties().setCorrelationId(correlationId);
                         // 设置消息持久化
                         msg.getMessageProperties().setDeliveryMode(MessageDeliveryMode.PERSISTENT);
@@ -84,6 +85,70 @@ public class RabbitMQUtil {
         } catch (Exception e) {
             log.error("TTL延迟消息发送失败: {}", message, e);
             throw new RuntimeException("TTL延迟消息发送失败", e);
+        }
+    }
+
+    /**
+     * 通用消息发送方法（带消息头）
+     */
+    public void convertAndSend(String exchange, String routingKey, Object message) {
+        try {
+            String correlationId = UUID.randomUUID().toString();
+
+            rabbitTemplate.convertAndSend(
+                    exchange,
+                    routingKey,
+                    message,
+                    msg -> {
+                        msg.getMessageProperties().setCorrelationId(correlationId);
+                        msg.getMessageProperties().setDeliveryMode(MessageDeliveryMode.PERSISTENT);
+                        msg.getMessageProperties().setHeader("timestamp", System.currentTimeMillis());
+                        return msg;
+                    }
+            );
+
+            log.debug("消息发送成功: exchange={}, routingKey={}, correlationId={}",
+                    exchange, routingKey, correlationId);
+
+        } catch (Exception e) {
+            log.error("消息发送失败: exchange={}, routingKey={}", exchange, routingKey, e);
+            throw new RuntimeException("消息发送失败", e);
+        }
+    }
+
+    /**
+     * 通用消息发送方法（带自定义消息头）
+     */
+    public void convertAndSend(String exchange, String routingKey, Object message, Map<String, Object> headers) {
+        try {
+            String correlationId = UUID.randomUUID().toString();
+
+            rabbitTemplate.convertAndSend(
+                    exchange,
+                    routingKey,
+                    message,
+                    msg -> {
+                        msg.getMessageProperties().setCorrelationId(correlationId);
+                        msg.getMessageProperties().setDeliveryMode(MessageDeliveryMode.PERSISTENT);
+                        msg.getMessageProperties().setHeader("timestamp", System.currentTimeMillis());
+
+                        // 添加自定义消息头
+                        if (headers != null) {
+                            headers.forEach((key, value) ->
+                                    msg.getMessageProperties().setHeader(key, value)
+                            );
+                        }
+
+                        return msg;
+                    }
+            );
+
+            log.debug("消息发送成功: exchange={}, routingKey={}, correlationId={}",
+                    exchange, routingKey, correlationId);
+
+        } catch (Exception e) {
+            log.error("消息发送失败: exchange={}, routingKey={}", exchange, routingKey, e);
+            throw new RuntimeException("消息发送失败", e);
         }
     }
 }

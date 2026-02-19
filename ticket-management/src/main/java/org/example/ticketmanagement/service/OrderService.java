@@ -83,4 +83,12 @@ public interface OrderService {
      * 批量取消订单
      */
     int batchCancelOrders(List<Long> orderIds);
+
+    /**
+     * 更新订单状态
+     * @param orderId 订单ID
+     * @param orderStatus 订单状态
+     * @return 是否成功
+     */
+    boolean updateOrderStatus(Long orderId, Integer orderStatus);
 }
