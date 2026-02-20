@@ -60,13 +60,13 @@ public class SaTokenConfig implements WebMvcConfigurer {
 
                     // 其他公共接口
                     SaRouter
-                            .match("/api/**/public")                        // 所有公共接口(查+验证码有关)
+                            .match("/api/**/public","/api/**/public/**")                        // 所有公共接口(查+验证码有关)
                             .check(r -> {});
 
                     // ============ 用户端接口权限验证 ============
 
                     // 用户端接口需要 USER 或以上角色
-                    SaRouter.match("/api/**/user").check(r -> {
+                    SaRouter.match("/api/**/user","/api/**/user/**").check(r -> {
                         StpUtil.checkLogin();
                         if (!StpUtil.hasRole(RoleConstant.USER)) {
                             throw new RuntimeException("需要用户角色才能访问");
@@ -76,9 +76,9 @@ public class SaTokenConfig implements WebMvcConfigurer {
                                 SaHolder.getRequest().getRequestPath());
                     });
 
-                    // ============ VIP接口权限验证 ============
+                    // ============ VIP接口权限验证 ============ (目前暂未使用，后续可考虑拓展)
 
-                    SaRouter.match("/api/**/vip").check(r -> {
+                    SaRouter.match("/api/**/vip","/api/**/vip/**").check(r -> {
                         StpUtil.checkLogin();
                         if (!StpUtil.hasRole(RoleConstant.VIP)) {
                             throw new RuntimeException("需要VIP角色才能访问");
@@ -90,7 +90,7 @@ public class SaTokenConfig implements WebMvcConfigurer {
 
                     // ============ 管理端接口权限验证 ============
 
-                    SaRouter.match("/api/**/admin").check(r -> {
+                    SaRouter.match("/api/**/admin","/api/**/admin/**").check(r -> {
                         StpUtil.checkLogin();
                         if (!StpUtil.hasRole(RoleConstant.ADMIN) &&
                                 !StpUtil.hasRole(RoleConstant.SUPER_ADMIN)) {
