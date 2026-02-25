@@ -338,14 +338,42 @@ public class EventServiceImpl implements EventService {
     /**
      * 内部辅助方法：将 Entity 对象转换为 VO 对象
      * 这里只转换基础字段，关联信息（如分类名称、城市名称）可以在需要时扩展
+     * 可以在这里查询关联信息，但为了性能，通常采用懒加载或单独接口
+     * 这里先不查询关联信息，保持简单
+     * 如果需要关联信息，可以创建另一个方法：convertToDetailVO
      */
     private EventVO convertToVO(Event event) {
         EventVO vo = new EventVO();
         BeanUtils.copyProperties(event, vo);
 
-        // 可以在这里查询关联信息，但为了性能，通常采用懒加载或单独接口
-        // 这里先不查询关联信息，保持简单
-        // 如果需要关联信息，可以创建另一个方法：convertToDetailVO
+        // 为可能为null的字段设置默认值
+        if (vo.getArtistName() == null) {
+            vo.setArtistName("");  // 艺人名称为空时设置为空字符串
+        }
+        
+        if (vo.getCoverImage() == null) {
+            vo.setCoverImage("");  // 封面图为空时设置为空字符串
+        }
+        
+        if (vo.getDescription() == null) {
+            vo.setDescription("");  // 描述为空时设置为空字符串
+        }
+
+        // 查询并填充分类名称
+        if (event.getCategoryId() != null) {
+            EventCategory category = eventCategoryMapper.selectById(event.getCategoryId());
+            if (category != null) {
+                vo.setCategoryName(category.getName());
+            }
+        }
+
+        // 查询并填充城市名称
+        if (event.getCityId() != null) {
+            City city = cityMapper.selectById(event.getCityId());
+            if (city != null) {
+                vo.setCityName(city.getName());
+            }
+        }
 
         return vo;
     }

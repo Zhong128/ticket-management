@@ -21,7 +21,7 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/cities")
+@RequestMapping("/api")
 @Tag(name = "城市管理", description = "城市相关所有接口")
 public class CityController {
 
@@ -29,6 +29,15 @@ public class CityController {
     private CityService cityService;
 
     // ==================== 公共接口（无需登录） ====================
+    /**
+     * 测试公共接口是否能正常访问
+     */
+    @Operation(summary = "测试公共接口", tags = {"城市-公共接口"})
+    @GetMapping("/public/test")
+    public Result<String> testPublicAccess() {
+        return Result.success("公共接口访问成功！");
+    }
+
 
     /**
      * 获取所有城市列表（公开接口）
@@ -36,8 +45,7 @@ public class CityController {
      * 可选参数：hotLevel (0-普通，1-热门)
      */
     @Operation(summary = "获取城市列表", tags = {"城市-公共接口"})
-    @GetMapping("/public")
-    @SaCheckDisable
+    @GetMapping("/public/cities")
     public Result<List<CityVO>> getAllCities(
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) Integer hotLevel) {
@@ -65,8 +73,7 @@ public class CityController {
      * 根据名称查询城市（模糊查询）- 公开接口
      */
     @Operation(summary = "根据名称模糊查询城市", tags = {"城市-公共接口"})
-    @GetMapping("/public/search/name/{name}")
-    @SaCheckDisable
+    @GetMapping("/public/cities/search/name/{name}")
     public Result<List<CityVO>> searchCitiesByName(@PathVariable String name) {
         log.debug("根据名称模糊查询城市: {}", name);
 
@@ -83,7 +90,7 @@ public class CityController {
      * 根据ID获取城市详情（用户端）
      */
     @Operation(summary = "获取城市详情", tags = {"城市-用户端"})
-    @GetMapping("/user/{id}")
+    @GetMapping("/user/cities/{id}")
     @SaCheckLogin
     public Result<CityVO> getCityById(@PathVariable Long id) {
         log.debug("查询城市详情，ID: {}", id);
@@ -100,7 +107,7 @@ public class CityController {
      * 分页查询城市列表（用户端）
      */
     @Operation(summary = "分页查询城市列表", tags = {"城市-用户端"})
-    @GetMapping("/user/page")
+    @GetMapping("/user/cities/page")
     @SaCheckLogin
     public Result<PageResult<CityVO>> getCitiesByPage(
             @RequestParam(defaultValue = "1") Integer page,
@@ -127,7 +134,7 @@ public class CityController {
      * 根据状态查询城市列表（用户端）
      */
     @Operation(summary = "根据状态查询城市列表", tags = {"城市-用户端"})
-    @GetMapping("/user/status/{status}")
+    @GetMapping("/user/cities/status/{status}")
     @SaCheckLogin
     public Result<List<CityVO>> getCitiesByStatus(@PathVariable Integer status) {
         log.debug("根据状态查询城市列表，status: {}", status);
@@ -140,7 +147,7 @@ public class CityController {
      * 根据热门等级查询城市列表（用户端）
      */
     @Operation(summary = "根据热门等级查询城市列表", tags = {"城市-用户端"})
-    @GetMapping("/user/hot/{hotLevel}")
+    @GetMapping("/user/cities/hot/{hotLevel}")
     @SaCheckLogin
     public Result<List<CityVO>> getCitiesByHotLevel(@PathVariable Integer hotLevel) {
         log.debug("根据热门等级查询城市列表，hotLevel: {}", hotLevel);
@@ -155,7 +162,7 @@ public class CityController {
      * 1. 新增城市
      */
     @Operation(summary = "新增城市", tags = {"城市-管理端"})
-    @PostMapping("/admin")
+    @PostMapping("/admin/cities")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> addCity(@Valid @RequestBody CityDTO cityDTO) {
         log.info("收到新增城市请求: {}", cityDTO);
@@ -172,7 +179,7 @@ public class CityController {
      * 2. 根据ID删除城市
      */
     @Operation(summary = "删除城市", tags = {"城市-管理端"})
-    @DeleteMapping("/admin/{id}")
+    @DeleteMapping("/admin/cities/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> deleteCity(@PathVariable Long id) {
         log.info("收到删除城市请求，ID: {}", id);
@@ -189,7 +196,7 @@ public class CityController {
      * 3. 更新城市信息
      */
     @Operation(summary = "更新城市信息", tags = {"城市-管理端"})
-    @PutMapping("/admin/{id}")
+    @PutMapping("/admin/cities/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> updateCity(@PathVariable Long id,
                                    @Valid @RequestBody CityDTO cityDTO) {
@@ -207,7 +214,7 @@ public class CityController {
      * 4. 根据ID获取城市详情（管理端，可能包含更多字段）
      */
     @Operation(summary = "查询城市详情（管理端）", tags = {"城市-管理端"})
-    @GetMapping("/admin/{id}")
+    @GetMapping("/admin/cities/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<CityVO> adminGetCityById(@PathVariable Long id) {
         log.debug("查询城市详情，ID: {}", id);
@@ -224,7 +231,7 @@ public class CityController {
      * 分页查询城市列表（支持多条件筛选）
      */
     @Operation(summary = "分页查询城市列表（多条件筛选）", tags = {"城市-管理端"})
-    @GetMapping("/admin/query")
+    @GetMapping("/admin/cities/query")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<PageResult<CityVO>> queryCities(@Valid CityQueryDTO queryDTO) {
         log.info("分页查询城市列表，参数: {}", queryDTO);

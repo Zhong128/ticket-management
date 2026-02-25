@@ -1,11 +1,10 @@
 package org.example.ticketmanagement.controller;
 
-import cn.dev33.satoken.annotation.SaCheckDisable;
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckRole;
+import cn.dev33.satoken.stp.StpUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.constant.RoleConstant;
@@ -26,7 +25,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/user")
+@RequestMapping("/api")
 @Tag(name = "用户管理", description = "用户管理相关接口")
 public class UserController {
 
@@ -41,7 +40,6 @@ public class UserController {
      */
     @Operation(summary = "检查用户名是否可用", tags = {"用户信息-公共接口"})
     @GetMapping("/public/check-username")
-    @SaCheckDisable
     public Result<Boolean> checkUsername(@RequestParam String username) {
         log.debug("检查用户名是否可用: {}", username);
 
@@ -60,8 +58,7 @@ public class UserController {
      * 用于前端在注册或者修改信息时进行邮箱查重检查
      */
     @Operation(summary = "检查邮箱是否可用", tags = {"用户信息-公共接口"})
-    @GetMapping("/public/check-email")
-    @SaCheckDisable
+    @GetMapping("/public/user/check-email")
     public Result<Boolean> checkEmail(@RequestParam String email) {
         log.debug("检查邮箱是否可用: {}", email);
 
@@ -82,8 +79,8 @@ public class UserController {
     @Operation(summary = "获取当前用户信息", tags = {"用户信息-用户端"})
     @GetMapping("/user/profile")
     @SaCheckLogin
-    public Result<UserDTO> getCurrentUser(HttpServletRequest request) {
-        Long userId = (Long) request.getAttribute("userId");
+    public Result<UserProfileDTO> getCurrentUser() {
+        Long userId = StpUtil.getLoginIdAsLong();
         log.info("获取当前用户信息，用户ID: {}", userId);
 
         try {
@@ -92,16 +89,16 @@ public class UserController {
                 return Result.error("用户不存在");
             }
 
-            UserDTO userDTO = new UserDTO();
-            BeanUtils.copyProperties(user, userDTO);
-            userDTO.setPassword(null); // 不返回密码
+            UserProfileDTO userProfileDTO = new UserProfileDTO();
+            BeanUtils.copyProperties(user, userProfileDTO);
 
-            return Result.success(userDTO);
+            return Result.success(userProfileDTO);
         } catch (Exception e) {
             log.error("获取用户信息失败: {}", e.getMessage(), e);
             return Result.error("获取用户信息失败");
         }
     }
+
 
     /**
      * 修改个人信息
@@ -109,17 +106,16 @@ public class UserController {
     @Operation(summary = "修改个人信息", tags = {"用户信息-用户端"})
     @PutMapping("/user/profile")
     @SaCheckLogin
-    public Result<Void> updateProfile(@Valid @RequestBody UserProfileDTO profileDTO, HttpServletRequest request) {
-        Long userId = (Long) request.getAttribute("userId");
+    public Result<Void> updateProfile(@Valid @RequestBody UserProfileDTO profileDTO) {
+        Long userId = StpUtil.getLoginIdAsLong();
         log.info("修改个人信息，用户ID: {}", userId);
 
         try {
-            // 确保只能修改自己的信息
-            profileDTO.setId(userId);
 
             // 创建User对象并复制属性
             User user = new User();
-            BeanUtils.copyProperties(user, profileDTO);
+            BeanUtils.copyProperties(profileDTO, user); // 修正参数顺序：source, target
+            user.setId(userId); // 手动设置用户ID
 
             boolean success = userService.updateUser(user);
             if (success) {
@@ -147,9 +143,8 @@ public class UserController {
     @PutMapping("/user/password")
     @SaCheckLogin
     public Result<Void> updatePassword(@RequestParam String oldPassword,
-                                       @RequestParam String newPassword,
-                                       HttpServletRequest request) {
-        Long userId = (Long) request.getAttribute("userId");
+                                       @RequestParam String newPassword) {
+        Long userId = StpUtil.getLoginIdAsLong();
         log.info("修改密码，用户ID: {}", userId);
 
         try {
@@ -177,7 +172,7 @@ public class UserController {
      * 分页查询用户信息
      */
     @Operation(summary = "分页查询用户列表", tags = {"用户信息-管理端"})
-    @GetMapping("/admin")
+    @GetMapping("/admin/user")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<PageResult<UserDTO>> listUsers(@Valid UserQuery query) {
         log.info("分页查询用户，参数: {}", query);
@@ -218,18 +213,17 @@ public class UserController {
      * 查询用户详情（管理端）
      */
     @Operation(summary = "查询用户详情", tags = {"用户信息-管理端"})
-    @GetMapping("/admin/{id}")
+    @GetMapping("/admin/user/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
-    public Result<UserDTO> getUserDetail(@PathVariable Long id) {
+    public Result<UserProfileDTO> getUserDetail(@PathVariable Long id) {
         log.info("管理员查询用户详情: {}", id);
 
         try {
             User user = userService.getUserById(id);
             if (user != null) {
-                UserDTO userDTO = new UserDTO();
-                BeanUtils.copyProperties(user, userDTO);
-                userDTO.setPassword(null); // 不返回密码
-                return Result.success(userDTO);
+                UserProfileDTO userProfileDTO = new UserProfileDTO();
+                BeanUtils.copyProperties(user, userProfileDTO);
+                return Result.success(userProfileDTO);
             }
             return Result.error("用户不存在");
         } catch (Exception e) {
@@ -243,7 +237,7 @@ public class UserController {
      * 修改用户信息（管理端）
      */
     @Operation(summary = "修改用户信息", tags = {"用户信息-管理端"})
-    @PutMapping("/admin/{id}")
+    @PutMapping("/admin/user/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> updateUser(@PathVariable Long id, @Valid @RequestBody AdminUserDTO adminUserDTO) {
         log.info("管理员修改用户信息: {}", id);
@@ -278,7 +272,7 @@ public class UserController {
      * 启用/禁用用户
      */
     @Operation(summary = "启用/禁用用户", tags = {"用户信息-管理端"})
-    @PutMapping("/admin/{id}/status")
+    @PutMapping("/admin/user/{id}/status")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> updateUserStatus(@PathVariable Long id, @RequestParam Integer status) {
         log.info("管理员修改用户状态: {}, status={}", id, status);
@@ -306,7 +300,7 @@ public class UserController {
      * 批量修改用户状态
      */
     @Operation(summary = "批量修改用户状态", tags = {"用户信息-管理端"})
-    @PutMapping("/admin/batch/status")
+    @PutMapping("/admin/user/batch/status")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> batchUpdateUserStatus(@RequestParam List<Long> ids, @RequestParam Integer status) {
         log.info("批量修改用户状态，ID列表: {}, status={}", ids, status);
@@ -334,7 +328,7 @@ public class UserController {
      * 删除用户（管理端）
      */
     @Operation(summary = "删除用户", tags = {"用户信息-管理端"})
-    @DeleteMapping("/admin/{id}")
+    @DeleteMapping("/admin/user/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> deleteUser(@PathVariable Long id) {
         log.info("管理员删除用户: {}", id);
@@ -360,7 +354,7 @@ public class UserController {
      * 批量删除用户
      */
     @Operation(summary = "批量删除用户", tags = {"用户信息-管理端"})
-    @DeleteMapping("/admin/batch")
+    @DeleteMapping("/admin/user/batch")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> batchDeleteUsers(@RequestParam List<Long> ids) {
         log.info("批量删除用户，ID列表: {}", ids);

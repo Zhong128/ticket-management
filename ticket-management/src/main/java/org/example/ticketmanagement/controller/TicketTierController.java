@@ -22,7 +22,7 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/ticket-tiers")
+@RequestMapping("/api")
 @Tag(name = "票档管理", description = "票档管理相关接口")
 public class TicketTierController {
 
@@ -42,8 +42,7 @@ public class TicketTierController {
      * - maxPrice: 最高价格
      */
     @Operation(summary = "获取票档列表", tags = {"票档-公共接口"})
-    @GetMapping("/public")
-    @SaCheckDisable
+    @GetMapping("/public/ticket-tiers")
     public Result<List<TicketTierVO>> getAllTicketTiers(
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) Long eventId,
@@ -93,8 +92,7 @@ public class TicketTierController {
      * - status: 状态 (1-启用，默认1)
      */
     @Operation(summary = "根据价格范围查询票档列表", tags = {"票档-公共接口"})
-    @GetMapping("/public /price-range")
-    @SaCheckDisable
+    @GetMapping("/public/ticket-tiers/price-range")
     public Result<List<TicketTierVO>> getTicketTiersByPriceRange(
             @RequestParam BigDecimal minPrice,
             @RequestParam BigDecimal maxPrice,
@@ -119,7 +117,7 @@ public class TicketTierController {
      * 根据ID查询票档详情（用户端）
      */
     @Operation(summary = "获取票档详情", tags = {"票档-用户端"})
-    @GetMapping("/user/{id}")
+    @GetMapping("/user/ticket-tiers/{id}")
     @SaCheckLogin
     public Result<TicketTierVO> getTicketTierById(@PathVariable Long id) {
         log.debug("查询票档详情，ID: {}", id);
@@ -136,7 +134,7 @@ public class TicketTierController {
      * 根据演出ID查询票档列表（用户端）
      */
     @Operation(summary = "根据演出ID查询票档列表", tags = {"票档-用户端"})
-    @GetMapping("/user/event/{eventId}")
+    @GetMapping("/user/ticket-tiers/event/{eventId}")
     @SaCheckLogin
     public Result<List<TicketTierVO>> getTicketTiersByEventId(@PathVariable Long eventId) {
         log.debug("根据演出ID查询票档，eventId: {}", eventId);
@@ -149,7 +147,7 @@ public class TicketTierController {
      * 根据场次ID查询票档列表（用户端）
      */
     @Operation(summary = "根据场次ID查询票档列表", tags = {"票档-用户端"})
-    @GetMapping("/user/session/{sessionId}")
+    @GetMapping("/user/ticket-tiers/session/{sessionId}")
     @SaCheckLogin
     public Result<List<TicketTierVO>> getTicketTiersBySessionId(@PathVariable Long sessionId) {
         log.debug("根据场次ID查询票档，sessionId: {}", sessionId);
@@ -162,7 +160,7 @@ public class TicketTierController {
      * 根据状态查询票档列表（用户端）
      */
     @Operation(summary = "根据状态查询票档列表", tags = {"票档-用户端"})
-    @GetMapping("/user/status/{status}")
+    @GetMapping("/user/ticket-tiers/status/{status}")
     @SaCheckLogin
     public Result<List<TicketTierVO>> getTicketTiersByStatus(@PathVariable Integer status) {
         log.debug("根据状态查询票档，status: {}", status);
@@ -178,7 +176,7 @@ public class TicketTierController {
      * - sessionId: 场次ID
      */
     @Operation(summary = "获取票档库存信息", tags = {"票档-用户端"})
-    @GetMapping("/user/stock")
+    @GetMapping("/user/ticket-tiers/stock")
     @SaCheckLogin
     public Result<TicketStockVO> getTicketStock(
             @RequestParam(required = false) Long eventId,
@@ -212,7 +210,7 @@ public class TicketTierController {
      * - sessionId: 场次ID
      */
     @Operation(summary = "检查是否已开票", tags = {"票档-用户端"})
-    @GetMapping("/user/on-sale")
+    @GetMapping("/user/ticket-tiers/on-sale")
     @SaCheckLogin
     public Result<Boolean> checkOnSale(
             @RequestParam(required = false) Long eventId,
@@ -237,7 +235,7 @@ public class TicketTierController {
      *新增票档
      */
     @Operation(summary = "新增票档", tags = {"票档-管理端"})
-    @PostMapping("/admin")
+    @PostMapping("/admin/ticket-tiers")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> addTicketTier(@Valid @RequestBody TicketTierDTO ticketTierDTO) {
         log.info("收到新增票档请求: {}", ticketTierDTO.getTierName());
@@ -254,7 +252,7 @@ public class TicketTierController {
      * 根据ID删除票档
      */
     @Operation(summary = "删除票档", tags = {"票档-管理端"})
-    @DeleteMapping("/admin/{id}")
+    @DeleteMapping("/admin/ticket-tiers/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> deleteTicketTier(@PathVariable Long id) {
         log.info("收到删除票档请求，ID: {}", id);
@@ -271,7 +269,7 @@ public class TicketTierController {
      * 更新票档信息
      */
     @Operation(summary = "更新票档信息", tags = {"票档-管理端"})
-    @PutMapping("/admin/{id}")
+    @PutMapping("/admin/ticket-tiers/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> updateTicketTier(@PathVariable Long id,
                                          @Valid @RequestBody TicketTierDTO ticketTierDTO) {
@@ -289,7 +287,7 @@ public class TicketTierController {
      * 根据ID查询票档详情（管理端）
      */
     @Operation(summary = "查询票档详情（管理端）", tags = {"票档-管理端"})
-    @GetMapping("/admin/{id}")
+    @GetMapping("/admin/ticket-tiers/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<TicketTierVO> AdminGetTicketTierById(@PathVariable Long id) {
         log.debug("查询票档详情，ID: {}", id);
@@ -306,7 +304,7 @@ public class TicketTierController {
      * 根据演出ID查询票档列表（管理端）
      */
     @Operation(summary = "根据演出ID查询票档列表", tags = {"票档-管理端"})
-    @GetMapping("/admin/event/{eventId}")
+    @GetMapping("/admin/ticket-tiers/event/{eventId}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<List<TicketTierVO>> AdminGetTicketTiersByEventId(@PathVariable Long eventId) {
         log.debug("根据演出ID查询票档，eventId: {}", eventId);
@@ -319,7 +317,7 @@ public class TicketTierController {
      * 根据场次ID查询票档列表（管理端）
      */
     @Operation(summary = "根据场次ID查询票档列表", tags = {"票档-管理端"})
-    @GetMapping("/admin/session/{sessionId}")
+    @GetMapping("/admin/ticket-tiers/session/{sessionId}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<List<TicketTierVO>> AdminGetTicketTiersBySessionId(@PathVariable Long sessionId) {
         log.debug("根据场次ID查询票档，sessionId: {}", sessionId);
@@ -332,7 +330,7 @@ public class TicketTierController {
      * 根据演出ID和状态查询票档列表（管理端）
      */
     @Operation(summary = "根据演出ID和状态查询票档列表", tags = {"票档-管理端"})
-    @GetMapping("/admin/event/{eventId}/status/{status}")
+    @GetMapping("/admin/ticket-tiers/event/{eventId}/status/{status}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<List<TicketTierVO>> getTicketTiersByEventIdAndStatus(
             @PathVariable Long eventId,
@@ -347,7 +345,7 @@ public class TicketTierController {
      * 根据场次ID和状态查询票档列表（管理端）
      */
     @Operation(summary = "根据场次ID和状态查询票档列表", tags = {"票档管理相关接口"})
-    @GetMapping("/admin/session/{sessionId}/status/{status}")
+    @GetMapping("/admin/ticket-tiers/session/{sessionId}/status/{status}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<List<TicketTierVO>> getTicketTiersBySessionIdAndStatus(
             @PathVariable Long sessionId,
@@ -367,7 +365,7 @@ public class TicketTierController {
      * - tierId: 票档ID
      */
     @Operation(summary = "获取库存统计信息", tags = {"票档-管理端"})
-    @GetMapping("/admin/stock-statistics")
+    @GetMapping("/admin/ticket-tiers/stock-statistics")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<StockStatisticsVO> getStockStatistics(
             @RequestParam(required = false) Long eventId,
@@ -386,7 +384,7 @@ public class TicketTierController {
      * - sessionId: 场次ID
      */
     @Operation(summary = "获取售罄票档列表", tags = {"票档-管理端"})
-    @GetMapping("/admin/sold-out")
+    @GetMapping("/admin/ticket-tiers/sold-out")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<List<StockStatisticsVO.TierStockDetail>> getSoldOutTiers(
             @RequestParam(required = false) Long eventId,

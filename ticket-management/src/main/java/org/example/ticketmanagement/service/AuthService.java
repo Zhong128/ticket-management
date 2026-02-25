@@ -19,9 +19,10 @@ public interface AuthService {
     LoginInfo userLogin(User user);
 
     /**
-     * 管理员登录（验证角色为ADMIN）
+     * 管理员登录（使用用户名和密码）
      */
-    LoginInfo adminLogin(User user);
+    LoginInfo adminLoginByUsername(String username, String password);
+
 
     /**
      * 退出登录

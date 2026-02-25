@@ -91,4 +91,12 @@ public interface OrderService {
      * @return 是否成功
      */
     boolean updateOrderStatus(Long orderId, Integer orderStatus);
+
+    /**
+     * 管理端根据用户邮箱查询订单列表
+     * @param email 用户邮箱
+     * @param queryDTO 查询条件
+     * @return 订单分页结果
+     */
+    PageResult<OrderInfoVO> getOrdersByUserEmail(String email, OrderQueryDTO queryDTO);
 }

@@ -43,7 +43,7 @@ public class AuthServiceImpl implements AuthService {
             }
         }
 
-        if (u != null && u.getStatus() == 1) {
+        if (u != null && Integer.valueOf(1).equals(u.getStatus())) {
             log.info("登录成功: {}", u.getUsername());
 
             // 更新最后登录时间
@@ -52,7 +52,7 @@ public class AuthServiceImpl implements AuthService {
 
             // 使用SaToken登录（替换原来的JWT）
             return doSaTokenLogin(u);
-        } else if (u != null && u.getStatus() == 0) {
+        } else if (u != null && Integer.valueOf(0).equals(u.getStatus())) {
             throw new RuntimeException("用户已被禁用");
         }
 
@@ -73,18 +73,45 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public LoginInfo adminLogin(User user) {
-        LoginInfo loginInfo = login(user);
+    public LoginInfo adminLoginByUsername(String username, String password) {
+        log.info("管理员登录（用户名）: username={}", username);
 
-        // 验证管理员角色（现在使用常量）
-        User u = userMapper.getUserById(loginInfo.getId());
-        if (!RoleConstant.ADMIN.equals(u.getRole()) &&
-                !RoleConstant.SUPER_ADMIN.equals(u.getRole())) {
-            throw new RuntimeException("非管理员角色，请使用管理端登录");
+        try {
+            // 1. 根据用户名查询用户
+            User user = userMapper.getUserByUsername(username);
+            if (user == null) {
+                throw new RuntimeException("用户名或密码错误");
+            }
+
+            // 2. 验证密码
+            if (!passwordEncoder.matches(password, user.getPassword())) {
+                throw new RuntimeException("用户名或密码错误");
+            }
+
+            // 3. 验证用户状态
+            if (!Integer.valueOf(1).equals(user.getStatus())) {
+                throw new RuntimeException("用户已被禁用");
+            }
+
+            // 4. 验证管理员角色
+            if (!RoleConstant.ADMIN.equals(user.getRole()) &&
+                    !RoleConstant.SUPER_ADMIN.equals(user.getRole())) {
+                throw new RuntimeException("非管理员角色，请使用管理端登录");
+            }
+
+            // 5. 更新最后登录时间
+            user.setLastLoginTime(LocalDateTime.now());
+            userMapper.updateUser(user);
+
+            // 6. 使用SaToken登录
+            return doSaTokenLogin(user);
+
+        } catch (Exception e) {
+            log.error("管理员登录失败: {}", e.getMessage(), e);
+            throw new RuntimeException("登录失败: " + e.getMessage());
         }
-
-        return loginInfo;
     }
+
 
     @Override
     public void logout(String token) {
@@ -221,6 +248,12 @@ public class AuthServiceImpl implements AuthService {
      * SaToken登录方法（内部公共方法）
      */
     private LoginInfo doSaTokenLogin(User user) {
+        // 安全检查：确保用户ID不为空
+        if (user.getId() == null) {
+            log.error("用户ID为空，无法进行SaToken登录: username={}, email={}", user.getUsername(), user.getEmail());
+            throw new RuntimeException("用户信息不完整，登录失败");
+        }
+        
         // 1. SaToken登录（自动生成token）
         StpUtil.login(user.getId());
 
@@ -230,6 +263,7 @@ public class AuthServiceImpl implements AuthService {
 
         // 3. 获取token值
         String token = StpUtil.getTokenValue();
+        System.out.println("生成的 token: " + token);
 
         // 4. 返回登录信息
         LoginInfo loginInfo = new LoginInfo(user.getId(), user.getUsername(), user.getEmail(), token);

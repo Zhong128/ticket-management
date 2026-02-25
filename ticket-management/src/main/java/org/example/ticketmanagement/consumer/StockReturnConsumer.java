@@ -22,11 +22,11 @@ public class StockReturnConsumer {
     /**
      * 消费库存回退消息
      */
-    @RabbitListener(queues = "${seckill.config.stock-return-queue:stock.return.queue}")
+    @RabbitListener(queues = "stock.return.process.queue")
     public void handleStockReturn(StockReturnMessageDTO stockReturnMessage,
                                   Channel channel,
                                   Message message) throws IOException {
-        log.info("收到库存回退消息: tierId={}, quantity={}, reason={}",
+        log.info("收到库存回退处理消息: tierId={}, quantity={}, reason={}",
                 stockReturnMessage.getTierId(), stockReturnMessage.getQuantity(), stockReturnMessage.getReason());
 
         try {

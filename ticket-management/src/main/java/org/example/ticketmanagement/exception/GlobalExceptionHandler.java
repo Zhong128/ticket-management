@@ -24,7 +24,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(NotLoginException.class)
     public Result<?> handleNotLoginException(NotLoginException e) {
-        log.warn("未登录访问: {}", e.getMessage());
+        log.warn("未登录访问: {}, 异常类型: {}", e.getMessage(), e.getType());
         return Result.error(401, "请先登录");
     }
 

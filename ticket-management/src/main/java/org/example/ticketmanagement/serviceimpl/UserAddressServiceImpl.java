@@ -54,20 +54,6 @@ public class UserAddressServiceImpl implements UserAddressService {
         }
     }
 
-//   目前看实际项目这个校验没有必要，先暂且注释忽略
-//    @Override
-//    public boolean isDuplicateAddress(UserAddressDTO userAddressDTO) {
-//        log.debug("检查重复地址，用户ID: {}, 地址: {}",
-//                userAddressDTO.getUserId(), userAddressDTO.getDetailAddress());
-//        try {
-//            UserAddress userAddress = convertToEntity(userAddressDTO);
-//            int count = userAddressMapper.countDuplicateAddress(userAddress);
-//            return count > 0;
-//        } catch (Exception e) {
-//            log.error("检查重复地址失败，用户ID: {}", userAddressDTO.getUserId(), e);
-//            throw new RuntimeException("检查重复地址失败");
-//        }
-//    }
 
     @Override
     @Transactional

@@ -251,8 +251,8 @@ public class TicketTierServiceImpl implements TicketTierService {
         if (tier == null) {
             return null;
         }
-        // Entity 转 VO（基础信息）
-        return convertToVO(tier);
+        // Entity 转 VO（包含关联信息）
+        return convertToDetailVO(tier);
     }
 
     @Override
@@ -260,7 +260,7 @@ public class TicketTierServiceImpl implements TicketTierService {
         log.debug("查询所有票档列表");
         List<TicketTier> tiers = ticketTierMapper.selectAll();
         return tiers.stream()
-                .map(this::convertToVO)
+                .map(this::convertToDetailVO)
                 .collect(Collectors.toList());
     }
 
@@ -269,7 +269,7 @@ public class TicketTierServiceImpl implements TicketTierService {
         log.debug("根据状态查询票档，status: {}", status);
         List<TicketTier> tiers = ticketTierMapper.selectByStatus(status);
         return tiers.stream()
-                .map(this::convertToVO)
+                .map(this::convertToDetailVO)
                 .collect(Collectors.toList());
     }
 
@@ -278,7 +278,7 @@ public class TicketTierServiceImpl implements TicketTierService {
         log.debug("根据演出ID查询票档，eventId: {}", eventId);
         List<TicketTier> tiers = ticketTierMapper.selectByEventId(eventId);
         return tiers.stream()
-                .map(this::convertToVO)
+                .map(this::convertToDetailVO)
                 .collect(Collectors.toList());
     }
 
@@ -287,7 +287,7 @@ public class TicketTierServiceImpl implements TicketTierService {
         log.debug("根据场次ID查询票档，sessionId: {}", sessionId);
         List<TicketTier> tiers = ticketTierMapper.selectBySessionId(sessionId);
         return tiers.stream()
-                .map(this::convertToVO)
+                .map(this::convertToDetailVO)
                 .collect(Collectors.toList());
     }
 
@@ -296,7 +296,7 @@ public class TicketTierServiceImpl implements TicketTierService {
         log.debug("根据演出ID和状态查询票档，eventId: {}, status: {}", eventId, status);
         List<TicketTier> tiers = ticketTierMapper.selectByEventIdAndStatus(eventId, status);
         return tiers.stream()
-                .map(this::convertToVO)
+                .map(this::convertToDetailVO)
                 .collect(Collectors.toList());
     }
 
@@ -305,7 +305,7 @@ public class TicketTierServiceImpl implements TicketTierService {
         log.debug("根据场次ID和状态查询票档，sessionId: {}, status: {}", sessionId, status);
         List<TicketTier> tiers = ticketTierMapper.selectBySessionIdAndStatus(sessionId, status);
         return tiers.stream()
-                .map(this::convertToVO)
+                .map(this::convertToDetailVO)
                 .collect(Collectors.toList());
     }
 
@@ -314,9 +314,10 @@ public class TicketTierServiceImpl implements TicketTierService {
         log.debug("根据价格范围查询票档，minPrice: {}, maxPrice: {}, status: {}", minPrice, maxPrice, status);
         List<TicketTier> tiers = ticketTierMapper.selectByPriceRange(minPrice, maxPrice, status);
         return tiers.stream()
-                .map(this::convertToVO)
+                .map(this::convertToDetailVO)
                 .collect(Collectors.toList());
     }
+
     @Override
     public TicketStockVO getStockInfoBySessionId(Long sessionId) {
         log.debug("获取场次票档库存信息，sessionId: {}", sessionId);
@@ -333,7 +334,13 @@ public class TicketTierServiceImpl implements TicketTierService {
 
         // 3. 判断是否有库存（任一票档有库存即为有库存）
         boolean hasStock = tierStockList.stream()
-                .anyMatch(tier -> (Boolean) tier.get("has_stock"));
+                .anyMatch(tier -> {
+                    Object hasStockObj = tier.get("has_stock");
+                    if (hasStockObj instanceof Long) {
+                        return ((Long) hasStockObj) > 0;
+                    }
+                    return false;
+                });
 
         // 4. 判断是否已开票
         boolean onSale = isSessionOnSale(sessionId);
@@ -361,7 +368,13 @@ public class TicketTierServiceImpl implements TicketTierService {
 
         // 3. 判断是否有库存
         boolean hasStock = tierStockList.stream()
-                .anyMatch(tier -> (Boolean) tier.get("has_stock"));
+                .anyMatch(tier -> {
+                    Object hasStockObj = tier.get("has_stock");
+                    if (hasStockObj instanceof Long) {
+                        return ((Long) hasStockObj) > 0;
+                    }
+                    return false;
+                });
 
         // 4. 判断是否有票档已开票
         boolean onSale = isEventOnSale(eventId);
@@ -600,25 +613,14 @@ public class TicketTierServiceImpl implements TicketTierService {
         return true;
     }
 
-    /**
-     * 内部辅助方法：将 Entity 对象转换为 VO 对象
-     */
-    private TicketTierVO convertToVO(TicketTier tier) {
-        TicketTierVO vo = new TicketTierVO();
-        BeanUtils.copyProperties(tier, vo);
-
-        // 可以在这里查询关联信息，但为了性能，通常采用懒加载或单独接口
-        // 这里先不查询关联信息，保持简单
-
-        return vo;
-    }
 
     /**
      * 内部辅助方法：获取票档详情（包含关联信息）
      * 可选方法，用于需要关联信息的场景
      */
     private TicketTierVO convertToDetailVO(TicketTier tier) {
-        TicketTierVO vo = convertToVO(tier);
+        TicketTierVO vo = new TicketTierVO();
+        BeanUtils.copyProperties(tier, vo);
 
         // 查询关联的演出信息
         Event event = eventMapper.selectById(tier.getEventId());

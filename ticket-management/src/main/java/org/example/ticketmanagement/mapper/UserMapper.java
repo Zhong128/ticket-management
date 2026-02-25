@@ -61,6 +61,7 @@ public interface UserMapper {
      */
     @Insert("insert into user(username,password,email,phone,nickname,avatar,real_name,id_card,gender,birthday,status,last_login_time,last_login_ip,create_time,update_time) " +
             "values(#{username},#{password},#{email},#{phone},#{nickname},#{avatar},#{realName},#{idCard},#{gender},#{birthday},#{status},#{lastLoginTime},#{lastLoginIp},#{createTime},#{updateTime})")
+    @Options(useGeneratedKeys = true, keyProperty = "id")
     void registerUser(User user);
 
     /**
@@ -68,6 +69,7 @@ public interface UserMapper {
      */
     @Select("select * from user where email= #{email}")
     User getUserByEmail(String email);
+
 
     /**
      * 根据手机号查询用户

@@ -20,7 +20,7 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/sessions")
+@RequestMapping("/api")
 @Tag(name = "演出场次管理", description = "演出场次管理接口")
 public class EventSessionController {
 
@@ -35,8 +35,7 @@ public class EventSessionController {
      * - eventId: 演出ID
      */
     @Operation(summary = "获取场次列表", tags = {"演出场次-公共接口"})
-    @GetMapping("/public")
-    @SaCheckDisable
+    @GetMapping("/public/sessions")
     public Result<List<EventSessionVO>> getAllSessions(
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) Long eventId) {
@@ -65,8 +64,7 @@ public class EventSessionController {
      * 可选参数：limit (默认10条)
      */
     @Operation(summary = "获取即将开始的场次", tags = {"演出场次-公共接口"})
-    @GetMapping("/public/upcoming")
-    @SaCheckDisable
+    @GetMapping("/public/sessions/upcoming")
     public Result<List<EventSessionVO>> getUpcomingSessions(
             @RequestParam(defaultValue = "10") Integer limit) {
         log.debug("获取即将开始的场次，limit: {}", limit);
@@ -81,7 +79,7 @@ public class EventSessionController {
      * 根据ID获取场次详情（用户端）
      */
     @Operation(summary = "获取场次详情", tags = {"演出场次-用户端"})
-    @GetMapping("/user/{id}")
+    @GetMapping("/user/sessions/{id}")
     @SaCheckLogin
     public Result<EventSessionVO> getSessionById(@PathVariable Long id) {
         log.debug("查询场次详情，ID: {}", id);
@@ -98,7 +96,7 @@ public class EventSessionController {
      * 根据演出ID获取场次列表（用户端）
      */
     @Operation(summary = "根据演出ID获取场次列表", tags = {"演出场次-用户端"})
-    @GetMapping("/user/event/{eventId}")
+    @GetMapping("/user/sessions/event/{eventId}")
     @SaCheckLogin
     public Result<List<EventSessionVO>> getSessionsByEventId(@PathVariable Long eventId) {
         log.debug("根据演出ID查询场次，eventId: {}", eventId);
@@ -111,7 +109,7 @@ public class EventSessionController {
      * 根据状态获取场次列表（用户端）
      */
     @Operation(summary = "根据状态获取场次列表", tags = {"演出场次-用户端"})
-    @GetMapping("/user/status/{status}")
+    @GetMapping("/user/sessions/status/{status}")
     @SaCheckLogin
     public Result<List<EventSessionVO>> getSessionsByStatus(@PathVariable Integer status) {
         log.debug("根据状态查询场次，status: {}", status);
@@ -127,7 +125,7 @@ public class EventSessionController {
      * 1. 新增场次
      */
     @Operation(summary = "新增场次", tags = {"演出场次-管理端"})
-    @PostMapping("/admin")
+    @PostMapping("/admin/sessions")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> addSession(@Valid @RequestBody EventSessionDTO eventSessionDTO) {
         log.info("收到新增场次请求: {}", eventSessionDTO.getSessionName());
@@ -144,7 +142,7 @@ public class EventSessionController {
      * 2. 根据ID删除场次
      */
     @Operation(summary = "删除场次", tags = {"演出场次-管理端"})
-    @DeleteMapping("/admin/{id}")
+    @DeleteMapping("/admin/sessions/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> deleteSession(@PathVariable Long id) {
         log.info("收到删除场次请求，ID: {}", id);
@@ -161,7 +159,7 @@ public class EventSessionController {
      * 3. 更新场次信息
      */
     @Operation(summary = "更新场次信息", tags = {"演出场次-管理端"})
-    @PutMapping("/admin/{id}")
+    @PutMapping("/admin/sessions/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> updateSession(@PathVariable Long id,
                                       @Valid @RequestBody EventSessionDTO eventSessionDTO) {
@@ -179,7 +177,7 @@ public class EventSessionController {
      * 4. 根据ID获取场次详情（管理端）
      */
     @Operation(summary = "查询场次详情（管理端）", tags = {"演出场次-管理端"})
-    @GetMapping("/admin/{id}")
+    @GetMapping("/admin/sessions/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<EventSessionVO> AdminGetSessionById(@PathVariable Long id) {
         log.debug("查询场次详情，ID: {}", id);

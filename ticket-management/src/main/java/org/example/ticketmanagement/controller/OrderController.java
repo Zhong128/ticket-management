@@ -22,7 +22,7 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/orders")
+@RequestMapping("/api")
 @Tag(name = "订单管理", description = "订单相关所有接口")
 @RequiredArgsConstructor
 public class OrderController {
@@ -35,7 +35,7 @@ public class OrderController {
      * 1. 分页查询当前用户的订单列表
      */
     @Operation(summary = "分页查询我的订单", tags = {"订单-客户端"})
-    @GetMapping("/user/page")
+    @GetMapping("/user/orders/page")
     @SaCheckLogin
     public Result<PageResult<OrderInfoVO>> getUserOrders(
             @Valid OrderQueryDTO queryDTO) {
@@ -52,7 +52,7 @@ public class OrderController {
      * 2. 获取订单详情（客户端）
      */
     @Operation(summary = "获取订单详情", tags = {"订单-客户端"})
-    @GetMapping("/user/{orderId}")
+    @GetMapping("/user/orders/{orderId}")
     @SaCheckLogin
     public Result<OrderInfoVO> getOrderDetail(@PathVariable Long orderId) {
 
@@ -67,7 +67,7 @@ public class OrderController {
      * 3. 取消订单（客户端）
      */
     @Operation(summary = "取消订单", tags = {"订单-客户端"})
-    @PutMapping("/user/{orderId}/cancel")
+    @PutMapping("/user/orders/{orderId}/cancel")
     @SaCheckLogin
     public Result<Void> cancelOrder(@PathVariable Long orderId) {
 
@@ -88,7 +88,7 @@ public class OrderController {
      * 1. 管理端分页查询订单列表
      */
     @Operation(summary = "管理端分页查询订单列表", tags = {"订单-管理端"})
-    @GetMapping("/admin/page")
+    @GetMapping("/admin/orders/page")
     @SaCheckRole({RoleConstant.ADMIN, RoleConstant.SUPER_ADMIN})
     public Result<PageResult<OrderInfoVO>> adminQueryOrders(
             @Valid OrderQueryDTO queryDTO) {
@@ -103,7 +103,7 @@ public class OrderController {
      * 2. 管理端获取订单详情
      */
     @Operation(summary = "管理端获取订单详情", tags = {"订单-管理端"})
-    @GetMapping("/admin/{orderId}")
+    @GetMapping("/admin/orders/{orderId}")
     @SaCheckRole({RoleConstant.ADMIN, RoleConstant.SUPER_ADMIN})
     public Result<OrderInfoVO> adminGetOrderDetail(@PathVariable Long orderId) {
 
@@ -117,7 +117,7 @@ public class OrderController {
      * 3. 管理端修改订单信息
      */
     @Operation(summary = "修改订单信息", tags = {"订单-管理端"})
-    @PutMapping("/admin/{orderId}")
+    @PutMapping("/admin/orders/{orderId}")
     @SaCheckRole({RoleConstant.ADMIN, RoleConstant.SUPER_ADMIN})
     public Result<Void> adminUpdateOrder(
             @PathVariable Long orderId,
@@ -139,7 +139,7 @@ public class OrderController {
      * 4. 批量取消订单（管理端）
      */
     @Operation(summary = "批量取消订单", tags = {"订单-管理端"})
-    @PutMapping("/admin/batch-cancel")
+    @PutMapping("/admin/orders/batch-cancel")
     @SaCheckRole({RoleConstant.ADMIN, RoleConstant.SUPER_ADMIN})
     public Result<Integer> batchCancelOrders(@RequestBody List<Long> orderIds) {
 
@@ -147,5 +147,32 @@ public class OrderController {
 
         int successCount = orderService.batchCancelOrders(orderIds);
         return Result.success("成功取消" + successCount + "个订单", successCount);
+    }
+
+    /**
+     * 5. 根据用户邮箱查询订单列表（管理端）
+     */
+    @Operation(summary = "根据用户邮箱查询订单", tags = {"订单-管理端"})
+    @GetMapping("/admin/orders/user-orders")
+    @SaCheckRole({RoleConstant.ADMIN, RoleConstant.SUPER_ADMIN})
+    public Result<PageResult<OrderInfoVO>> getOrdersByUserEmail(
+            @RequestParam String email,
+            @Valid OrderQueryDTO queryDTO) {
+
+        log.info("管理员根据邮箱查询用户订单: email={}, queryDTO={}", email, queryDTO);
+
+        try {
+            PageResult<OrderInfoVO> pageResult = orderService.getOrdersByUserEmail(email, queryDTO);
+            return Result.success("查询成功", pageResult);
+        } catch (IllegalArgumentException e) {
+            log.warn("参数错误: {}", e.getMessage());
+            return Result.error(400, e.getMessage());
+        } catch (RuntimeException e) {
+            log.warn("根据邮箱查询订单失败: {}", e.getMessage());
+            return Result.error(e.getMessage());
+        } catch (Exception e) {
+            log.error("根据邮箱查询订单异常: {}", e.getMessage(), e);
+            return Result.error("查询失败，请稍后重试");
+        }
     }
 }

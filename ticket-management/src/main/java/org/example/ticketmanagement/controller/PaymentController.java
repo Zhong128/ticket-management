@@ -24,7 +24,7 @@ import java.util.Map;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/payments")
+@RequestMapping("/api")
 @Tag(name = "支付管理", description = "支付相关所有接口")
 @RequiredArgsConstructor
 public class PaymentController {
@@ -38,7 +38,7 @@ public class PaymentController {
      * POST /api/payments/user/create
      */
     @Operation(summary = "创建支付订单", tags = {"支付-客户端"})
-    @PostMapping("/user/create")
+    @PostMapping("/user/payments/create")
     @SaCheckLogin
     public Result<PaymentResultDTO> createPayment(@Valid @RequestBody CreatePaymentDTO createPaymentDTO) {
         Long userId = StpUtil.getLoginIdAsLong();
@@ -58,7 +58,7 @@ public class PaymentController {
      * GET /api/payments/user/status/{paymentNo}
      */
     @Operation(summary = "查询支付状态", tags = {"支付-客户端"})
-    @GetMapping("/user/status/{paymentNo}")
+    @GetMapping("/user/payments/status/{paymentNo}")
     @SaCheckLogin
     public Result<PaymentRecordVO> getPaymentStatus(@PathVariable String paymentNo) {
         Long userId = StpUtil.getLoginIdAsLong();
@@ -78,7 +78,7 @@ public class PaymentController {
      * PUT /api/payments/user/close/{paymentNo}
      */
     @Operation(summary = "关闭支付订单", tags = {"支付-客户端"})
-    @PutMapping("/user/close/{paymentNo}")
+    @PutMapping("/user/payments/close/{paymentNo}")
     @SaCheckLogin
     public Result<Void> closePayment(@PathVariable String paymentNo) {
         Long userId = StpUtil.getLoginIdAsLong();
@@ -106,8 +106,7 @@ public class PaymentController {
      * 注意：此接口是支付宝服务器调用，不能加登录拦截
      */
     @Operation(summary = "支付宝异步回调", tags = {"支付-回调"}, hidden = true)
-    @PostMapping("/public/notify")
-    @SaCheckDisable
+    @PostMapping("/public/payments/notify")
     public String alipayNotify(HttpServletRequest request) {
         log.info("收到支付宝异步回调请求");
 
@@ -142,8 +141,7 @@ public class PaymentController {
      * 注意：此接口是支付宝页面跳转，不能加登录拦截
      */
     @Operation(summary = "支付宝同步回调", tags = {"支付-回调"}, hidden = true)
-    @GetMapping("/public/return")
-    @SaCheckDisable
+    @GetMapping("/public/payments/return")
     public Result<String> alipayReturn(HttpServletRequest request) {
         log.info("收到支付宝同步回调请求");
 
@@ -180,10 +178,9 @@ public class PaymentController {
 
     /**
      * 6. 管理员手动触发补偿任务
-     * POST /api/payments/admin/compensation
      */
     @Operation(summary = "手动触发支付补偿", tags = {"支付-管理端"})
-    @PostMapping("/admin/compensation")
+    @PostMapping("/admin/payments/compensation")
     @SaCheckRole({RoleConstant.ADMIN, RoleConstant.SUPER_ADMIN})
     public Result<String> triggerCompensation() {
         Long adminId = StpUtil.getLoginIdAsLong();
@@ -204,10 +201,9 @@ public class PaymentController {
 
     /**
      * 7. 管理员手动触发超时关单
-     * POST /api/payments/admin/timeout-close
      */
     @Operation(summary = "手动触发超时关单", tags = {"支付-管理端"})
-    @PostMapping("/admin/timeout-close")
+    @PostMapping("/admin/payments/timeout-close")
     @SaCheckRole({RoleConstant.ADMIN, RoleConstant.SUPER_ADMIN})
     public Result<String> triggerTimeoutClose() {
         Long adminId = StpUtil.getLoginIdAsLong();

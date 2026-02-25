@@ -6,8 +6,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.constant.SeckillConstant;
 import org.example.ticketmanagement.dto.SeckillMessageDTO;
 import org.example.ticketmanagement.dto.SeckillOrderDTO;
+import org.example.ticketmanagement.mapper.EventMapper;
 import org.example.ticketmanagement.mapper.EventSessionMapper;
 import org.example.ticketmanagement.mapper.TicketTierMapper;
+import org.example.ticketmanagement.pojo.Event;
 import org.example.ticketmanagement.pojo.EventSession;
 import org.example.ticketmanagement.pojo.TicketTier;
 import org.example.ticketmanagement.service.SeckillService;
@@ -17,8 +19,6 @@ import org.example.ticketmanagement.util.OrderNoGenerator;
 import org.example.ticketmanagement.util.RabbitMQUtil;
 import org.example.ticketmanagement.vo.SeckillResultVO;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -31,6 +31,7 @@ public class SeckillServiceImpl implements SeckillService {
     private final TicketTierMapper ticketTierMapper;
     private final EventSessionMapper eventSessionMapper;
     private final StockService stockService;
+    private final EventMapper eventMapper;
     private final SeckillLockService seckillLockService;
     private final RabbitMQUtil rabbitMQUtil;
     private final OrderNoGenerator orderNoGenerator;
@@ -74,46 +75,56 @@ public class SeckillServiceImpl implements SeckillService {
             return SeckillResultVO.fail(SeckillConstant.ERROR_TIER_NOT_AVAILABLE);
         }
 
-        // 3. 检查场次是否已开售
+        // 3. 检查场次状态
         EventSession session = eventSessionMapper.selectById(ticketTier.getSessionId());
         if (session == null || session.getStatus() != 1) {
             return SeckillResultVO.fail("场次不存在或不可用");
         }
-        if (session.getSessionTime() != null &&
-                session.getSessionTime().isAfter(LocalDateTime.now())) {
-            return SeckillResultVO.fail(SeckillConstant.ERROR_SESSION_NOT_ON_SALE);
+
+        // 4. 检查演出是否在售票时间内（关键修改）
+        Event event = eventMapper.selectById(ticketTier.getEventId());
+        if (event == null || event.getStatus() != 1) {
+            return SeckillResultVO.fail("演出不存在或不可用");
+        }
+        
+        LocalDateTime now = LocalDateTime.now();
+        if (event.getSaleStartTime() != null && event.getSaleStartTime().isAfter(now)) {
+            return SeckillResultVO.fail("抢票尚未开始"); // 还未到售票开始时间
+        }
+        if (event.getSaleEndTime() != null && event.getSaleEndTime().isBefore(now)) {
+            return SeckillResultVO.fail("抢票已结束"); // 已超过售票结束时间
         }
 
-        // 4. 检查用户是否已抢过该票档（防重）
+        // 5. 检查用户是否已抢过该票档（防重）
         if (stockService.hasUserSeckilled(userId, tierId)) {
             return SeckillResultVO.fail(SeckillConstant.ERROR_USER_REPEAT);
         }
 
-        // 5. 预扣库存（原子操作）
+        // 6. 预扣库存（原子操作）
         Long remainingStock = stockService.decrStock(tierId, quantity);
         if (remainingStock == null || remainingStock < 0) {
             return SeckillResultVO.fail(SeckillConstant.ERROR_STOCK_NOT_ENOUGH);
         }
 
         try {
-            // 6. 生成订单号
+            // 7. 生成订单号
             String orderNo = orderNoGenerator.generateOrderNo();
 
-            // 7. 设置用户抢票记录（防重，过期时间30分钟）
+            // 8. 设置用户抢票记录（防重，过期时间30分钟）
             stockService.setUserSeckillRecord(userId, tierId, 30 * 60);
 
-            // 8. 构建抢票消息
+            // 9. 构建抢票消息
             SeckillMessageDTO message = buildSeckillMessage(userId, ticketTier, quantity, orderNo);
 
-            // 9. 发送消息到RabbitMQ，异步创建订单
+            // 10. 发送消息到RabbitMQ，异步创建订单
             rabbitMQUtil.sendSeckillOrderMessage(message);
 
-            // 10. 返回抢票成功结果
+            // 11. 返回抢票成功结果
             log.info("抢票成功: userId={}, tierId={}, orderNo={}", userId, tierId, orderNo);
 
             return SeckillResultVO.success(
                     orderNo,
-                    null, // 订单ID由订单服务生成，这里暂时为空
+                    null,  // orderId暂时为空，符合新的接口定义
                     message.getTotalAmount(),
                     ticketTier.getTierName(),
                     ticketTier.getCurrentPrice(),
@@ -139,27 +150,37 @@ public class SeckillServiceImpl implements SeckillService {
             return false;
         }
 
-        // 2. 检查场次是否已开售
+        // 2. 检查场次是否可用
         EventSession session = eventSessionMapper.selectById(ticketTier.getSessionId());
         if (session == null || session.getStatus() != 1) {
             return false;
         }
-        if (session.getSessionTime() != null &&
-                session.getSessionTime().isAfter(LocalDateTime.now())) {
+
+        // 3. 检查演出是否在售票时间内
+        Event event = eventMapper.selectById(ticketTier.getEventId());
+        if (event == null || event.getStatus() != 1) {
             return false;
         }
+        
+        LocalDateTime now = LocalDateTime.now();
+        if (event.getSaleStartTime() != null && event.getSaleStartTime().isAfter(now)) {
+            return false; // 还未到售票开始时间
+        }
+        if (event.getSaleEndTime() != null && event.getSaleEndTime().isBefore(now)) {
+            return false; // 已超过售票结束时间
+        }
 
-        // 3. 检查库存是否充足
+        // 4. 检查库存是否充足
         if (!stockService.hasEnoughStock(tierId, quantity)) {
             return false;
         }
 
-        // 4. 检查用户是否已抢过
+        // 5. 检查用户是否已抢过
         if (stockService.hasUserSeckilled(userId, tierId)) {
             return false;
         }
 
-        // 5. 检查购买数量限制
+        // 6. 检查购买数量限制
         if (quantity > SeckillConstant.MAX_QUANTITY) {
             return false;
         }

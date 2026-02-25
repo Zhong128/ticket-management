@@ -7,6 +7,7 @@ import org.example.ticketmanagement.pojo.User;
 import org.example.ticketmanagement.pojo.UserQuery;
 import org.example.ticketmanagement.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -21,6 +22,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private BCryptPasswordEncoder passwordEncoder;
 
     @Override
     public User getUserById(Long id) {
@@ -383,13 +387,9 @@ public class UserServiceImpl implements UserService {
                 throw new RuntimeException("用户不存在");
             }
 
-            // 验证旧密码
-            User checkUser = new User();
-            checkUser.setUsername(user.getUsername());
-            checkUser.setPassword(oldPassword);
-            User authenticatedUser = userMapper.selectByUsernameAndPassword(checkUser);
 
-            if (authenticatedUser == null) {
+            // 注意应该是加密后的密码来匹配
+            if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
                 log.warn("修改密码失败，原密码错误，用户ID: {}", userId);
                 throw new RuntimeException("原密码错误");
             }
@@ -400,8 +400,8 @@ public class UserServiceImpl implements UserService {
                 throw new RuntimeException("新密码不能与原密码相同");
             }
 
-            // 更新密码
-            user.setPassword(newPassword);
+            // 更新密码（需要加密新密码）
+            user.setPassword(passwordEncoder.encode(newPassword));
             user.setUpdateTime(LocalDateTime.now());
 
             userMapper.updateUser(user);

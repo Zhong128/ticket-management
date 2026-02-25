@@ -186,9 +186,10 @@ public interface TicketTierMapper {
     @Select("SELECT COUNT(*) > 0 as has_tickets_on_sale " +
             "FROM ticket_tier tt " +
             "INNER JOIN event_session es ON tt.session_id = es.id " +
+            "INNER JOIN event e ON es.event_id = e.id " +
             "WHERE tt.session_id = #{sessionId} " +
             "AND tt.status = 1 " +
-            "AND es.sale_start_time <= NOW()")
+            "AND e.sale_start_time <= NOW()")
     Boolean hasTicketsOnSaleBySessionId(@Param("sessionId") Long sessionId);
 
     /**
@@ -206,9 +207,10 @@ public interface TicketTierMapper {
     @Select("SELECT COUNT(*) > 0 as has_tickets_on_sale " +
             "FROM ticket_tier tt " +
             "INNER JOIN event_session es ON tt.session_id = es.id " +
+            "INNER JOIN event e ON es.event_id = e.id " +
             "WHERE tt.event_id = #{eventId} " +
             "AND tt.status = 1 " +
-            "AND es.sale_start_time <= NOW()")
+            "AND e.sale_start_time <= NOW()")
     Boolean hasTicketsOnSaleByEventId(@Param("eventId") Long eventId);
 
     /**

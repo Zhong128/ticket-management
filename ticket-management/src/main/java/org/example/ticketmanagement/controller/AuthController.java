@@ -106,22 +106,61 @@ public class AuthController {
         }
     }
 
+    /**
+     * 获取当前用户信息
+     */
+    @Operation(summary = "获取当前用户信息", tags = {"认证-公共接口"})
+    @GetMapping("/userinfo")
+    @SaCheckLogin
+    public Result<Map<String, Object>> getCurrentUserInfo() {
+        try {
+            Long userId = StpUtil.getLoginIdAsLong();
+            String role = (String) StpUtil.getSession().get("role");
+
+            Map<String, Object> userInfo = new HashMap<>();
+            userInfo.put("userId", userId);
+            userInfo.put("role", role);
+            userInfo.put("token", StpUtil.getTokenValue());
+
+            return Result.success("查询成功", userInfo);
+        } catch (Exception e) {
+            log.error("获取用户信息失败", e);
+            return Result.error("获取用户信息失败");
+        }
+    }
+
+    /**
+     * 获取当前用户角色
+     */
+    @Operation(summary = "获取当前用户角色", tags = {"认证-公共接口"})
+    @GetMapping("/role")
+    @SaCheckLogin
+    public Result<Map<String, String>> getCurrentRole() {
+        try {
+            Map<String, String> data = new HashMap<>();
+            data.put("role", (String) StpUtil.getSession().get("role"));
+            return Result.success("查询成功", data);
+        } catch (Exception e) {
+            log.error("获取用户角色失败", e);
+            return Result.error("获取用户角色失败");
+        }
+    }
+
     // ==================== 管理员认证接口 ====================
 
     /**
-     * 管理员登录
+     * 管理员登录（使用用户名和密码）
      */
     @Operation(summary = "管理员登录", tags = {"认证-管理端"})
     @PostMapping("/admin/login")
-    public Result<LoginInfo> adminLogin(@Valid @RequestBody UserLoginDTO userLoginDTO) {
-        log.info("管理员登录: email={}", userLoginDTO.getEmail());
+    public Result<LoginInfo> adminLogin(@Valid @RequestBody AdminLoginDTO adminLoginDTO) {
+        log.info("管理员登录: username={}", adminLoginDTO.getUsername());
 
         try {
-            User user = new User();
-            user.setEmail(userLoginDTO.getEmail());
-            user.setPassword(userLoginDTO.getPassword());
-
-            LoginInfo loginInfo = authService.adminLogin(user);
+            LoginInfo loginInfo = authService.adminLoginByUsername(
+                    adminLoginDTO.getUsername(),
+                    adminLoginDTO.getPassword()
+            );
 
             return Result.success("管理员登录成功", loginInfo);
         } catch (RuntimeException e) {
@@ -132,6 +171,7 @@ public class AuthController {
             return Result.error("登录失败，请稍后重试");
         }
     }
+
 
     // ==================== 微信认证接口 ====================
 
@@ -179,7 +219,6 @@ public class AuthController {
      */
     @Operation(summary = "退出登录", tags = {"认证-公共接口"})
     @PostMapping("/logout")
-    @SaCheckLogin
     public Result<Void> logout() {
         log.info("退出登录，用户ID: {}", StpUtil.getLoginId());
 
@@ -192,43 +231,4 @@ public class AuthController {
         }
     }
 
-    /**
-     * 获取当前用户信息
-     */
-    @Operation(summary = "获取当前用户信息", tags = {"认证-公共接口"})
-    @GetMapping("/userinfo")
-    @SaCheckLogin
-    public Result<Map<String, Object>> getCurrentUserInfo() {
-        try {
-            Long userId = StpUtil.getLoginIdAsLong();
-            String role = (String) StpUtil.getSession().get("role");
-
-            Map<String, Object> userInfo = new HashMap<>();
-            userInfo.put("userId", userId);
-            userInfo.put("role", role);
-            userInfo.put("token", StpUtil.getTokenValue());
-
-            return Result.success("查询成功", userInfo);
-        } catch (Exception e) {
-            log.error("获取用户信息失败", e);
-            return Result.error("获取用户信息失败");
-        }
-    }
-
-    /**
-     * 获取当前用户角色
-     */
-    @Operation(summary = "获取当前用户角色", tags = {"认证-公共接口"})
-    @GetMapping("/role")
-    @SaCheckLogin
-    public Result<Map<String, String>> getCurrentRole() {
-        try {
-            Map<String, String> data = new HashMap<>();
-            data.put("role", (String) StpUtil.getSession().get("role"));
-            return Result.success("查询成功", data);
-        } catch (Exception e) {
-            log.error("获取用户角色失败", e);
-            return Result.error("获取用户角色失败");
-        }
-    }
 }

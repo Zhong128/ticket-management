@@ -1,11 +1,12 @@
 package org.example.ticketmanagement.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
+import cn.dev33.satoken.stp.StpUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
+import org.example.ticketmanagement.dto.SetDefaultAddressDTO;
 import org.example.ticketmanagement.dto.UserAddressDTO;
 import org.example.ticketmanagement.pojo.Result;
 import org.example.ticketmanagement.service.UserAddressService;
@@ -17,8 +18,9 @@ import java.util.List;
 
 @RestController
 @Slf4j
-@RequestMapping("/api/address/user")
+@RequestMapping("/api/user/address")
 @Tag(name = "收货管理", description = "用户收货地址管理相关接口")
+@SaCheckLogin
 public class AddressController {
 
     @Autowired
@@ -29,9 +31,8 @@ public class AddressController {
      */
     @Operation(summary = "获取收货地址列表", tags = {"收货管理"})
     @GetMapping
-    @SaCheckLogin
-    public Result<List<UserAddressVO>> getUserAddresses(HttpServletRequest request) {
-        Long userId = (Long) request.getAttribute("userId");
+    public Result<List<UserAddressVO>> getUserAddresses() {
+        Long userId = StpUtil.getLoginIdAsLong();
         log.info("获取用户收货地址，用户ID: {}", userId);
 
         try {
@@ -54,9 +55,8 @@ public class AddressController {
      */
     @Operation(summary = "获取默认地址", tags = {"收货管理"})
     @GetMapping("/default")
-    @SaCheckLogin
-    public Result<UserAddressVO> getDefaultAddress(HttpServletRequest request) {
-        Long userId = (Long) request.getAttribute("userId");
+    public Result<UserAddressVO> getDefaultAddress() {
+        Long userId = StpUtil.getLoginIdAsLong();
         log.info("获取默认收货地址，用户ID: {}", userId);
 
         try {
@@ -76,9 +76,8 @@ public class AddressController {
      */
     @Operation(summary = "根据ID获取收货地址", tags = {"收货管理"})
     @GetMapping("/{id}")
-    @SaCheckLogin
-    public Result<UserAddressVO> getUserAddressById(@PathVariable Long id, HttpServletRequest request) {
-        Long userId = (Long) request.getAttribute("userId");
+    public Result<UserAddressVO> getUserAddressById(@PathVariable Long id) {
+        Long userId = StpUtil.getLoginIdAsLong();
         log.info("获取收货地址详情，地址ID: {}, 用户ID: {}", id, userId);
 
         try {
@@ -110,9 +109,8 @@ public class AddressController {
      */
     @Operation(summary = "新增收货地址", tags = {"收货管理"})
     @PostMapping
-    @SaCheckLogin
-    public Result<Void> addUserAddress(@Valid @RequestBody UserAddressDTO userAddressDTO, HttpServletRequest request) {
-        Long userId = (Long) request.getAttribute("userId");
+    public Result<Void> addUserAddress(@Valid @RequestBody UserAddressDTO userAddressDTO) {
+        Long userId = StpUtil.getLoginIdAsLong();
         log.info("新增收货地址，用户ID: {}", userId);
 
         try {
@@ -142,11 +140,9 @@ public class AddressController {
      */
     @Operation(summary = "修改收货地址", tags = {"收货管理"})
     @PutMapping("/{id}")
-    @SaCheckLogin
     public Result<Void> updateUserAddress(@PathVariable Long id,
-                                          @Valid @RequestBody UserAddressDTO userAddressDTO,
-                                          HttpServletRequest request) {
-        Long userId = (Long) request.getAttribute("userId");
+                                          @Valid @RequestBody UserAddressDTO userAddressDTO) {
+        Long userId = StpUtil.getLoginIdAsLong();
         log.info("修改收货地址，地址ID: {}, 用户ID: {}", id, userId);
 
         try {
@@ -177,14 +173,19 @@ public class AddressController {
      * 设置默认收货地址
      */
     @Operation(summary = "设置默认收货地址", tags = {"收货管理"})
-    @PutMapping("/{id}/default")
-    @SaCheckLogin
-    public Result<Void> setDefaultAddress(@PathVariable Long id, HttpServletRequest request) {
-        Long userId = (Long) request.getAttribute("userId");
-        log.info("设置默认收货地址，地址ID: {}, 用户ID: {}", id, userId);
+    @PostMapping("/default")
+    public Result<Void> setDefaultAddress(@Valid @RequestBody SetDefaultAddressDTO dto) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        Long addressId = dto.getAddressId();
+        log.info("设置默认收货地址，地址ID: {}, 用户ID: {}", addressId, userId);
 
         try {
-            boolean success = userAddressService.setDefaultAddress(userId, id);
+            // 验证地址所有权
+            if (!userAddressService.validateAddressOwnership(addressId, userId)) {
+                return Result.error("收货地址不存在或无权操作");
+            }
+
+            boolean success = userAddressService.setDefaultAddress(userId, addressId);
             if (success) {
                 return Result.success("设置默认地址成功");
             } else {
@@ -207,9 +208,8 @@ public class AddressController {
      */
     @Operation(summary = "删除收货地址", tags = {"收货管理"})
     @DeleteMapping("/{id}")
-    @SaCheckLogin
-    public Result<Void> deleteUserAddressById(@PathVariable Long id, HttpServletRequest request) {
-        Long userId = (Long) request.getAttribute("userId");
+    public Result<Void> deleteUserAddressById(@PathVariable Long id) {
+        Long userId = StpUtil.getLoginIdAsLong();
         log.info("删除收货地址，地址ID: {}, 用户ID: {}", id, userId);
 
         try {

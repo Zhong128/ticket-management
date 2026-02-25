@@ -54,7 +54,14 @@ public class OrderServiceImpl implements OrderService {
                 return existingOrder.getId();
             }
 
-            // 2. 创建订单对象
+            // 2. 更新数据库库存（关键修改）
+            int updateResult = ticketTierMapper.updateStock(seckillMessage.getTierId(), seckillMessage.getQuantity());
+            if (updateResult <= 0) {
+                throw new RuntimeException("库存更新失败，可能库存不足");
+            }
+            log.info("数据库库存更新成功: tierId={}, quantity={}", seckillMessage.getTierId(), seckillMessage.getQuantity());
+
+            // 3. 创建订单对象
             OrderInfo orderInfo = new OrderInfo();
             orderInfo.setOrderNo(seckillMessage.getOrderNo());
             orderInfo.setUserId(seckillMessage.getUserId());
@@ -67,7 +74,7 @@ public class OrderServiceImpl implements OrderService {
             orderInfo.setCreateTime(LocalDateTime.now());
             orderInfo.setUpdateTime(LocalDateTime.now());
 
-            // 3. 插入订单到数据库
+            // 4. 插入订单到数据库
             int result = orderInfoMapper.insert(orderInfo);
             if (result <= 0) {
                 throw new RuntimeException("订单创建失败");
@@ -75,14 +82,14 @@ public class OrderServiceImpl implements OrderService {
 
             log.info("订单创建成功: orderId={}, orderNo={}", orderInfo.getId(), orderInfo.getOrderNo());
 
-            // 4. 发送库存回退消息到延迟队列（用于超时取消订单）
+            // 5. 发送库存回退消息到延迟队列（用于超时取消订单）
             sendStockReturnMessage(orderInfo);
 
             return orderInfo.getId();
 
         } catch (Exception e) {
             log.error("创建订单失败: orderNo={}", seckillMessage.getOrderNo(), e);
-            // 创建订单失败，恢复库存
+            // 创建订单失败，恢复Redis库存
             stockService.restoreStock(seckillMessage.getTierId(), seckillMessage.getQuantity());
             // 删除用户抢票记录
             stockService.deleteUserSeckillRecord(seckillMessage.getUserId(), seckillMessage.getTierId());
@@ -402,6 +409,49 @@ public class OrderServiceImpl implements OrderService {
         return success;
     }
 
+    @Override
+    public PageResult<OrderInfoVO> getOrdersByUserEmail(String email, OrderQueryDTO queryDTO) {
+        log.info("管理端根据邮箱查询用户订单: email={}, queryDTO={}", email, queryDTO);
+
+        try {
+            // 1. 先根据邮箱查找用户
+            User user = userMapper.getUserByEmail(email);
+            if (user == null) {
+                log.warn("用户不存在，邮箱: {}", email);
+                throw new RuntimeException("用户不存在");
+            }
+
+            // 2. 设置用户ID到查询条件中
+            queryDTO.setUserId(user.getId());
+
+            // 3. 执行分页查询 - 使用管理端联表查询
+            List<OrderInfoVO> orderList = orderInfoMapper.selectAdminByCondition(queryDTO);
+            Long total = orderInfoMapper.countAdminByCondition(queryDTO);
+
+            // 4. 计算有效页码
+            int maxPage = (int) Math.ceil((double) total / queryDTO.getSize());
+            if (queryDTO.getPage() > maxPage && maxPage > 0) {
+                queryDTO.setPage(maxPage);
+                orderList = orderInfoMapper.selectAdminByCondition(queryDTO);
+            }
+
+            log.info("根据邮箱查询订单成功: email={}, userId={}, 总数: {}, 当前页数量: {}", 
+                    email, user.getId(), total, orderList.size());
+
+            return new PageResult<>(orderList, total, queryDTO);
+
+        } catch (IllegalArgumentException e) {
+            log.warn("分页参数错误: {}", e.getMessage());
+            throw e;
+        } catch (RuntimeException e) {
+            log.warn("根据邮箱查询订单失败: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("根据邮箱查询订单异常: {}", e.getMessage(), e);
+            throw new RuntimeException("查询订单列表失败");
+        }
+    }
+
     // ==================== 私有辅助方法 ====================
 
     /**
@@ -415,7 +465,7 @@ public class OrderServiceImpl implements OrderService {
         message.setReason("timeout");
         message.setTimestamp(System.currentTimeMillis());
 
-        rabbitMQUtil.sendStockReturnMessage(message);
+        rabbitMQUtil.sendStockReturnDelayMessage(message);
         log.debug("发送库存回退消息: orderId={}, tierId={}, quantity={}, delay={}分钟",
                 orderInfo.getId(), orderInfo.getTierId(), orderInfo.getQuantity(),
                 OrderConstant.ORDER_TIMEOUT_MINUTES);

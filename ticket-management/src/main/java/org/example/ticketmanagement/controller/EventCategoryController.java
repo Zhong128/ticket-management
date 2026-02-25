@@ -22,7 +22,7 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/categories")
+@RequestMapping("/api")
 @Validated
 @Tag(name = "演出分类管理", description = "演出分类管理相关接口")
 public class EventCategoryController {
@@ -36,8 +36,7 @@ public class EventCategoryController {
      * 可选参数：status (0-禁用，1-启用)
      */
     @Operation(summary = "获取分类列表", tags = {"演出分类-公共接口"})
-    @GetMapping("/public")
-    @SaCheckDisable
+    @GetMapping("/public/categories")
     public Result<List<EventCategoryVO>> getAllCategories(
             @RequestParam(required = false) Integer status) {
 
@@ -61,7 +60,7 @@ public class EventCategoryController {
      * 根据ID获取分类详情（用户端）
      */
     @Operation(summary = "获取分类详情", tags = {"演出分类-用户端"})
-    @GetMapping("/user/{id}")
+    @GetMapping("/user/categories/{id}")
     @SaCheckLogin
     public Result<EventCategoryVO> getCategoryById(@PathVariable Long id) {
         log.debug("查询分类详情，ID: {}", id);
@@ -78,7 +77,7 @@ public class EventCategoryController {
      * 分页查询分类列表（用户端）
      */
     @Operation(summary = "分页查询分类列表", tags = {"演出分类-用户端"})
-    @GetMapping("/user/page")
+    @GetMapping("/user/categories/page")
     @SaCheckLogin
     public Result<PageResult<EventCategoryVO>> getCategoriesByPage(
             @RequestParam(defaultValue = "1") Integer page,
@@ -102,7 +101,7 @@ public class EventCategoryController {
      * 根据状态获取分类列表（用户端）
      */
     @Operation(summary = "根据状态获取分类列表", tags = {"演出分类-用户端"})
-    @GetMapping("/user/status/{status}")
+    @GetMapping("/user/categories/status/{status}")
     @SaCheckLogin
     public Result<List<EventCategoryVO>> getCategoriesByStatus(@PathVariable Integer status) {
         log.debug("根据状态查询分类列表，status: {}", status);
@@ -117,7 +116,7 @@ public class EventCategoryController {
      * 新增演出分类
      */
     @Operation(summary = "新增演出分类", tags = {"演出分类-管理端"})
-    @PostMapping("/admin")
+    @PostMapping("/admin/categories")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> addCategory(@Valid @RequestBody EventCategoryDTO eventCategoryDTO) {
         log.info("收到新增分类请求: {}", eventCategoryDTO);
@@ -134,7 +133,7 @@ public class EventCategoryController {
      * 根据ID删除分类
      */
     @Operation(summary = "删除演出分类", tags = {"演出分类-管理端"})
-    @DeleteMapping("/admin/{id}")
+    @DeleteMapping("/admin/categories/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> deleteCategory(@PathVariable Long id) {
         log.info("收到删除分类请求，ID: {}", id);
@@ -151,7 +150,7 @@ public class EventCategoryController {
      * 更新分类信息
      */
     @Operation(summary = "更新演出分类", tags = {"演出分类-管理端"})
-    @PutMapping("/admin/{id}")
+    @PutMapping("/admin/categories/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> updateCategory(@PathVariable Long id,
                                        @Valid @RequestBody EventCategoryDTO eventCategoryDTO) {
@@ -169,7 +168,7 @@ public class EventCategoryController {
      * 根据ID获取分类详情（管理端）
      */
     @Operation(summary = "查询分类详情（管理端）", tags = {"演出分类-管理端"})
-    @GetMapping("/admin/{id}")
+    @GetMapping("/admin/categories/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<EventCategoryVO> AdminGetCategoryById(@PathVariable Long id) {
         log.debug("查询分类详情，ID: {}", id);
@@ -186,7 +185,7 @@ public class EventCategoryController {
      * 分页查询分类列表（支持多条件筛选）
      */
     @Operation(summary = "分页查询分类列表（多条件筛选）", tags = {"演出分类-管理端"})
-    @GetMapping("/admin/query")
+    @GetMapping("/admin/categories/query")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<PageResult<EventCategoryVO>> queryCategories(@Valid EventCategoryQueryDTO queryDTO) {
         log.info("分页查询分类列表，参数: {}", queryDTO);

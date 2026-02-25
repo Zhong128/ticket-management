@@ -15,9 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/captcha/public")
+@RequestMapping("/api/public/captcha")
 @Tag(name = "验证码/图形验证码", description = "图形验证码相关接口")
-@SaCheckDisable
 public class CaptchaController {
 
     @Autowired

@@ -16,13 +16,21 @@ public class SeckillConstant {
 
     // 抢票相关
     public static final Integer MAX_QUANTITY = 5;  // 每人最多购买数量
-    public static final Integer PAY_TIMEOUT_MINUTES = 10;  // 支付超时时间（分钟）
+    public static final Integer PAY_TIMEOUT_MINUTES = 30;  // 支付超时时间（分钟）
     public static final Long QUEUE_LIMIT = 1000L;  // 队列大小限制
 
     // 消息队列
     public static final String SECKILL_ORDER_QUEUE = "seckill.order.queue";
     public static final String SECKILL_ORDER_EXCHANGE = "seckill.order.exchange";
     public static final String SECKILL_ORDER_ROUTING_KEY = "seckill.order.routing.key";
+
+    // 库存回退延迟队列（用于订单超时自动取消）
+    public static final String STOCK_RETURN_DELAY_QUEUE = "stock.return.delay.queue";
+    public static final String STOCK_RETURN_DELAY_EXCHANGE = "stock.return.delay.exchange";
+    public static final String STOCK_RETURN_DELAY_ROUTING_KEY = "stock.return.delay.routing.key";
+    public static final String STOCK_RETURN_PROCESS_EXCHANGE = "stock.return.process.exchange";
+    public static final String STOCK_RETURN_PROCESS_ROUTING_KEY = "stock.return.process.routing.key";
+
 
     // 分布式锁过期时间（秒）
     public static final Long LOCK_EXPIRE_TIME = 10L;

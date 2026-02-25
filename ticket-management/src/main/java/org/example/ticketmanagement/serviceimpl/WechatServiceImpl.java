@@ -41,7 +41,7 @@ public class WechatServiceImpl implements WechatService {
                 "?appid=" + wechatConfig.getAppId() +
                 "&redirect_uri=" + URLEncoder.encode(wechatConfig.getRedirectUri(), StandardCharsets.UTF_8) +
                 "&response_type=code" +
-                "&scope=snsapi_login" +
+                "&scope=snsapi_userinfo" +
                 "&state=" + state +
                 "#wechat_redirect";
 

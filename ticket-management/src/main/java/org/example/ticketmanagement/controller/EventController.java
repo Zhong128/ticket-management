@@ -21,7 +21,7 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/events")
+@RequestMapping("/api")
 @Tag(name = "演出管理", description = "演出相关接口")
 public class EventController {
 
@@ -40,8 +40,7 @@ public class EventController {
      * - name: 演出名称（模糊查询）
      */
     @Operation(summary = "获取演出列表", tags = {"演出-公共接口"})
-    @GetMapping("/public")
-    @SaCheckDisable
+    @GetMapping("/public/events")
     public Result<List<EventVO>> getAllEvents(
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) Long categoryId,
@@ -82,8 +81,7 @@ public class EventController {
      * 参数：limit - 返回数量限制，默认10
      */
     @Operation(summary = "获取热门演出列表", tags = {"演出-公共接口"})
-    @GetMapping("/public/hot")
-    @SaCheckDisable
+    @GetMapping("/public/events/hot")
     public Result<List<EventVO>> getHotEvents(
             @RequestParam(defaultValue = "10") Integer limit) {
         log.debug("获取热门演出，limit: {}", limit);
@@ -97,8 +95,7 @@ public class EventController {
      * 参数：limit - 返回数量限制，默认10
      */
     @Operation(summary = "获取即将开售的演出列表", tags = {"演出-公共接口"})
-    @GetMapping("/public/upcoming")
-    @SaCheckDisable
+    @GetMapping("/public/events/upcoming")
     public Result<List<EventVO>> getUpcomingEvents(
             @RequestParam(defaultValue = "10") Integer limit) {
         log.debug("获取即将开售的演出，limit: {}", limit);
@@ -114,7 +111,7 @@ public class EventController {
      * 根据ID获取演出详情（用户端）
      */
     @Operation(summary = "获取演出详情", tags = {"演出-用户端"})
-    @GetMapping("/user/{id}")
+    @GetMapping("/user/events/{id}")
     @SaCheckLogin
     public Result<EventVO> getEventById(@PathVariable Long id) {
         log.debug("查询演出详情，ID: {}", id);
@@ -131,7 +128,7 @@ public class EventController {
      * 分页查询演出列表（用户端）
      */
     @Operation(summary = "分页查询演出列表", tags = {"演出-用户端"})
-    @GetMapping("/user/page")
+    @GetMapping("/user/events/page")
     @SaCheckLogin
     public Result<PageResult<EventVO>> getEventsByPage(
             @RequestParam(defaultValue = "1") Integer page,
@@ -164,7 +161,7 @@ public class EventController {
      * 根据分类ID获取演出列表（用户端）
      */
     @Operation(summary = "根据分类获取演出列表", tags = {"演出-用户端"})
-    @GetMapping("/user/category/{categoryId}")
+    @GetMapping("/user/events/category/{categoryId}")
     @SaCheckLogin
     public Result<List<EventVO>> getEventsByCategoryId(@PathVariable Long categoryId) {
         log.debug("根据分类ID查询演出列表，categoryId: {}", categoryId);
@@ -177,7 +174,7 @@ public class EventController {
      * 根据城市ID获取演出列表（用户端）
      */
     @Operation(summary = "根据城市获取演出列表", tags = {"演出-用户端"})
-    @GetMapping("/user/city/{cityId}")
+    @GetMapping("/user/events/city/{cityId}")
     @SaCheckLogin
     public Result<List<EventVO>> getEventsByCityId(@PathVariable Long cityId) {
         log.debug("根据城市ID查询演出列表，cityId: {}", cityId);
@@ -190,7 +187,7 @@ public class EventController {
      * 根据状态获取演出列表（用户端）
      */
     @Operation(summary = "根据状态获取演出列表", tags = {"演出-用户端"})
-    @GetMapping("/user/status/{status}")
+    @GetMapping("/user/events/status/{status}")
     @SaCheckLogin
     public Result<List<EventVO>> getEventsByStatus(@PathVariable Integer status) {
         log.debug("根据状态查询演出列表，status: {}", status);
@@ -205,7 +202,7 @@ public class EventController {
      * 1. 新增演出
      */
     @Operation(summary = "新增演出", tags = {"演出-管理端"})
-    @PostMapping("/admin")
+    @PostMapping("/admin/events")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> addEvent(@Valid @RequestBody EventDTO eventDTO) {
         log.info("收到新增演出请求: {}", eventDTO.getName());
@@ -222,7 +219,7 @@ public class EventController {
      * 2. 根据ID删除演出
      */
     @Operation(summary = "删除演出", tags = {"演出-管理端"})
-    @DeleteMapping("/admin/{id}")
+    @DeleteMapping("/admin/events/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> deleteEvent(@PathVariable Long id) {
         log.info("收到删除演出请求，ID: {}", id);
@@ -239,7 +236,7 @@ public class EventController {
      * 3. 更新演出信息
      */
     @Operation(summary = "更新演出信息", tags = {"演出-管理端"})
-    @PutMapping("/admin/{id}")
+    @PutMapping("/admin/events/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> updateEvent(@PathVariable Long id,
                                     @Valid @RequestBody EventDTO eventDTO) {
@@ -257,7 +254,7 @@ public class EventController {
      * 4. 根据ID获取演出详情（管理端）
      */
     @Operation(summary = "查询演出详情（管理端）", tags = {"演出-管理端"})
-    @GetMapping("/admin/{id}")
+    @GetMapping("/admin/events/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<EventVO> AdminGetEventById(@PathVariable Long id) {
         log.debug("查询演出详情，ID: {}", id);
@@ -274,7 +271,7 @@ public class EventController {
      * 5.分页查询演出列表（支持多条件筛选）
      */
     @Operation(summary = "分页查询演出列表（多条件筛选）", tags = {"演出-管理端"})
-    @GetMapping("/admin/query")
+    @GetMapping("/admin/events/query")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<PageResult<EventVO>> queryEvents(@Valid EventQueryDTO queryDTO) {
         log.info("分页查询演出列表，参数: {}", queryDTO);

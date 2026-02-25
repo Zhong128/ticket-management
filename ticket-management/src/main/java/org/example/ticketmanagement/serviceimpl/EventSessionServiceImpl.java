@@ -264,33 +264,26 @@ public class EventSessionServiceImpl implements EventSessionService {
     }
 
     /**
-     * 内部辅助方法：将 Entity 对象转换为 VO 对象
+     * 内部辅助方法：将 Entity 对象转换为 VO 对象（包含关联信息）
      */
     private EventSessionVO convertToVO(EventSession session) {
         EventSessionVO vo = new EventSessionVO();
         BeanUtils.copyProperties(session, vo);
 
-        // 可以在这里查询关联信息，但为了性能，通常采用懒加载或单独接口
-        // 这里先不查询关联信息，保持简单
-
-        return vo;
-    }
-
-    /**
-     * 内部辅助方法：获取场次详情（包含关联信息）
-     * 可选方法，用于需要关联信息的场景
-     */
-    private EventSessionVO convertToDetailVO(EventSession session) {
-        EventSessionVO vo = convertToVO(session);
-
         // 查询关联的演出信息
         Event event = eventMapper.selectById(session.getEventId());
         if (event != null) {
-            vo.setEventName(event.getName());
-            vo.setArtistName(event.getArtistName());
-            vo.setVenue(event.getVenue());
+            vo.setEventName(event.getName() != null ? event.getName() : "");
+            vo.setArtistName(event.getArtistName() != null ? event.getArtistName() : "");
+            vo.setVenue(event.getVenue() != null ? event.getVenue() : "");
+        } else {
+            // 如果找不到关联的演出，设置默认空字符串
+            vo.setEventName("");
+            vo.setArtistName("");
+            vo.setVenue("");
         }
 
         return vo;
     }
+
 }

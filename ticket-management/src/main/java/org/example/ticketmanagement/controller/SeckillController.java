@@ -2,6 +2,7 @@
 package org.example.ticketmanagement.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
+import cn.dev33.satoken.stp.StpUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -15,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/seckill/user")
+@RequestMapping("/api/user/seckill")
 @RequiredArgsConstructor
 @SaCheckLogin
 @Tag(name = "抢票", description = "抢票相关接口")
@@ -29,8 +30,8 @@ public class SeckillController {
      */
     @Operation(summary = "抢票", tags = {"抢票"})
     @PostMapping
-    public Result<SeckillResultVO> seckill(@Valid @RequestBody SeckillOrderDTO seckillOrderDTO,
-                                           @RequestAttribute Long userId) {
+    public Result<SeckillResultVO> seckill(@Valid @RequestBody SeckillOrderDTO seckillOrderDTO) {
+        Long userId = StpUtil.getLoginIdAsLong();
         log.info("用户抢票请求: userId={}, tierId={}, quantity={}",
                 userId, seckillOrderDTO.getTierId(), seckillOrderDTO.getQuantity());
 
@@ -50,15 +51,15 @@ public class SeckillController {
     }
 
     /**
-     * 检查抢票资格
+     * 检查当前能否抢票
      * GET /api/user/seckill/check
      */
-    @Operation(summary = "检查抢票资格", tags = {"抢票"})
+    @Operation(summary = "检查当前能否抢票", tags = {"抢票"})
     @GetMapping("/check")
     public Result<Boolean> checkSeckillQualification(
             @RequestParam Long tierId,
-            @RequestParam Integer quantity,
-            @RequestAttribute Long userId) {
+            @RequestParam Integer quantity) {
+        Long userId = StpUtil.getLoginIdAsLong();
         log.debug("检查抢票资格: userId={}, tierId={}, quantity={}", userId, tierId, quantity);
 
         try {

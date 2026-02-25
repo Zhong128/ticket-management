@@ -13,7 +13,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class UserAddressDTO {
+    @JsonIgnore  // 忽略该字段，已经强制设定
     private Long id;
+    
+    @JsonIgnore
     private Long userId;
 
     @NotBlank(message = "收件人姓名不能为空")

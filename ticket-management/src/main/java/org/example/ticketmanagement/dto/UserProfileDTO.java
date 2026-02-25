@@ -20,7 +20,6 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class UserProfileDTO {
-    private Long id;
 
     @Size(min = 3, max = 20, message = "用户名长度必须在3-20个字符之间")
     private String username;

@@ -20,7 +20,7 @@ public class IpLocationUtil {
     @Autowired
     private Ip2RegionUtil ip2RegionUtil;
 
-    // 默认城市（北京）
+    // 默认城市（北京）(便于测试先把北京的id改为2，对应数据库)
     private static final Long DEFAULT_CITY_ID = 1L;
     private static final String DEFAULT_CITY_NAME = "北京";
 
@@ -36,17 +36,30 @@ public class IpLocationUtil {
     public IpLocationUtil() {
         // 初始化常用城市映射（可以后续从数据库加载）
         cityNameToIdMap.put("北京", 1L);
-        cityNameToIdMap.put("上海市", 2L);
+        cityNameToIdMap.put("北京市", 1L);
         cityNameToIdMap.put("上海", 2L);
+        cityNameToIdMap.put("上海市", 2L);
         cityNameToIdMap.put("广州", 3L);
-        cityNameToIdMap.put("深圳市", 4L);
+        cityNameToIdMap.put("广州市", 3L);
         cityNameToIdMap.put("深圳", 4L);
+        cityNameToIdMap.put("深圳市", 4L);
         cityNameToIdMap.put("杭州", 5L);
+        cityNameToIdMap.put("杭州市", 5L);
         cityNameToIdMap.put("南京", 6L);
+        cityNameToIdMap.put("南京市", 6L);
         cityNameToIdMap.put("成都", 7L);
+        cityNameToIdMap.put("成都市", 7L);
         cityNameToIdMap.put("重庆", 8L);
+        cityNameToIdMap.put("重庆市", 8L);
         cityNameToIdMap.put("武汉", 9L);
+        cityNameToIdMap.put("武汉市", 9L);
         cityNameToIdMap.put("西安", 10L);
+        cityNameToIdMap.put("西安市", 10L);
+
+        // 添加运营商映射（针对"移动"这类情况）
+        cityNameToIdMap.put("移动", 1L); // 映射到默认城市
+        cityNameToIdMap.put("联通", 1L);
+        cityNameToIdMap.put("电信", 1L);
     }
 
     /**
