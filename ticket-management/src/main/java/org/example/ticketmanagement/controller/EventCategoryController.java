@@ -125,7 +125,7 @@ public class EventCategoryController {
         if (success) {
             return Result.success("分类添加成功");
         } else {
-            return Result.error("分类添加失败，请稍后重试");
+            return Result.error("分类添加失败，可能分类名称重复");
         }
     }
 

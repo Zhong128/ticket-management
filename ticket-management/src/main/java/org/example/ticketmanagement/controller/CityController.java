@@ -29,15 +29,6 @@ public class CityController {
     private CityService cityService;
 
     // ==================== 公共接口（无需登录） ====================
-    /**
-     * 测试公共接口是否能正常访问
-     */
-    @Operation(summary = "测试公共接口", tags = {"城市-公共接口"})
-    @GetMapping("/public/test")
-    public Result<String> testPublicAccess() {
-        return Result.success("公共接口访问成功！");
-    }
-
 
     /**
      * 获取所有城市列表（公开接口）
@@ -70,17 +61,19 @@ public class CityController {
     }
 
     /**
-     * 根据名称查询城市（模糊查询）- 公开接口
+     * 根据名称模糊查询城市（公共接口）
      */
     @Operation(summary = "根据名称模糊查询城市", tags = {"城市-公共接口"})
-    @GetMapping("/public/cities/search/name/{name}")
-    public Result<List<CityVO>> searchCitiesByName(@PathVariable String name) {
+    @GetMapping("/public/cities/search")
+    public Result<List<CityVO>> searchCitiesByName(@RequestParam String name) {
         log.debug("根据名称模糊查询城市: {}", name);
 
-        //TODO 需要先扩展Service方法，这里暂时返回所有城市
-        // 实际项目中需要实现模糊查询逻辑
+        if (name == null || name.trim().isEmpty()) {
+            log.warn("查询名称为空");
+            return Result.error(400, "查询名称不能为空");
+        }
 
-        List<CityVO> cities = cityService.getAllCities();
+        List<CityVO> cities = cityService.searchCitiesByName(name.trim());
         return Result.success("查询成功", cities);
     }
 

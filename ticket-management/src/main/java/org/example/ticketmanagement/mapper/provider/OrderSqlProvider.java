@@ -129,9 +129,9 @@ public class OrderSqlProvider {
     public String selectAdminByCondition(OrderQueryDTO queryDTO) {
         return new SQL() {{
             SELECT("o.id, o.order_no, o.user_id, u.username as user_name, " +
-                    "o.event_id, e.name as event_name, " +
-                    "o.session_id, s.session_name, s.session_time, s.venue_name, " +
-                    "o.tier_id, t.tier_name, t.price as tier_price, " +
+                    "o.event_id, e.name as event_name, e.venue as venue_name, " +
+                    "o.session_id, s.session_name, s.session_time, " +
+                    "o.tier_id, t.tier_name, t.current_price as tier_price, " +
                     "o.quantity, o.total_amount, o.order_status, " +
                     "o.pay_time, o.create_time, o.update_time");
             FROM("order_info o");

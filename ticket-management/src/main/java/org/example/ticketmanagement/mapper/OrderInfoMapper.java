@@ -39,6 +39,12 @@ public interface OrderInfoMapper {
     OrderInfo selectByOrderNo(@Param("orderNo") String orderNo);
 
 
+    @Select("SELECT * FROM order_info WHERE user_id = #{userId} AND order_status = #{status} ORDER BY create_time DESC LIMIT 1")
+    @ResultMap("orderResultMap")
+    OrderInfo selectByUserIdAndStatus(@Param("userId") Long userId, @Param("status") Integer status);
+
+
+
     @Select("SELECT * FROM order_info WHERE id = #{id}")
     @ResultMap("orderResultMap")
     OrderInfo selectById(@Param("id") Long id);

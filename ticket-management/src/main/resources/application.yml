@@ -129,7 +129,7 @@ alipay:
     MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmBBPTNtMsjw0Sycf6kkgFkPJ1bD+OJ7pzRow2oZFTB+qH1SsdOvPcfX4oT4YyYD5EmkexK21NepnJvHKcAeb7NKiaAMTFwGVwNtPfj4zTtP92K1vGn5jpI1ZsyQL/ZB/0fqPVJU9mgRffvth1p36Ez9I05fCamtTgQLYPPO71KdUfIwNMz7FlfHwS/POtNmo+5T4TixyjtoJIeADq35GAFGO9aiQkHExyNwCTcP7vpzD8/qV8m1Zu0lFuh6wJGuhtER96/fvnlsEfBJBUX+ePVVh0xtZIOwmAKIb2UUNPNvFcYLGbxEVCxtoABmq+XFBj0VF1/FSMJNKIMJkONrFJwIDAQAB
   # 支付宝网关（沙箱环境）
   gateway-url: https://openapi-sandbox.dl.alipaydev.com/gateway.do
-  # 异步通知地址：使用 natapp 生成的公网地址
+  # 异步通知地址：使用 natapp 生成的公网地址，代码中动态传入，不需要在后台填
   notify-url: http://z569d97b.natappfree.cc/api/public/payments/notify
 
   # 同步返回地址：用户支付成功后跳转的页面

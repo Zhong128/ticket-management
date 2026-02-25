@@ -16,7 +16,7 @@ public class SeckillConstant {
 
     // 抢票相关
     public static final Integer MAX_QUANTITY = 5;  // 每人最多购买数量
-    public static final Integer PAY_TIMEOUT_MINUTES = 30;  // 支付超时时间（分钟）
+    public static final Integer PAY_TIMEOUT_MINUTES = 10;  // 支付超时时间（分钟）
     public static final Long QUEUE_LIMIT = 1000L;  // 队列大小限制
 
     // 消息队列

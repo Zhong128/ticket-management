@@ -131,27 +131,10 @@ public class EventController {
     @GetMapping("/user/events/page")
     @SaCheckLogin
     public Result<PageResult<EventVO>> getEventsByPage(
-            @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(defaultValue = "10") Integer size,
-            @RequestParam(required = false) String name,
-            @RequestParam(required = false) String artistName,
-            @RequestParam(required = false) Long categoryId,
-            @RequestParam(required = false) Long cityId,
-            @RequestParam(required = false) Integer status) {
-
-        log.debug("分页查询演出列表，page: {}, size: {}, name: {}, artistName: {}, categoryId: {}, cityId: {}, status: {}",
-                page, size, name, artistName, categoryId, cityId, status);
-
-        // 构建查询参数
-        org.example.ticketmanagement.dto.EventQueryDTO queryDTO = new org.example.ticketmanagement.dto.EventQueryDTO();
-        queryDTO.setPage(page);
-        queryDTO.setSize(size);
-        queryDTO.setName(name);
-        queryDTO.setArtistName(artistName);
-        queryDTO.setCategoryId(categoryId);
-        queryDTO.setCityId(cityId);
-        queryDTO.setStatus(status);
-
+            @Valid EventQueryDTO queryDTO) {  // 直接接收DTO，而不是单独的参数
+        
+        log.debug("分页查询演出列表，参数: {}", queryDTO);
+        
         // 调用分页查询方法
         PageResult<EventVO> result = eventService.queryEvents(queryDTO);
         return Result.success("查询成功", result);

@@ -166,6 +166,26 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
+    public PaymentResultDTO createPaymentAuto(Long userId, Integer payType) {
+        log.info("开始自动创建支付订单: userId={}, payType={}", userId, payType);
+        
+        // 1. 获取用户最新的待支付订单
+        OrderInfo orderInfo = orderService.getLatestPendingOrderByUser(userId);
+        if (orderInfo == null) {
+            throw new RuntimeException("没有待支付的订单");
+        }
+        
+        // 2. 构造CreatePaymentDTO
+        CreatePaymentDTO createPaymentDTO = new CreatePaymentDTO();
+        createPaymentDTO.setOrderId(orderInfo.getId());
+        createPaymentDTO.setPayType(payType);
+        
+        // 3. 调用原有的创建支付方法
+        return createPayment(userId, createPaymentDTO);
+    }
+
+    @Override
+    @Transactional
     public String handleAlipayNotify(Map<String, String> params) {
         log.info("收到支付宝异步回调: params={}", params);
 

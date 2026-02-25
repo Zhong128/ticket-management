@@ -212,6 +212,21 @@ public class CityServiceImpl implements CityService {
         return PageResult.success(voList, total, queryDTO);
     }
 
+    @Override
+    public List<CityVO> searchCitiesByName(String name) {
+        log.debug("根据名称模糊查询城市: {}", name);
+        
+        if (name == null || name.trim().isEmpty()) {
+            log.warn("查询名称为空，返回所有城市");
+            return getAllCities();
+        }
+        
+        List<City> cities = cityMapper.selectByNameLike(name.trim());
+        return cities.stream()
+                .map(this::convertToVO)
+                .collect(Collectors.toList());
+    }
+
     /**
      * 内部辅助方法：将 Entity 对象转换为 VO 对象
      * 将转换逻辑封装在这里，避免代码重复

@@ -25,9 +25,16 @@ public class EventCategoryServiceImpl implements EventCategoryService {
     private EventCategoryMapper eventCategoryMapper;
 
     @Override
-    @Transactional // 声明此方法需要事务管理（可选，但对于写操作建议加上）
+    @Transactional
     public boolean addCategory(EventCategoryDTO eventCategoryDTO) {
         log.info("新增演出分类: {}", eventCategoryDTO.getName());
+
+        // 参数校验看名称是否重复，体验更好
+        if (eventCategoryMapper.selectByName(eventCategoryDTO.getName()) != null) {
+            log.warn("分类名称已存在: {}", eventCategoryDTO.getName());
+            return false;
+        }
+
 
         // 1. DTO 转 Entity（并补充必要字段）
         EventCategory category = new EventCategory();

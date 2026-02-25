@@ -4,6 +4,7 @@ package org.example.ticketmanagement.service;
 import org.example.ticketmanagement.dto.OrderQueryDTO;
 import org.example.ticketmanagement.dto.OrderUpdateDTO;
 import org.example.ticketmanagement.dto.SeckillMessageDTO;
+import org.example.ticketmanagement.pojo.OrderInfo;
 import org.example.ticketmanagement.pojo.PageResult;
 import org.example.ticketmanagement.vo.OrderInfoVO;
 
@@ -22,6 +23,15 @@ public interface OrderService {
      * 根据订单号查询订单
      */
     OrderInfoVO getOrderByOrderNo(String orderNo);
+
+    // 在接口中添加新方法
+    /**
+     * 获取用户最新的待支付订单
+     * @param userId 用户ID
+     * @return 最新的待支付订单，如果没有则返回null
+     */
+    OrderInfo getLatestPendingOrderByUser(Long userId);
+
 
     /**
      * 取消订单（超时未支付/用户主动取消）

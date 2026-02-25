@@ -155,8 +155,15 @@ public class OrderServiceImpl implements OrderService {
     public PageResult<OrderInfoVO> getUserOrders(OrderQueryDTO queryDTO, Long userId) {
         log.debug("用户查询订单列表: userId={}, page={}, size={}", userId, queryDTO.getPage(), queryDTO.getSize());
 
-        // 强制设置用户ID，防止查询他人订单
+        // 安全检查：强制使用传入的userId，防止越界问题
         queryDTO.setUserId(userId);
+        
+        // 校验价格范围参数
+        if (!queryDTO.isValidAmountRange()) {
+            String errorMsg = queryDTO.getAmountRangeErrorMessage();
+            log.warn("价格范围参数校验失败: userId={}, error={}", userId, errorMsg);
+            throw new IllegalArgumentException(errorMsg);
+        }
 
         // 执行分页查询 - 使用selectByCondition
         List<OrderInfo> orderList = orderInfoMapper.selectByCondition(queryDTO);
@@ -187,6 +194,14 @@ public class OrderServiceImpl implements OrderService {
 
         return convertToVO(orderInfo);
     }
+
+    @Override
+    public OrderInfo getLatestPendingOrderByUser(Long userId) {
+        log.debug("获取用户最新待支付订单: userId={}", userId);
+
+        return orderInfoMapper.selectByUserIdAndStatus(userId, OrderConstant.ORDER_STATUS_PENDING);
+    }
+
 
     @Override
     @Transactional
@@ -491,23 +506,33 @@ public class OrderServiceImpl implements OrderService {
         vo.setCreateTime(orderInfo.getCreateTime());
         vo.setUpdateTime(orderInfo.getUpdateTime());
 
-        // 查询关联信息
+        // 查询关联信息并处理null值
         TicketTier ticketTier = ticketTierMapper.selectById(orderInfo.getTierId());
         if (ticketTier != null) {
             vo.setTierName(ticketTier.getTierName());
             vo.setTierPrice(ticketTier.getCurrentPrice());
+        } else {
+            vo.setTierName("");
+            vo.setTierPrice(BigDecimal.ZERO);
         }
 
         Event event = eventMapper.selectById(orderInfo.getEventId());
         if (event != null) {
             vo.setEventName(event.getName());
             vo.setEventImage(event.getCoverImage());
+        } else {
+            vo.setEventName("");
+            vo.setEventImage("");
         }
 
         EventSession session = eventSessionMapper.selectById(orderInfo.getSessionId());
         if (session != null) {
             vo.setSessionName(session.getSessionName());
             vo.setSessionTime(session.getSessionTime());
+        } else {
+            vo.setSessionName("");
+            vo.setSessionTime(null);
+            vo.setVenueName("");
         }
 
         return vo;
@@ -518,8 +543,18 @@ public class OrderServiceImpl implements OrderService {
      */
     private OrderInfoVO convertToSimpleVO(OrderInfo orderInfo) {
         OrderInfoVO vo = convertToVO(orderInfo);
-        // 客户端不需要用户ID等敏感信息
-        vo.setUserId(null);
+        if (vo != null) {
+            // 客户端不需要用户ID等敏感信息
+            vo.setUserId(null);
+            // 处理可能为null的字段，设置默认值
+            if (vo.getUserName() == null) {
+                vo.setUserName("");
+            }
+            if (vo.getVenueName() == null) {
+                vo.setVenueName("");
+            }
+            // payTime可以为null（未支付订单）
+        }
         return vo;
     }
 

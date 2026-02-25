@@ -64,6 +64,13 @@ public interface CityService {
      */
     List<CityVO> getCitiesByHotLevel(Integer hotLevel);
 
+    /**
+     * 根据城市名称模糊查询城市列表
+     * @param name 城市名称（支持模糊匹配）
+     * @return 符合条件的城市视图对象列表
+     */
+    List<CityVO> searchCitiesByName(String name);
+
     // 新增分页查询方法
     PageResult<CityVO> queryCities(CityQueryDTO queryDTO);
 }

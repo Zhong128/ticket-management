@@ -17,22 +17,27 @@ public class EventSqlProvider {
             FROM("event");
 
             if (queryDTO.getName() != null && !queryDTO.getName().isEmpty()) {
-                WHERE("name LIKE CONCAT('%', #{name}, '%')");
+                WHERE("name LIKE CONCAT('%', #{queryDTO.name}, '%')");
             }
             if (queryDTO.getArtistName() != null && !queryDTO.getArtistName().isEmpty()) {
-                WHERE("artist_name LIKE CONCAT('%', #{artistName}, '%')");
+                WHERE("artist_name LIKE CONCAT('%', #{queryDTO.artistName}, '%')");
             }
             if (queryDTO.getCategoryId() != null) {
-                WHERE("category_id = #{categoryId}");
+                WHERE("category_id = #{queryDTO.categoryId}");
             }
             if (queryDTO.getCityId() != null) {
-                WHERE("city_id = #{cityId}");
+                WHERE("city_id = #{queryDTO.cityId}");
             }
             if (queryDTO.getStatus() != null) {
-                WHERE("status = #{status}");
+                WHERE("status = #{queryDTO.status}");
             }
 
-            ORDER_BY(queryDTO.getOrderByClause());
+            ORDER_BY("event_start_time DESC, create_time DESC");
+            // 添加分页（如果需要）
+            if (queryDTO.getSize() != null && queryDTO.getOffset() != null) {
+                LIMIT("#{queryDTO.size}");
+                OFFSET("#{queryDTO.offset}");
+            }
         }}.toString();
     }
 
@@ -45,19 +50,19 @@ public class EventSqlProvider {
             FROM("event");
 
             if (queryDTO.getName() != null && !queryDTO.getName().isEmpty()) {
-                WHERE("name LIKE CONCAT('%', #{name}, '%')");
+                WHERE("name LIKE CONCAT('%', #{queryDTO.name}, '%')");
             }
             if (queryDTO.getArtistName() != null && !queryDTO.getArtistName().isEmpty()) {
-                WHERE("artist_name LIKE CONCAT('%', #{artistName}, '%')");
+                WHERE("artist_name LIKE CONCAT('%', #{queryDTO.artistName}, '%')");
             }
             if (queryDTO.getCategoryId() != null) {
-                WHERE("category_id = #{categoryId}");
+                WHERE("category_id = #{queryDTO.categoryId}");
             }
             if (queryDTO.getCityId() != null) {
-                WHERE("city_id = #{cityId}");
+                WHERE("city_id = #{queryDTO.cityId}");
             }
             if (queryDTO.getStatus() != null) {
-                WHERE("status = #{status}");
+                WHERE("status = #{queryDTO.status}");
             }
         }}.toString();
     }

@@ -33,4 +33,34 @@ public class OrderQueryDTO extends PageQuery {
     public boolean needEventNameLike() {
         return eventName != null && !eventName.trim().isEmpty();
     }
+    
+    /**
+     * 检查价格范围参数是否有效
+     * @return true表示参数有效，false表示无效
+     */
+    public boolean isValidAmountRange() {
+        // 如果两个参数都为null，认为有效（不限制价格范围）
+        if (minAmount == null && maxAmount == null) {
+            return true;
+        }
+        
+        // 如果只有一个参数为null，认为有效（只限制最小值或最大值）
+        if (minAmount == null || maxAmount == null) {
+            return true;
+        }
+        
+        // 两个参数都不为null时，最小值必须小于等于最大值
+        return minAmount.compareTo(maxAmount) <= 0;
+    }
+    
+    /**
+     * 获取价格范围校验错误信息
+     * @return 错误信息，如果参数有效则返回null
+     */
+    public String getAmountRangeErrorMessage() {
+        if (!isValidAmountRange()) {
+            return "最小金额不能大于最大金额";
+        }
+        return null;
+    }
 }

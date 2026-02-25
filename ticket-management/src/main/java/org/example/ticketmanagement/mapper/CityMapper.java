@@ -96,6 +96,15 @@ public interface CityMapper {
             "FROM city WHERE hot_level = #{hotLevel} AND status = 1 ORDER BY create_time DESC")
     List<City> selectByHotLevel(@Param("hotLevel") Integer hotLevel);
 
+    /**
+     * 根据城市名称模糊查询城市
+     * @param name 城市名称（支持模糊匹配）
+     * @return 符合条件的城市列表
+     */
+    @Select("SELECT id, name, code, province, hot_level, status, create_time, update_time " +
+            "FROM city WHERE name LIKE CONCAT('%', #{name}, '%') " +
+            "ORDER BY hot_level DESC, create_time DESC")
+    List<City> selectByNameLike(@Param("name") String name);
 
 /**
  * 分页查询城市（使用SQL Provider动态生成SQL）

@@ -9,6 +9,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -90,6 +91,18 @@ public class GlobalExceptionHandler {
             errors.put(fieldName, errorMessage);
         });
         return Result.error("参数绑定失败: " + errors.toString());
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public Result<Void> handleNoResourceFound(NoResourceFoundException e) {
+        log.warn("请求的路径不存在: {}", e.getMessage());
+        return Result.error("接口路径错误，请检查请求地址是否合法");
+    }
+
+    @ExceptionHandler(RuntimeException.class)
+    public Result<?> handleRuntimeException(RuntimeException e) {
+        log.warn("业务异常: {}", e.getMessage());
+        return Result.error(e.getMessage());
     }
 
     @ExceptionHandler(Exception.class)

@@ -33,6 +33,8 @@ public class OrderController {
 
     /**
      * 1. 分页查询当前用户的订单列表
+     * 安全说明：userId从token中自动获取，用户无法篡改
+     * 用户只能查询自己的订单，无法访问他人数据
      */
     @Operation(summary = "分页查询我的订单", tags = {"订单-客户端"})
     @GetMapping("/user/orders/page")
@@ -40,11 +42,22 @@ public class OrderController {
     public Result<PageResult<OrderInfoVO>> getUserOrders(
             @Valid OrderQueryDTO queryDTO) {
 
-        Long userId = StpUtil.getLoginIdAsLong();
-        log.debug("用户分页查询订单列表: userId={}, page={}, size={}",
-                userId, queryDTO.getPage(), queryDTO.getSize());
+        // 从token中获取当前登录用户的ID（安全可靠）
+        Long currentUserId = StpUtil.getLoginIdAsLong();
+        
+        log.debug("用户分页查询订单列表: userId={}, page={}, size={}, sortBy={}, sortOrder={}",
+                currentUserId, queryDTO.getPage(), queryDTO.getSize(), 
+                queryDTO.getSortBy(), queryDTO.getSortOrder());
 
-        PageResult<OrderInfoVO> pageResult = orderService.getUserOrders(queryDTO, userId);
+        // 校验价格范围参数
+        if (!queryDTO.isValidAmountRange()) {
+            String errorMsg = queryDTO.getAmountRangeErrorMessage();
+            log.warn("价格范围参数校验失败: userId={}, error={}", currentUserId, errorMsg);
+            return Result.error(400, errorMsg);
+        }
+
+        // 强制设置用户ID，防止任何参数篡改
+        PageResult<OrderInfoVO> pageResult = orderService.getUserOrders(queryDTO, currentUserId);
         return Result.success("查询成功", pageResult);
     }
 
@@ -89,11 +102,18 @@ public class OrderController {
      */
     @Operation(summary = "管理端分页查询订单列表", tags = {"订单-管理端"})
     @GetMapping("/admin/orders/page")
-    @SaCheckRole({RoleConstant.ADMIN, RoleConstant.SUPER_ADMIN})
+    @SaCheckRole({RoleConstant.ADMIN})
     public Result<PageResult<OrderInfoVO>> adminQueryOrders(
             @Valid OrderQueryDTO queryDTO) {
 
         log.info("管理员分页查询订单列表: {}", queryDTO);
+        
+        // 校验价格范围参数
+        if (!queryDTO.isValidAmountRange()) {
+            String errorMsg = queryDTO.getAmountRangeErrorMessage();
+            log.warn("价格范围参数校验失败: {}", errorMsg);
+            return Result.error(400, errorMsg);
+        }
 
         PageResult<OrderInfoVO> pageResult = orderService.adminQueryOrders(queryDTO);
         return Result.success("查询成功", pageResult);
@@ -104,7 +124,7 @@ public class OrderController {
      */
     @Operation(summary = "管理端获取订单详情", tags = {"订单-管理端"})
     @GetMapping("/admin/orders/{orderId}")
-    @SaCheckRole({RoleConstant.ADMIN, RoleConstant.SUPER_ADMIN})
+    @SaCheckRole({RoleConstant.ADMIN})
     public Result<OrderInfoVO> adminGetOrderDetail(@PathVariable Long orderId) {
 
         log.debug("管理员查询订单详情: orderId={}", orderId);
@@ -118,7 +138,7 @@ public class OrderController {
      */
     @Operation(summary = "修改订单信息", tags = {"订单-管理端"})
     @PutMapping("/admin/orders/{orderId}")
-    @SaCheckRole({RoleConstant.ADMIN, RoleConstant.SUPER_ADMIN})
+    @SaCheckRole({RoleConstant.ADMIN})
     public Result<Void> adminUpdateOrder(
             @PathVariable Long orderId,
             @Valid @RequestBody OrderUpdateDTO updateDTO) {
@@ -140,7 +160,7 @@ public class OrderController {
      */
     @Operation(summary = "批量取消订单", tags = {"订单-管理端"})
     @PutMapping("/admin/orders/batch-cancel")
-    @SaCheckRole({RoleConstant.ADMIN, RoleConstant.SUPER_ADMIN})
+    @SaCheckRole({RoleConstant.ADMIN})
     public Result<Integer> batchCancelOrders(@RequestBody List<Long> orderIds) {
 
         log.info("管理员批量取消订单: count={}", orderIds.size());
@@ -154,7 +174,7 @@ public class OrderController {
      */
     @Operation(summary = "根据用户邮箱查询订单", tags = {"订单-管理端"})
     @GetMapping("/admin/orders/user-orders")
-    @SaCheckRole({RoleConstant.ADMIN, RoleConstant.SUPER_ADMIN})
+    @SaCheckRole({RoleConstant.ADMIN})
     public Result<PageResult<OrderInfoVO>> getOrdersByUserEmail(
             @RequestParam String email,
             @Valid OrderQueryDTO queryDTO) {

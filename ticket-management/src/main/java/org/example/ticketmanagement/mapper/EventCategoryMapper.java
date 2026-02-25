@@ -41,25 +41,31 @@ public interface EventCategoryMapper {
     EventCategory selectById(@Param("id") Long id);
 
     /**
-     * 5. 查询所有演出分类（通常用于后台管理列表或前台下拉选择）
+     * 5. 根据名称查询一个演出分类
+     */
+    @Select("SELECT id, name, sort_order, status, create_time FROM event_category WHERE name = #{name}")
+    EventCategory selectByName(@Param("name") String name);
+
+    /**
+     * 6. 查询所有演出分类（通常用于后台管理列表或前台下拉选择）
      */
     @Select("SELECT id, name, sort_order, status, create_time FROM event_category ORDER BY sort_order ASC, create_time DESC")
     List<EventCategory> selectAll();
 
     /**
-     * 6. 根据状态查询演出分类（例如：只查询启用的分类，用于前台展示）
+     * 7. 根据状态查询演出分类（例如：只查询启用的分类，用于前台展示）
      */
     @Select("SELECT id, name, sort_order, status, create_time FROM event_category WHERE status = #{status} ORDER BY sort_order ASC")
     List<EventCategory> selectByStatus(@Param("status") Integer status);
 
     /**
-     * 分页查询分类（使用SQL Provider动态生成SQL）
+     * 8.分页查询分类（使用SQL Provider动态生成SQL）
      */
     @SelectProvider(type = EventCategorySqlProvider.class, method = "selectByCondition")
     List<EventCategory> selectByCondition(EventCategoryQueryDTO queryDTO);
 
     /**
-     * 统计符合条件的分类数量
+     * 9.统计符合条件的分类数量
      */
     @SelectProvider(type = EventCategorySqlProvider.class, method = "countByCondition")
     Long countByCondition(EventCategoryQueryDTO queryDTO);

@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.constant.RoleConstant;
 import org.example.ticketmanagement.dto.CreatePaymentDTO;
+import org.example.ticketmanagement.dto.PayTypeDTO;
 import org.example.ticketmanagement.dto.PaymentResultDTO;
 import org.example.ticketmanagement.pojo.Result;
 import org.example.ticketmanagement.service.PaymentService;
@@ -34,28 +35,26 @@ public class PaymentController {
     // ==================== 客户端接口（需要登录） ====================
 
     /**
-     * 1. 创建支付订单（获取支付二维码）
-     * POST /api/payments/user/create
+     * 1. 创建支付订单（自动关联最新待支付订单，并获取订单二维码）
      */
     @Operation(summary = "创建支付订单", tags = {"支付-客户端"})
     @PostMapping("/user/payments/create")
     @SaCheckLogin
-    public Result<PaymentResultDTO> createPayment(@Valid @RequestBody CreatePaymentDTO createPaymentDTO) {
+    public Result<PaymentResultDTO> createPayment(@Valid @RequestBody PayTypeDTO payTypeDTO) {
         Long userId = StpUtil.getLoginIdAsLong();
-        log.info("用户创建支付订单: userId={}, orderId={}", userId, createPaymentDTO.getOrderId());
-
+        log.info("用户创建支付订单: userId={}, payType={}", userId, payTypeDTO.getPayType());
+        
         try {
-            PaymentResultDTO result = paymentService.createPayment(userId, createPaymentDTO);
+            PaymentResultDTO result = paymentService.createPaymentAuto(userId, payTypeDTO.getPayType());
             return Result.success("创建支付订单成功", result);
         } catch (Exception e) {
-            log.error("创建支付订单失败: userId={}, orderId={}", userId, createPaymentDTO.getOrderId(), e);
+            log.error("创建支付订单失败: userId={}, payType={}", userId, payTypeDTO.getPayType(), e);
             return Result.error(e.getMessage());
         }
     }
 
     /**
      * 2. 查询支付状态
-     * GET /api/payments/user/status/{paymentNo}
      */
     @Operation(summary = "查询支付状态", tags = {"支付-客户端"})
     @GetMapping("/user/payments/status/{paymentNo}")
@@ -75,7 +74,6 @@ public class PaymentController {
 
     /**
      * 3. 主动关闭支付订单（用户取消支付）
-     * PUT /api/payments/user/close/{paymentNo}
      */
     @Operation(summary = "关闭支付订单", tags = {"支付-客户端"})
     @PutMapping("/user/payments/close/{paymentNo}")
@@ -101,8 +99,6 @@ public class PaymentController {
 
     /**
      * 4. 支付宝异步回调通知
-     * POST /api/payments/notify
-     *
      * 注意：此接口是支付宝服务器调用，不能加登录拦截
      */
     @Operation(summary = "支付宝异步回调", tags = {"支付-回调"}, hidden = true)
@@ -136,8 +132,6 @@ public class PaymentController {
 
     /**
      * 5. 支付宝同步回调（用户支付成功后跳转页面）
-     * GET /api/payments/return
-     *
      * 注意：此接口是支付宝页面跳转，不能加登录拦截
      */
     @Operation(summary = "支付宝同步回调", tags = {"支付-回调"}, hidden = true)
@@ -181,7 +175,7 @@ public class PaymentController {
      */
     @Operation(summary = "手动触发支付补偿", tags = {"支付-管理端"})
     @PostMapping("/admin/payments/compensation")
-    @SaCheckRole({RoleConstant.ADMIN, RoleConstant.SUPER_ADMIN})
+    @SaCheckRole({RoleConstant.ADMIN})
     public Result<String> triggerCompensation() {
         Long adminId = StpUtil.getLoginIdAsLong();
         log.info("管理员手动触发支付补偿: adminId={}", adminId);
@@ -204,7 +198,7 @@ public class PaymentController {
      */
     @Operation(summary = "手动触发超时关单", tags = {"支付-管理端"})
     @PostMapping("/admin/payments/timeout-close")
-    @SaCheckRole({RoleConstant.ADMIN, RoleConstant.SUPER_ADMIN})
+    @SaCheckRole({RoleConstant.ADMIN})
     public Result<String> triggerTimeoutClose() {
         Long adminId = StpUtil.getLoginIdAsLong();
         log.info("管理员手动触发超时关单: adminId={}", adminId);

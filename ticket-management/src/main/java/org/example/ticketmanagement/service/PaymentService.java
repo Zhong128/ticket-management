@@ -13,6 +13,14 @@ import java.util.Map;
 public interface PaymentService {
 
     /**
+     * 创建支付订单（自动关联用户最新待支付订单）
+     * @param userId 用户ID
+     * @param payType 支付方式
+     * @return 支付结果（包含二维码）
+     */
+    PaymentResultDTO createPaymentAuto(Long userId, Integer payType);
+
+    /**
      * 创建支付订单
      * @param userId 用户ID
      * @param createPaymentDTO 创建支付参数
