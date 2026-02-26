@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/service/impl/HomeServiceImpl.java
 package org.example.ticketmanagement.serviceimpl;
 
 import lombok.extern.slf4j.Slf4j;
@@ -170,23 +169,8 @@ public class HomeServiceImpl implements HomeService {
             }
         }
 
-        // 2. 已登录用户：尝试获取用户设置的城市
-        if (userId != null) {
-            try {
-                // 假设userService有获取用户设置城市的方法
-                // 这里需要你根据实际情况实现
-                // Long userCityId = userService.getUserCityId(userId);
-                // if (userCityId != null) {
-                //     log.debug("使用用户设置的城市ID: {}", userCityId);
-                //     return userCityId;
-                // }
-                log.debug("用户 {} 未设置城市，尝试IP定位", userId);
-            } catch (Exception e) {
-                log.error("获取用户城市设置失败", e);
-            }
-        }
 
-        // 3. IP定位
+        // 2. IP定位
         if (request != null) {
             String clientIp = ipLocationUtil.getClientIp(request);
             Long ipCityId = ipLocationUtil.getCityIdByIp(clientIp);
@@ -196,7 +180,7 @@ public class HomeServiceImpl implements HomeService {
             }
         }
 
-        // 4. 默认城市（北京）
+        // 3. 默认城市（北京）
         Long defaultCityId = ipLocationUtil.getDefaultCityId();
         log.debug("使用默认城市ID: {}", defaultCityId);
         return defaultCityId;

@@ -20,7 +20,7 @@ public class IpLocationUtil {
     @Autowired
     private Ip2RegionUtil ip2RegionUtil;
 
-    // 默认城市（北京）(便于测试先把北京的id改为2，对应数据库)
+    // 默认城市（北京）
     private static final Long DEFAULT_CITY_ID = 1L;
     private static final String DEFAULT_CITY_NAME = "北京";
 
@@ -31,7 +31,7 @@ public class IpLocationUtil {
     private final Map<String, Long> cityNameToIdMap = new HashMap<>();
 
     @Autowired
-    private CityService cityService; // 假设你有城市服务
+    private CityService cityService;
 
     public IpLocationUtil() {
         // 初始化常用城市映射（可以后续从数据库加载）
@@ -39,14 +39,14 @@ public class IpLocationUtil {
         cityNameToIdMap.put("北京市", 1L);
         cityNameToIdMap.put("上海", 2L);
         cityNameToIdMap.put("上海市", 2L);
-        cityNameToIdMap.put("广州", 3L);
-        cityNameToIdMap.put("广州市", 3L);
-        cityNameToIdMap.put("深圳", 4L);
-        cityNameToIdMap.put("深圳市", 4L);
-        cityNameToIdMap.put("杭州", 5L);
-        cityNameToIdMap.put("杭州市", 5L);
-        cityNameToIdMap.put("南京", 6L);
-        cityNameToIdMap.put("南京市", 6L);
+        cityNameToIdMap.put("杭州", 3L);
+        cityNameToIdMap.put("杭州市", 3L);
+        cityNameToIdMap.put("南京", 4L);
+        cityNameToIdMap.put("南京市", 4L);
+        cityNameToIdMap.put("广州", 5L);
+        cityNameToIdMap.put("广州市", 5L);
+        cityNameToIdMap.put("深圳", 6L);
+        cityNameToIdMap.put("深圳市", 6L);
         cityNameToIdMap.put("成都", 7L);
         cityNameToIdMap.put("成都市", 7L);
         cityNameToIdMap.put("重庆", 8L);

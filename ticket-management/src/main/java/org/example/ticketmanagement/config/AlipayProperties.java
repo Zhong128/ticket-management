@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/config/AlipayProperties.java
 package org.example.ticketmanagement.config;
 
 import lombok.Data;

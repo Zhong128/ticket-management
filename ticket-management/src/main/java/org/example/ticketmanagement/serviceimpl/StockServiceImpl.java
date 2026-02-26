@@ -51,7 +51,7 @@ public class StockServiceImpl implements StockService {
 
         try {
             // 使用Lua脚本原子扣减库存
-            Long result = (Long) redisTemplate.execute(
+            Long result = redisTemplate.execute(
                     luaScriptLoader.getScript("decrStock.lua"),
                     Arrays.asList(stockKey),
                     quantity

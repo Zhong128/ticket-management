@@ -1,6 +1,8 @@
-// org/example/ticketmanagement/constant/PermissionConstant.java
 package org.example.ticketmanagement.constant;
 
+/**
+ * 权限常量类，可用于后续对细粒度的权限控制
+ */
 public class PermissionConstant {
     // 用户管理权限
     public static final String USER_VIEW = "user:view";

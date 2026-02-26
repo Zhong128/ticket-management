@@ -21,7 +21,7 @@ public class PaymentCompensationSchedule {
      * 支付补偿任务：每5分钟执行一次
      * 用于处理支付宝回调通知丢失的情况
      */
-    @Scheduled(cron = "0 */5 * * * *")
+    @Scheduled(cron = "0 0  * * * *")
     public void processPaymentCompensation() {
         log.info("启动支付补偿定时任务");
 
@@ -43,7 +43,7 @@ public class PaymentCompensationSchedule {
      * 超时关单任务：每1分钟执行一次
      * 用于处理30分钟内未支付且支付宝状态不是成功的订单
      */
-    @Scheduled(cron = "0 */1 * * * *")
+    @Scheduled(cron = "0 0  * * * *")
     public void processTimeoutClose() {
         log.debug("启动超时关单定时任务");
 
@@ -70,7 +70,7 @@ public class PaymentCompensationSchedule {
      * 支付状态监控：每10分钟执行一次
      * 用于统计支付异常情况
      */
-    @Scheduled(cron = "0 */10 * * * *")
+    @Scheduled(cron = "0 0  * * * *")
     public void monitorPaymentStatus() {
         log.info("启动支付状态监控任务");
 

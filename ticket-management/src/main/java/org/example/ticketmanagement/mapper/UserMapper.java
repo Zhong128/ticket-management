@@ -32,12 +32,6 @@ public interface UserMapper {
     User getUserByUsername(String username);
 
     /**
-     * 根据用户名和密码查询用户
-     */
-    @Select("select * from user where username=#{username} and password=#{password}")
-    User selectByUsernameAndPassword(User user);
-
-    /**
      * 新增用户
      */
     @Insert("insert into user(username,password,email,phone,nickname,avatar,real_name,id_card,gender,birthday,status,last_login_time,last_login_ip,create_time,update_time) " +

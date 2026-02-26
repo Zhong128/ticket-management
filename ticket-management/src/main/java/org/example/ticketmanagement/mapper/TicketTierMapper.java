@@ -16,7 +16,6 @@ public interface TicketTierMapper {
      * 1. 新增一个票档
      * @param tier 要插入的票档对象
      * @return 受影响的行数
-     * @Options 注解用于获取数据库自动生成的主键id，并回填到传入的tier对象的id属性中
      */
     @Insert("INSERT INTO ticket_tier(event_id, session_id, tier_name, original_price, current_price, " +
             "total_stock, available_stock, status, create_time, update_time) " +

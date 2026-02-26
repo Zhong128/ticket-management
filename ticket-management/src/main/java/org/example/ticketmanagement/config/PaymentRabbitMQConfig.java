@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/config/PaymentRabbitMQConfig.java
 package org.example.ticketmanagement.config;
 
 import lombok.extern.slf4j.Slf4j;

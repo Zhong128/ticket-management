@@ -27,7 +27,7 @@ public class PaymentTimeoutConsumer {
 
     private final PaymentService paymentService;
     private final PaymentRecordMapper paymentRecordMapper;
-    private final RabbitMQUtil rabbitMQUtil;  // 注入你的RabbitMQUtil
+    private final RabbitMQUtil rabbitMQUtil;
 
     @RabbitHandler
     public void handlePaymentTimeout(PaymentTimeoutMessageDTO message, Channel channel, Message amqpMessage) {

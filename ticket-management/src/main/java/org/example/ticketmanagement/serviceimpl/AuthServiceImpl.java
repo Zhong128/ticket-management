@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/serviceimpl/AuthServiceImpl.java
 package org.example.ticketmanagement.serviceimpl;
 
 import cn.dev33.satoken.stp.StpUtil;

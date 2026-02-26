@@ -34,7 +34,6 @@ public class OrderController {
     /**
      * 1. 分页查询当前用户的订单列表
      * 安全说明：userId从token中自动获取，用户无法篡改
-     * 用户只能查询自己的订单，无法访问他人数据
      */
     @Operation(summary = "分页查询我的订单", tags = {"订单-客户端"})
     @GetMapping("/user/orders/page")
@@ -42,7 +41,7 @@ public class OrderController {
     public Result<PageResult<OrderInfoVO>> getUserOrders(
             @Valid OrderQueryDTO queryDTO) {
 
-        // 从token中获取当前登录用户的ID（安全可靠）
+        // 从token中获取当前登录用户的ID
         Long currentUserId = StpUtil.getLoginIdAsLong();
         
         log.debug("用户分页查询订单列表: userId={}, page={}, size={}, sortBy={}, sortOrder={}",

@@ -2,7 +2,7 @@ package org.example.ticketmanagement.constant;
 
 public class RoleConstant {
 
-    //=============基础角色=================//
+    //=============基础角色===============//
     /**
      * 普通用户
      */

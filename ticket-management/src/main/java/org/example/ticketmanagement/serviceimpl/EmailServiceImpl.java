@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/serviceimpl/EmailServiceImpl.java
 package org.example.ticketmanagement.serviceimpl;
 
 import lombok.extern.slf4j.Slf4j;

@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/config/JacksonConfig.java
 package org.example.ticketmanagement.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;

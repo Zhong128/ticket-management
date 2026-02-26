@@ -3,7 +3,6 @@ package org.example.ticketmanagement.serviceimpl;
 import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.dto.UserAddressDTO;
 import org.example.ticketmanagement.mapper.UserAddressMapper;
-import org.example.ticketmanagement.pojo.PageResult;
 import org.example.ticketmanagement.pojo.UserAddress;
 import org.example.ticketmanagement.service.UserAddressService;
 import org.example.ticketmanagement.vo.UserAddressVO;
@@ -72,12 +71,6 @@ public class UserAddressServiceImpl implements UserAddressService {
                 throw new RuntimeException("收货地址必要字段缺失");
             }
 
-//            // 检查重复地址
-//            if (isDuplicateAddress(userAddressDTO)) {
-//                log.warn("新增收货地址失败，收货地址已存在");
-//                throw new RuntimeException("收货地址已存在");
-//            }
-
             // 如果用户没有地址，则设为默认
             List<UserAddressVO> existingAddresses = listUserAddressesByUserId(userAddressDTO.getUserId());
             if (existingAddresses.isEmpty()) {
@@ -134,14 +127,6 @@ public class UserAddressServiceImpl implements UserAddressService {
                 log.warn("修改收货地址失败，必要字段缺失");
                 throw new RuntimeException("收货地址必要字段缺失");
             }
-
-//            // 检查重复地址
-//            userAddressDTO.setId(id);
-//            userAddressDTO.setUserId(existingAddress.getUserId());
-//            if (isDuplicateAddress(userAddressDTO)) {
-//                log.warn("修改收货地址失败，收货地址已存在");
-//                throw new RuntimeException("收货地址已存在");
-//            }
 
             // 如果设置为默认地址，需要先清除其他默认地址
             if (userAddressDTO.getIsDefault() != null && userAddressDTO.getIsDefault() == 1

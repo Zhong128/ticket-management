@@ -174,13 +174,6 @@ public class VerificationCodeServiceImpl implements VerificationCodeService {
         log.info("验证码已清除，邮箱: {}", email);
     }
 
-    @Override
-    public void clearCodes(String pattern) {
-        // 注意：这个功能需要根据实际RedisTemplate的实现来调整
-        // 简单实现：这里只是示例，实际项目中可能需要使用keys或scan命令
-        log.info("批量清除验证码，模式: {}", pattern);
-    }
-
     /**
      * 生成验证码前缀
      */

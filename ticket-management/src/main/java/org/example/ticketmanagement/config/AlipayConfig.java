@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/config/AlipayConfig.java
 package org.example.ticketmanagement.config;
 
 import com.alipay.api.AlipayClient;

@@ -37,7 +37,7 @@ public class SaTokenConfig implements WebMvcConfigurer {
                     SaRouter.match("/swagger-ui/**", r -> {}).stop();
                     SaRouter.match("/v3/api-docs/**", r -> {}).stop();
 
-// 需要登录的接口
+                    // 需要登录的接口
                     SaRouter.match("/api/user/**").check(r -> {
                         StpUtil.checkLogin();
                         StpUtil.checkRole(RoleConstant.USER);
@@ -48,7 +48,7 @@ public class SaTokenConfig implements WebMvcConfigurer {
                         StpUtil.checkRoleOr(RoleConstant.ADMIN, RoleConstant.SUPER_ADMIN);
                     });
 
-// 默认需要登录
+
                     // 对于未明确匹配的API接口，默认需要登录
                     SaRouter.match("/api/**").check(r -> {
                         log.warn("未明确权限配置的API接口: {}，默认要求登录",

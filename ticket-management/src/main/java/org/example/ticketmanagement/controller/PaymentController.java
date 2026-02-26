@@ -37,7 +37,7 @@ public class PaymentController {
     /**
      * 1. 创建支付订单（自动关联最新待支付订单，并获取订单二维码）
      */
-    @Operation(summary = "创建支付订单", tags = {"支付-客户端"})
+    @Operation(summary = "开启订单支付", tags = {"支付-客户端"})
     @PostMapping("/user/payments/create")
     @SaCheckLogin
     public Result<PaymentResultDTO> createPayment(@Valid @RequestBody PayTypeDTO payTypeDTO) {

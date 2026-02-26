@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/config/KaptchaConfig.java
 package org.example.ticketmanagement.config;
 
 import com.google.code.kaptcha.impl.DefaultKaptcha;

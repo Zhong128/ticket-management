@@ -26,7 +26,6 @@ public class SeckillController {
 
     /**
      * 抢票接口
-     * POST /api/user/seckill
      */
     @Operation(summary = "抢票", tags = {"抢票"})
     @PostMapping
@@ -52,7 +51,6 @@ public class SeckillController {
 
     /**
      * 检查当前能否抢票
-     * GET /api/user/seckill/check
      */
     @Operation(summary = "检查当前能否抢票", tags = {"抢票"})
     @GetMapping("/check")
@@ -72,8 +70,7 @@ public class SeckillController {
     }
 
     /**
-     * 获取实时库存
-     * GET /api/user/seckill/stock/{tierId}
+     * 获取实时库存（自己测试用，实现上线可删除）
      */
     @Operation(summary = "获取实时库存", tags = {"抢票"})
     @GetMapping("/stock/{tierId}")

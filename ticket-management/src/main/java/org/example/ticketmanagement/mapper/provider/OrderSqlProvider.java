@@ -7,7 +7,6 @@ import org.example.ticketmanagement.pojo.OrderInfo;
 
 /**
  * 订单动态SQL提供者
- * 参照CitySqlProvider风格
  */
 public class OrderSqlProvider {
 
@@ -72,7 +71,6 @@ public class OrderSqlProvider {
 
     /**
      * 构建WHERE条件（公共逻辑）
-     * 参照CitySqlProvider的buildWhereClause风格
      */
     private void buildWhereClause(SQL sql, OrderQueryDTO queryDTO) {
         // 1. 订单号模糊查询

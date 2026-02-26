@@ -29,8 +29,4 @@ public interface VerificationCodeService {
      */
     void clearCode(String email);
 
-    /**
-     * 批量清除验证码（可选功能）
-     */
-    void clearCodes(String pattern);
 }

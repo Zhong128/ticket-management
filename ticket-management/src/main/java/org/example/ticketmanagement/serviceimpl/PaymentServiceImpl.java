@@ -194,7 +194,7 @@ public class PaymentServiceImpl implements PaymentService {
         String tradeStatus = null;
 
         try {
-            // 1. 验证签名（实际项目中必须验证，这里简化）
+            // 1. TODO验证签名（实际项目中必须验证，这里简化）
             // boolean signVerified = alipayService.rsaCheckV1(params);
             // if (!signVerified) {
             //     log.error("支付宝回调签名验证失败");

@@ -63,7 +63,7 @@ public class SeckillOrderConsumer {
         log.info("收到死信队列消息，处理超时订单: orderNo={}", orderNo);
 
         try {
-            // 这里可以调用订单服务取消订单
+            // TODO这里可以调用订单服务取消订单
             // 注意：实际项目中，死信队列应该触发订单取消逻辑
 
             // 手动确认消息

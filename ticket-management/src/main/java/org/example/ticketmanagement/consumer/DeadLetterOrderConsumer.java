@@ -122,7 +122,7 @@ public class DeadLetterOrderConsumer {
 
             // 延迟重试（使用死信队列的TTL实现延迟）
             channel.basicReject(deliveryTag, false);
-            // 注意：这里需要重新发布到原队列，设置新的TTL
+            // TODO注意：这里需要重新发布到原队列，设置新的TTL
             // 或者更简单的方式：直接重新入队，等待下一次消费
             channel.basicReject(deliveryTag, true); // true表示重新入队
         }
@@ -132,7 +132,7 @@ public class DeadLetterOrderConsumer {
      * 记录失败消息，用于人工干预
      */
     private void recordFailedMessageForManualReview(Message message) {
-        // 这里可以将失败的消息记录到数据库，方便后续排查
+        // TODO这里可以将失败的消息记录到数据库，方便后续排查
         // 例如：创建一张 failed_message 表
         log.warn("记录失败消息到数据库，需要人工干预: {}", new String(message.getBody()));
     }

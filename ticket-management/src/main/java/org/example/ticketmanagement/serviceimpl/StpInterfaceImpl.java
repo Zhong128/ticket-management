@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/service/impl/StpInterfaceImpl.java
 package org.example.ticketmanagement.serviceimpl;
 
 import cn.dev33.satoken.stp.StpInterface;
@@ -15,7 +14,7 @@ import java.util.List;
 
 /**
  * SaToken 权限加载接口实现
- * 自定义权限验证，动态加载用户角色和权限
+ * 自定义权限验证，动态加载用户角色和权限,可用于后续细粒度的拓展
  */
 @Slf4j
 @Component
