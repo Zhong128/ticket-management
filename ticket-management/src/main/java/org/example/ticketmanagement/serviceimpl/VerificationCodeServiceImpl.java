@@ -173,7 +173,35 @@ public class VerificationCodeServiceImpl implements VerificationCodeService {
         redisUtil.delete(getRetryKey(email));
         log.info("验证码已清除，邮箱: {}", email);
     }
-
+    
+    @Override
+    public void recordUserInitiatedSend(String email) {
+        String key = getUserInitiatedSendKey(email);
+        // 记录用户主动发送验证码的状态，有效期与验证码一致
+        redisUtil.set(key, "1", expireTime, TimeUnit.MINUTES);
+        log.info("记录用户主动发送验证码状态: email={}", email);
+    }
+    
+    @Override
+    public boolean hasUserInitiatedSend(String email) {
+        String key = getUserInitiatedSendKey(email);
+        return redisUtil.hasKey(key);
+    }
+    
+    /**
+     * 生成用户主动发送验证码状态的key
+     */
+    private String getUserInitiatedSendKey(String email) {
+        return "verification:user-initiated:" + email;
+    }
+    
+    @Override
+    public void clearUserInitiatedSend(String email) {
+        String key = getUserInitiatedSendKey(email);
+        redisUtil.delete(key);
+        log.info("清除用户主动发送验证码状态: email={}", email);
+    }
+    
     /**
      * 生成验证码前缀
      */

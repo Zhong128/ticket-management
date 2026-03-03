@@ -59,7 +59,7 @@ public class PaymentConstant {
     public static final String PAYMENT_TIMEOUT_EXCHANGE = "payment.timeout.exchange";
     public static final String PAYMENT_TIMEOUT_QUEUE = "payment.timeout.queue";
     public static final String PAYMENT_TIMEOUT_ROUTING_KEY = "payment.timeout";
-    public static final int PAYMENT_TIMEOUT_DELAY = 30 * 60 * 1000; // 30分钟，单位毫秒
+    public static final int PAYMENT_TIMEOUT_DELAY = 2 * 60 * 1000; // 30分钟，单位毫秒
 
     // 支付补偿队列
     public static final String PAYMENT_COMPENSATION_EXCHANGE = "payment.compensation.exchange";

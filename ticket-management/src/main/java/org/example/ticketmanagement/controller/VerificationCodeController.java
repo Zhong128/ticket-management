@@ -46,6 +46,8 @@ public class VerificationCodeController {
 
             boolean success = verificationCodeService.sendVerificationCode(requestDTO.getEmail());
             if (success) {
+                // 记录用户主动发送验证码的状态
+                verificationCodeService.recordUserInitiatedSend(requestDTO.getEmail());
                 return Result.success("验证码发送成功");
             } else {
                 return Result.error("验证码发送失败");
@@ -63,7 +65,7 @@ public class VerificationCodeController {
     }
 
     /**
-     * 重新发送验证码
+     * 重新发送验证码(不需要图形验证码)
      */
     @Operation(summary = "重新发送验证码", tags = {"验证码"})
     @PostMapping("/resend")
@@ -89,26 +91,6 @@ public class VerificationCodeController {
         }
     }
 
-    /**
-     * 验证验证码
-     */
-    @Operation(summary = "验证验证码", tags = {"验证码"})
-    @PostMapping("/verify")
-    public Result<Boolean> verifyCode(@Valid @RequestBody VerificationCodeDTO verificationCodeDTO) {
-        log.info("验证验证码，邮箱: {}", verificationCodeDTO.getEmail());
-
-        try {
-            boolean isValid = verificationCodeService.verifyCode(
-                    verificationCodeDTO.getEmail(),
-                    verificationCodeDTO.getCode()
-            );
-
-            return Result.success("验证成功", isValid);
-        } catch (Exception e) {
-            log.error("验证验证码失败: {}", e.getMessage(), e);
-            return Result.error("验证失败");
-        }
-    }
 
     /**
      * 获取验证码剩余时间

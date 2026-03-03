@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ticket-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: zyh790201
+      MYSQL_DATABASE: ticket
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./docker-data/mysql:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    networks:
+      - ticket-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: ticket-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./docker-data/redis:/data
+    command: redis-server --appendonly yes
+    networks:
+      - ticket-network
+
+  # 添加 RabbitMQ 服务
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: ticket-rabbitmq
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: tm
+      RABBITMQ_DEFAULT_PASS: 123456
+      RABBITMQ_DEFAULT_VHOST: /tm
+    ports:
+      - "5672:5672"   # AMQP 协议端口
+      - "15672:15672" # 管理界面端口
+    volumes:
+      - ./docker-data/rabbitmq:/var/lib/rabbitmq
+    networks:
+      - ticket-network
+
+  app:
+    build: .
+    container_name: ticket-app
+    restart: always
+    depends_on:
+      - mysql
+      - redis
+      - rabbitmq  # 添加依赖
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/ticket?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: zyh790201
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      # 添加 RabbitMQ 环境变量
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: tm
+      SPRING_RABBITMQ_PASSWORD: 123456
+      SPRING_RABBITMQ_VIRTUAL_HOST: /tm
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - ticket-network
+
+# 定义网络
+networks:
+  ticket-network:
+    driver: bridge

@@ -122,9 +122,8 @@ public class DeadLetterOrderConsumer {
 
             // 延迟重试（使用死信队列的TTL实现延迟）
             channel.basicReject(deliveryTag, false);
-            // TODO注意：这里需要重新发布到原队列，设置新的TTL
-            // 或者更简单的方式：直接重新入队，等待下一次消费
-            channel.basicReject(deliveryTag, true); // true表示重新入队
+            // 更简单的方式：直接重新入队，等待下一次消费
+            channel.basicReject(deliveryTag, true);
         }
     }
 

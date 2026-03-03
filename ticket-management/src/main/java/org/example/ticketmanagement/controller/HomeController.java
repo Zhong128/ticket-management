@@ -72,7 +72,7 @@ public class HomeController {
      * 1. 如果用户已登录 -> 从token获取用户ID -> 使用用户设置城市或IP定位
      * 2. 如果传入了cityId -> 优先使用传入的城市
      */
-    @Operation(summary = "用户端获取首页推荐", tags = {"首页推荐-用户端"})
+    @Operation(summary = "根据用户ip智能获取首页推荐", tags = {"首页推荐-用户端"})
     @GetMapping("/user/home/recommend")
     @SaCheckLogin
     public Result<HomeRecommendVO> getHomeRecommend(
@@ -99,7 +99,7 @@ public class HomeController {
     /**
      * 根据指定城市获取首页推荐
      */
-    @Operation(summary = "根据城市获取首页推荐", tags = {"首页推荐-用户端"})
+    @Operation(summary = "根据指定城市获取首页推荐", tags = {"首页推荐-用户端"})
     @GetMapping("/user/home/recommend/city/{cityId}")
     @SaCheckLogin
     public Result<HomeRecommendVO> getHomeRecommendByCity(

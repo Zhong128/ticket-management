@@ -43,7 +43,7 @@ public class AuthController {
     /**
      * 用户登录/注册（合并接口）
      */
-    @Operation(summary = "用户登录/注册", tags = {"认证-用户端"})
+    @Operation(summary = "用户登录(邮箱密码)/注册(直接发送验证码)", tags = {"认证-用户端"})
     @PostMapping("/user/login-or-register")
     public Result<LoginInfo> userLoginOrRegister(@Validated @RequestBody UserLoginOrRegisterDTO dto) {
         log.info("用户登录/注册: email={}", dto.getEmail());
@@ -79,12 +79,12 @@ public class AuthController {
     }
 
     /**
-     * 验证码验证注册（新用户第二步）
+     * 校验验证码并完成新用户注册
      */
-    @Operation(summary = "验证码验证注册", tags = {"认证-用户端"})
+    @Operation(summary = "校验验证码并完成新用户注册", tags = {"认证-用户端"})
     @PostMapping("/user/verify-registration")
     public Result<LoginInfo> verifyRegistration(@Valid @RequestBody LoginWithCodeDTO dto) {
-        log.info("验证码验证注册: email={}", dto.getEmail());
+        log.info("校验验证码并完成新用户注册: email={}", dto.getEmail());
 
         try {
             // 验证验证码
@@ -151,7 +151,7 @@ public class AuthController {
     /**
      * 管理员登录（使用用户名和密码）
      */
-    @Operation(summary = "管理员登录", tags = {"认证-管理端"})
+    @Operation(summary = "管理员登录(用户名密码)", tags = {"认证-管理端"})
     @PostMapping("/admin/login")
     public Result<LoginInfo> adminLogin(@Valid @RequestBody AdminLoginDTO adminLoginDTO) {
         log.info("管理员登录: username={}", adminLoginDTO.getUsername());

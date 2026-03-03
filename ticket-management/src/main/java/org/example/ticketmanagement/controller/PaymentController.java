@@ -17,7 +17,9 @@ import org.example.ticketmanagement.dto.PayTypeDTO;
 import org.example.ticketmanagement.dto.PaymentResultDTO;
 import org.example.ticketmanagement.pojo.Result;
 import org.example.ticketmanagement.service.PaymentService;
+import org.example.ticketmanagement.util.AlipaySignatureUtil;
 import org.example.ticketmanagement.vo.PaymentRecordVO;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -31,6 +33,8 @@ import java.util.Map;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final AlipaySignatureUtil alipaySignatureUtil;
+
 
     // ==================== 客户端接口（需要登录） ====================
 

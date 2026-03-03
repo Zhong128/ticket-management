@@ -3,11 +3,13 @@ package org.example.ticketmanagement.serviceimpl;
 import cn.dev33.satoken.stp.StpUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.constant.RoleConstant;
+import org.example.ticketmanagement.controller.VerificationCodeController;
 import org.example.ticketmanagement.mapper.UserMapper;
 import org.example.ticketmanagement.pojo.LoginInfo;
 import org.example.ticketmanagement.pojo.User;
 import org.example.ticketmanagement.service.AuthService;
 import org.example.ticketmanagement.service.VerificationCodeService;
+import org.example.ticketmanagement.util.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -27,6 +29,10 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired
     private BCryptPasswordEncoder passwordEncoder;
+
+    @Autowired
+    private VerificationCodeController verificationCodeController;
+
 
     @Override
     public LoginInfo login(User user) {
@@ -171,12 +177,21 @@ public class AuthServiceImpl implements AuthService {
 
             return userLogin(loginUser);
         } else {
-            // 新用户，发送验证码并提示用户验证
-            log.info("新用户注册，发送验证码: email={}", user.getEmail());
+            // 新用户处理
+            String email = user.getEmail();
+
+            // 检查用户是否已经主动发送过验证码
+            if (verificationCodeService.hasUserInitiatedSend(email)) {
+                log.info("新用户已主动发送验证码，直接进入验证阶段: email={}", email);
+                // 用户已主动发送验证码，直接提示验证，不重复发送
+                throw new RuntimeException("NEW_USER_NEED_VERIFICATION");
+            }
+
+            log.info("新用户注册，系统自动发送验证码: email={}", email);
 
             // 设置用户基本信息
             if (user.getUsername() == null || user.getUsername().isEmpty()) {
-                String emailPrefix = user.getEmail().split("@")[0];
+                String emailPrefix = email.split("@")[0];
                 user.setUsername(emailPrefix);
             }
 
@@ -184,8 +199,8 @@ public class AuthServiceImpl implements AuthService {
                 user.setNickname(user.getUsername());
             }
 
-            // 发送验证码
-            boolean sent = verificationCodeService.sendVerificationCode(user.getEmail());
+            // 发送验证码(TODO为本地测试方便，此处直接调用发送逻辑，实际应该调用verificationCodeController中完整的发送方法)
+            boolean sent = verificationCodeService.sendVerificationCode(email);
             if (!sent) {
                 throw new RuntimeException("验证码发送失败");
             }
@@ -225,6 +240,9 @@ public class AuthServiceImpl implements AuthService {
             // 执行注册
             register(user);
             log.info("新用户注册成功: email={}, username={}", email, user.getUsername());
+
+            // 清除用户主动发送验证码的状态记录
+            verificationCodeService.clearUserInitiatedSend(email);
 
             // 注册成功后登录
             LoginInfo loginInfo = doSaTokenLogin(user);

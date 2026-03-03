@@ -121,13 +121,27 @@ public class OrderServiceImpl implements OrderService {
         }
 
         try {
-            // 1. 恢复库存
+            // 1. 先恢复Redis库存（快速响应）
             stockService.restoreStock(orderInfo.getTierId(), orderInfo.getQuantity());
+            log.debug("Redis库存恢复成功: tierId={}, quantity={}",
+                    orderInfo.getTierId(), orderInfo.getQuantity());
 
-            // 2. 删除用户抢票记录
+            // 2. 再恢复数据库库存（持久化）
+            int updateResult = ticketTierMapper.increaseStock(orderInfo.getTierId(), orderInfo.getQuantity());
+            if (updateResult <= 0) {
+                log.error("⚠️ 数据库库存恢复失败: tierId={}, quantity={}",
+                        orderInfo.getTierId(), orderInfo.getQuantity());
+                //TODO：可进一步完善：如果数据库恢复失败，记录到补偿表，并且添加补偿定时任务和对账机制
+                // 不抛异常，继续执行其他步骤，保证订单状态能更新
+            } else {
+                log.info("数据库库存恢复成功: tierId={}, quantity={}",
+                        orderInfo.getTierId(), orderInfo.getQuantity());
+            }
+
+            // 3. 删除用户抢票记录
             stockService.deleteUserSeckillRecord(orderInfo.getUserId(), orderInfo.getTierId());
 
-            // 3. 更新订单状态为已取消
+            // 4. 更新订单状态为已取消
             orderInfo.setOrderStatus(OrderConstant.ORDER_STATUS_CANCELED);
             orderInfo.setUpdateTime(LocalDateTime.now());
 
@@ -311,9 +325,6 @@ public class OrderServiceImpl implements OrderService {
         if (success) {
             log.info("管理员修改订单成功: orderId={}, oldStatus={}, newStatus={}, adminId={}",
                     orderId, oldStatus, orderInfo.getOrderStatus(), adminId);
-
-            // TODO: 记录操作日志
-            // adminLogService.logOrderUpdate(orderId, adminId, oldStatus, updateDTO);
         }
 
         return success;

@@ -62,7 +62,10 @@ public class SeckillController {
 
         try {
             boolean qualified = seckillService.checkSeckillQualification(userId, tierId, quantity);
-            return Result.success("查询成功", qualified);
+            if (!qualified) {
+                return Result.error("无抢票资格，请勿重复抢票或检查票档是否合法");
+            }
+            return Result.success("当前可以抢票");
         } catch (Exception e) {
             log.error("检查抢票资格异常: userId={}, tierId={}", userId, tierId, e);
             return Result.error("查询失败");

@@ -1,3 +1,81 @@
+# =======================上线测试所用配置===========================
+
+#spring:
+#  application:
+#    name: ticket-management
+#  datasource:
+#    url: jdbc:mysql://mysql:3306/ticket # ===========本地和上线不同==========
+#    driver-class-name: com.mysql.cj.jdbc.Driver
+#    username: root
+#    password: zyh790201
+#  data:
+#    redis:
+#      host: redis # ===========本地和上线不同==========
+#      port: 6379
+#      password:  # 如果有密码则填写
+#      database: 0
+#      timeout: 5000ms
+#      lettuce:
+#        pool:
+#          max-active: 8   # 连接池最大连接数
+#          max-idle: 8     # 连接池最大空闲连接数
+#          min-idle: 0     # 连接池最小空闲连接数
+#          max-wait: -1ms  # 连接池最大阻塞等待时间
+#
+#  rabbitmq:
+#    host: rabbitmq # ===========本地和上线不同==========
+#    port: 5672
+#    username: tm
+#    password: 123456
+#    virtual-host: /tm
+#    # 开启生产者确认模式
+#    publisher-confirm-type: correlated
+#    publisher-returns: true
+#    listener:
+#      simple:
+#        # 消费者手动确认
+#        acknowledge-mode: manual
+#        # 消费失败重试
+#        retry:
+#          enabled: true
+#          max-attempts: 3
+#          initial-interval: 1000ms
+#
+#  mail:
+#    host: smtp.qq.com
+#    port: 587
+#    username: 3197209971@qq.com  # 你的邮箱
+#    password: cikiahobyowodghc  # 邮箱授权码，不是登录密码
+#    protocol: smtp
+#    default-encoding: UTF-8
+#    properties:
+#      mail:
+#        smtp:
+#          auth: true
+#          starttls:
+#            enable: true
+#            required: true
+#
+#mybatis:
+#  configuration:
+#    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+#    map-underscore-to-camel-case: true
+#
+## Redisson配置
+#redisson:
+#  config: |
+#    singleServerConfig:
+#      address: "redis://redis:6379"
+#      database: 0
+#      connectionMinimumIdleSize: 10
+#      connectionPoolSize: 64
+#      subscriptionConnectionPoolSize: 50
+#      timeout: 3000
+#      retryAttempts: 3
+#      retryInterval: 1500
+
+# =======================本地测试所用配置===========================
+
 spring:
   application:
     name: ticket-management
@@ -63,7 +141,7 @@ mybatis:
 redisson:
   config: |
     singleServerConfig:
-      address: "redis://localhost:6379"
+      address: "redis://localhost:6379" 
       database: 0
       connectionMinimumIdleSize: 10
       connectionPoolSize: 64
@@ -72,13 +150,12 @@ redisson:
       retryAttempts: 3
       retryInterval: 1500
 
-
 # 微信测试号配置
 wechat:
   test:
     app-id: wx94cd5b487e8b7509  # 替换为你的测试号AppID
     app-secret: 047b3810f687c2dfd2fd6033181345cf # 替换为你的测试号AppSecret
-    redirect-uri: http://z569d97b.natappfree.cc/api/auth/wechat/callback  # 本地测试回调地址
+    redirect-uri: http://pd9934a2.natappfree.cc/api/auth/wechat/callback  # 本地测试回调地址
 
 # 验证码配置
 verification:
@@ -130,12 +207,12 @@ alipay:
   # 支付宝网关（沙箱环境）
   gateway-url: https://openapi-sandbox.dl.alipaydev.com/gateway.do
   # 异步通知地址：使用 natapp 生成的公网地址，代码中动态传入，不需要在后台填
-  notify-url: http://z569d97b.natappfree.cc/api/public/payments/notify
+  notify-url: http://pd9934a2.natappfree.cc/api/public/payments/notify
 
   # 同步返回地址：用户支付成功后跳转的页面
   # 如果你有前端页面，填写前端的地址
   # 如果没有，可以先填 natapp 地址测试
-  return-url: http://z569d97b.natappfree.cc/payment/success
+  return-url: http://pd9934a2.natappfree.cc/payment/success
   # 或者填你的前端本地地址
   # return-url: http://localhost:5173/payment/success
   # 签名类型

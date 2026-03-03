@@ -29,4 +29,17 @@ public interface VerificationCodeService {
      */
     void clearCode(String email);
 
+
+    void recordUserInitiatedSend(String email);
+
+    /**
+     * 检查用户是否已主动发送过验证码
+     */
+    boolean hasUserInitiatedSend(String email);
+
+    /**
+     * 清除用户主动发送验证码的状态记录
+     */
+    void clearUserInitiatedSend(String email);
+
 }

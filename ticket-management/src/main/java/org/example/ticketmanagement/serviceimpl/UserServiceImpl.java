@@ -1,10 +1,16 @@
 package org.example.ticketmanagement.serviceimpl;
 
 import lombok.extern.slf4j.Slf4j;
+import org.example.ticketmanagement.constant.OrderConstant;
+import org.example.ticketmanagement.mapper.OrderInfoMapper;
+import org.example.ticketmanagement.mapper.UserAddressMapper;
 import org.example.ticketmanagement.mapper.UserMapper;
+import org.example.ticketmanagement.pojo.OrderInfo;
 import org.example.ticketmanagement.pojo.PageResult;
 import org.example.ticketmanagement.pojo.User;
+import org.example.ticketmanagement.pojo.UserAddress;
 import org.example.ticketmanagement.pojo.UserQuery;
+import org.example.ticketmanagement.service.OrderService;
 import org.example.ticketmanagement.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -25,6 +31,15 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private BCryptPasswordEncoder passwordEncoder;
+
+    @Autowired
+    private OrderInfoMapper orderInfoMapper;
+
+    @Autowired
+    private UserAddressMapper userAddressMapper;
+
+    @Autowired
+    private OrderService orderService;
 
     @Override
     public User getUserById(Long id) {
@@ -61,7 +76,8 @@ public class UserServiceImpl implements UserService {
                 throw new RuntimeException("不能删除管理员账户");
             }
 
-            // TODO: 检查用户是否有未完成的订单等业务约束
+            // 检查用户是否有未完成的订单等业务约束
+            checkUserBusinessConstraints(id);
 
             userMapper.deleteUserById(id);
             log.info("删除用户成功，ID: {}", id);
@@ -212,7 +228,10 @@ public class UserServiceImpl implements UserService {
                 throw new RuntimeException("不能删除管理员账户: " + String.join(",", adminIds));
             }
 
-            // TODO: 检查用户是否有未完成的订单等业务约束
+            // 检查用户是否有未完成的订单等业务约束
+            for (Long userId : ids) {
+                checkUserBusinessConstraints(userId);
+            }
 
             // 批量删除 - 由于Mapper没有批量删除方法，我们循环删除
             int deletedCount = 0;
@@ -420,4 +439,51 @@ public class UserServiceImpl implements UserService {
             throw new RuntimeException("修改密码失败");
         }
     }
+
+    /**
+     * 检查用户业务约束（删除前检查）
+     * @param userId 用户ID
+     * @throws RuntimeException 如果存在业务约束则抛出异常
+     */
+    private void checkUserBusinessConstraints(Long userId) {
+        log.debug("检查用户业务约束，用户ID: {}", userId);
+        
+        try {
+            // 1. 检查未完成的订单
+            List<OrderInfo> unfinishedOrders = orderInfoMapper.selectByUserId(userId);
+            if (unfinishedOrders != null && !unfinishedOrders.isEmpty()) {
+                // 过滤出未完成的订单状态（待支付、已支付等）
+                long unfinishedCount = unfinishedOrders.stream()
+                        .filter(order -> order.getOrderStatus() != null && 
+                                (order.getOrderStatus().equals(OrderConstant.ORDER_STATUS_PENDING) || 
+                                 order.getOrderStatus().equals(OrderConstant.ORDER_STATUS_PAID)))
+                        .count();
+                
+                if (unfinishedCount > 0) {
+                    log.warn("删除用户失败，用户有未完成的订单，用户ID: {}, 未完成订单数: {}", userId, unfinishedCount);
+                    throw new RuntimeException(String.format("用户有%d个未完成的订单，请先处理完订单再删除用户", unfinishedCount));
+                }
+            }
+
+            // 3. 检查用户收货地址
+            List<UserAddress> userAddresses = userAddressMapper.listUserAddressesByUserId(userId);
+            if (userAddresses != null && !userAddresses.isEmpty()) {
+                log.debug("用户有{}个收货地址，将一并删除", userAddresses.size());
+                // 收货地址可以随用户一起删除，这里只是记录日志
+            }
+            
+            // 4. 其他业务约束检查可以在这里添加
+            // 例如：检查是否有未完成的售后服务、退款申请等
+            
+            log.debug("用户业务约束检查通过，用户ID: {}", userId);
+            
+        } catch (RuntimeException e) {
+            // 重新抛出业务异常
+            throw e;
+        } catch (Exception e) {
+            log.error("检查用户业务约束异常，用户ID: {}", userId, e);
+            throw new RuntimeException("检查用户业务约束失败");
+        }
+    }
+
 }

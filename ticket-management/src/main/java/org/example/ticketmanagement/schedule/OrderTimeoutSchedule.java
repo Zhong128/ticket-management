@@ -30,12 +30,13 @@ public class OrderTimeoutSchedule {
     private static final int DEAD_LETTER_QUEUE_WARNING_THRESHOLD = 100;
 
     /**
-     * 主定时任务：每5分钟执行一次，作为死信队列的备份
-     * 执行时间：每5分钟的第0秒（0,5,10,15...）
+     * 兜底定时任务：每10分钟执行一次
+     * 处理32分钟前未支付的订单（比死信队列晚2分钟）
+     * 作为死信队列的备份，防止消息丢失
      */
-    @Scheduled(cron = "0 */5 * * * *")
+    @Scheduled(cron = "0 */1 * * * *")
     public void processTimeoutOrdersBackup() {
-        log.debug("启动定时任务备份检查");
+        log.info("启动定时任务备份检查");
 
         try {
             // 1. 检查死信队列健康状况
@@ -49,8 +50,8 @@ public class OrderTimeoutSchedule {
             log.warn("死信队列可能异常，当前消息积压数：{}，启动定时任务备份处理",
                     healthStatus.getMessageCount());
 
-            // 2. 执行超时订单处理（设置11分钟，让死信队列优先处理16分钟的订单）
-            int timeoutMinutes = SeckillConstant.PAY_TIMEOUT_MINUTES + 1;
+            // 2. 执行超时订单处理（设置31分钟，先保证死信队列处理
+            int timeoutMinutes = SeckillConstant.PAY_TIMEOUT_MINUTES + 2;
             orderService.processTimeoutOrders(timeoutMinutes, 100);
 
         } catch (Exception e) {

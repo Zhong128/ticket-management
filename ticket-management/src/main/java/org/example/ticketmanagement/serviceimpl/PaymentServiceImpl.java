@@ -33,6 +33,7 @@ import org.example.ticketmanagement.mapper.TicketTierMapper;
 import org.example.ticketmanagement.pojo.*;
 import org.example.ticketmanagement.service.PaymentService;
 import org.example.ticketmanagement.service.OrderService;
+import org.example.ticketmanagement.util.AlipaySignatureUtil;
 import org.example.ticketmanagement.util.PaymentNoGenerator;
 import org.example.ticketmanagement.util.RabbitMQUtil;
 import org.example.ticketmanagement.vo.PaymentRecordVO;
@@ -64,6 +65,9 @@ public class PaymentServiceImpl implements PaymentService {
     private final AlipayProperties alipayProperties;
     private final PaymentNoGenerator paymentNoGenerator;
     private final RabbitMQUtil rabbitMQUtil;
+
+    private final AlipaySignatureUtil alipaySignatureUtil;
+
 
     @Override
     @Transactional
@@ -168,18 +172,18 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional
     public PaymentResultDTO createPaymentAuto(Long userId, Integer payType) {
         log.info("开始自动创建支付订单: userId={}, payType={}", userId, payType);
-        
+
         // 1. 获取用户最新的待支付订单
         OrderInfo orderInfo = orderService.getLatestPendingOrderByUser(userId);
         if (orderInfo == null) {
             throw new RuntimeException("没有待支付的订单");
         }
-        
+
         // 2. 构造CreatePaymentDTO
         CreatePaymentDTO createPaymentDTO = new CreatePaymentDTO();
         createPaymentDTO.setOrderId(orderInfo.getId());
         createPaymentDTO.setPayType(payType);
-        
+
         // 3. 调用原有的创建支付方法
         return createPayment(userId, createPaymentDTO);
     }
@@ -194,12 +198,13 @@ public class PaymentServiceImpl implements PaymentService {
         String tradeStatus = null;
 
         try {
-            // 1. TODO验证签名（实际项目中必须验证，这里简化）
-            // boolean signVerified = alipayService.rsaCheckV1(params);
-            // if (!signVerified) {
-            //     log.error("支付宝回调签名验证失败");
-            //     return "failure";
-            // }
+            // 1. 验证支付宝签名（安全验证，防止伪造回调）
+            boolean signVerified = alipaySignatureUtil.verifyAlipaySignature(params);
+            if (!signVerified) {
+                log.error("支付宝回调签名验证失败，可能存在安全风险");
+                return "failure";
+            }
+            log.debug("支付宝签名验证通过");
 
             // 2. 获取关键参数
             paymentNo = params.get("out_trade_no");      // 商户支付流水号
@@ -210,27 +215,33 @@ public class PaymentServiceImpl implements PaymentService {
             log.info("回调参数解析: paymentNo={}, tradeNo={}, tradeStatus={}",
                     paymentNo, tradeNo, tradeStatus);
 
-            // 3. 记录回调日志
+            // 3. 参数基本验证
+            if (paymentNo == null || paymentNo.isEmpty()) {
+                log.error("回调参数缺失: out_trade_no为空");
+                return "failure";
+            }
+
+            // 4. 记录回调日志
             saveNotifyLog(params);
 
-            // 4. 查询支付记录
+            // 5. 查询支付记录
             PaymentRecord paymentRecord = paymentRecordMapper.selectByPaymentNo(paymentNo);
             if (paymentRecord == null) {
                 log.error("支付记录不存在: paymentNo={}", paymentNo);
                 return "failure";
             }
 
-            // 5. 幂等性处理：如果已经支付成功，直接返回success
+            // 6. 幂等性处理：如果已经支付成功，直接返回success
             if (paymentRecord.getPayStatus().equals(PaymentConstant.PAY_STATUS_SUCCESS)) {
                 log.info("支付记录已处理，跳过重复回调: paymentNo={}", paymentNo);
                 return "success";
             }
 
-            // 6. 根据交易状态处理
+            // 7. 根据交易状态处理
             if (PaymentConstant.ALIPAY_TRADE_SUCCESS.equals(tradeStatus) ||
                     PaymentConstant.ALIPAY_TRADE_FINISHED.equals(tradeStatus)) {
 
-                // 6.1 支付成功
+                // 7.1 支付成功
                 paymentRecord.setTradeNo(tradeNo);
                 paymentRecord.setPayStatus(PaymentConstant.PAY_STATUS_SUCCESS);
                 paymentRecord.setNotifyData(params.toString());
@@ -240,16 +251,16 @@ public class PaymentServiceImpl implements PaymentService {
 
                 paymentRecordMapper.updateStatus(paymentRecord);
 
-                // 6.2 更新订单状态为已支付
+                // 7.2 更新订单状态为已支付
                 orderService.updateOrderStatus(paymentRecord.getOrderId(), OrderConstant.ORDER_STATUS_PAID);
 
-                // 6.3 发送支付成功消息（用于邮件通知）
+                // 7.3 发送支付成功消息（用于邮件通知）
                 sendPaymentSuccessMessage(paymentRecord);
 
                 log.info("支付成功处理完成: paymentNo={}, tradeNo={}", paymentNo, tradeNo);
 
             } else if (PaymentConstant.ALIPAY_TRADE_CLOSED.equals(tradeStatus)) {
-                // 6.4 交易关闭
+                // 7.4 交易关闭
                 paymentRecord.setTradeNo(tradeNo);
                 paymentRecord.setPayStatus(PaymentConstant.PAY_STATUS_CLOSED);
                 paymentRecord.setNotifyData(params.toString());
@@ -280,6 +291,7 @@ public class PaymentServiceImpl implements PaymentService {
             return "failure";
         }
     }
+
 
     @Override
     public PaymentRecordVO getPaymentStatus(String paymentNo) {

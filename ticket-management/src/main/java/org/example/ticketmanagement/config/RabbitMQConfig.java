@@ -19,7 +19,7 @@ import java.util.Map;
 @Configuration
 public class RabbitMQConfig {
 
-    // ==================== 交换机和队列定义 ====================
+    // ==================== 抢票队列 ====================
 
     /**
      * 抢票订单交换机（直连交换机）
@@ -89,73 +89,7 @@ public class RabbitMQConfig {
                 .with("seckill.order.dead.routing.key");
     }
 
-
-    // ==================== 库存回退延迟队列（用于订单超时自动取消库存） ====================
-
-    /**
-     * 库存回退延迟交换机
-     */
-    @Bean
-    public DirectExchange stockReturnDelayExchange() {
-        return new DirectExchange(SeckillConstant.STOCK_RETURN_DELAY_EXCHANGE, true, false);
-    }
-
-    /**
-     * 库存回退延迟队列（TTL队列）
-     * 消息会在队列中停留ORDER_TIMEOUT_MINUTES分钟后过期，然后转发到处理队列
-     */
-    @Bean
-    public Queue stockReturnDelayQueue() {
-        Map<String, Object> args = new HashMap<>();
-        // 设置消息TTL为订单超时时间（分钟转毫秒）
-        args.put("x-message-ttl", OrderConstant.ORDER_TIMEOUT_MINUTES * 60 * 1000);
-        // 设置死信交换机
-        args.put("x-dead-letter-exchange", SeckillConstant.STOCK_RETURN_PROCESS_EXCHANGE);
-        // 设置死信路由键
-        args.put("x-dead-letter-routing-key", SeckillConstant.STOCK_RETURN_PROCESS_ROUTING_KEY);
-
-        return QueueBuilder.durable(SeckillConstant.STOCK_RETURN_DELAY_QUEUE)
-                .withArguments(args)
-                .build();
-    }
-
-    /**
-     * 绑定库存回退延迟队列到交换机
-     */
-    @Bean
-    public Binding stockReturnDelayBinding() {
-        return BindingBuilder.bind(stockReturnDelayQueue())
-                .to(stockReturnDelayExchange())
-                .with(SeckillConstant.STOCK_RETURN_DELAY_ROUTING_KEY);
-    }
-
-    /**
-     * 库存回退处理交换机
-     */
-    @Bean
-    public DirectExchange stockReturnProcessExchange() {
-        return new DirectExchange(SeckillConstant.STOCK_RETURN_PROCESS_EXCHANGE, true, false);
-    }
-
-    /**
-     * 库存回退处理队列（真正处理库存回退的队列）
-     */
-    @Bean
-    public Queue stockReturnProcessQueue() {
-        return QueueBuilder.durable("stock.return.process.queue").build();
-    }
-
-    /**
-     * 绑定库存回退处理队列到交换机
-     */
-    @Bean
-    public Binding stockReturnProcessBinding() {
-        return BindingBuilder.bind(stockReturnProcessQueue())
-                .to(stockReturnProcessExchange())
-                .with(SeckillConstant.STOCK_RETURN_PROCESS_ROUTING_KEY);
-    }
-
-
+    // 保留基础的库存回退队列（用于其他场景，如支付失败等）
     @Bean
     public DirectExchange stockReturnExchange() {
         return new DirectExchange("stock.return.exchange", true, false);

@@ -236,6 +236,15 @@ public interface TicketTierMapper {
                                                  @Param("maxPrice") BigDecimal maxPrice,
                                                  @Param("status") Integer status);
 
+    /**
+     * 20. 恢复票档的库存
+     * @param tierId 票档ID
+     * @param quantity 恢复的数量
+     * @return 受影响的行数
+     */
+    @Update("UPDATE ticket_tier SET available_stock = available_stock + #{quantity} WHERE id = #{tierId}")
+    int increaseStock(@Param("tierId") Long tierId, @Param("quantity") Integer quantity);
+
 
 
 }

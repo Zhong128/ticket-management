@@ -31,9 +31,12 @@ public class CaptchaServiceImpl implements CaptchaService {
     public CaptchaResult generateCaptcha() {
         // 生成验证码文本
         String capText = captchaProducer.createText();
+        log.info("生成验证码文本: {}", capText);
 
         // 生成验证码图片
         BufferedImage bi = captchaProducer.createImage(capText);
+        log.info("生成验证码图片: 宽度={}, 高度={}, 类型={}",
+                bi.getWidth(), bi.getHeight(), bi.getType());
 
         // 将图片转换为Base64编码
         String imageBase64 = "";
@@ -41,20 +44,27 @@ public class CaptchaServiceImpl implements CaptchaService {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             ImageIO.write(bi, "png", baos);
             byte[] bytes = baos.toByteArray();
+            log.info("图片字节数: {}", bytes.length);
+
             imageBase64 = Base64.getEncoder().encodeToString(bytes);
+            log.info("Base64编码长度: {}", imageBase64.length());
+
         } catch (Exception e) {
             log.error("验证码图片转换失败", e);
         }
 
         // 生成唯一标识符
         String captchaKey = UUID.randomUUID().toString();
+        log.info("生成的captchaKey: {}", captchaKey);
 
         // 将验证码文本存储到Redis中
         redisUtil.set("captcha:" + captchaKey, capText, CAPTCHA_EXPIRE_TIME, TimeUnit.MINUTES);
+        log.info("验证码已存入Redis: captcha:{}, 过期时间: {}分钟", captchaKey, CAPTCHA_EXPIRE_TIME);
 
         CaptchaResult result = new CaptchaResult();
         result.setCaptchaKey(captchaKey);
         result.setImageBase64("data:image/png;base64," + imageBase64);
+
         return result;
     }
 

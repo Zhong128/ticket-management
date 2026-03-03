@@ -3,8 +3,6 @@ package org.example.ticketmanagement.pojo;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 
-import java.util.HashMap;
-
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Data
 public class Result<T> {

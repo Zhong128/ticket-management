@@ -165,6 +165,12 @@
             <version>2.7.0</version>
         </dependency>
 
+        <!-- 解决Redis的JSON序列化器不支持LocalDateTime类型 -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+
         <!-- SaToken 核心依赖 -->
         <dependency>
             <groupId>cn.dev33</groupId>

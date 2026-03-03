@@ -2,15 +2,14 @@ package org.example.ticketmanagement.util;
 
 import lombok.extern.slf4j.Slf4j;
 import org.lionsoul.ip2region.xdb.Searcher;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -22,22 +21,21 @@ import java.util.concurrent.TimeUnit;
 public class Ip2RegionUtil {
 
     private Searcher searcher;
-    private byte[] vIndex;
 
-    // 缓存一些热门城市，减少数据库查询
-    private static final ConcurrentHashMap<String, String> CITY_CACHE = new ConcurrentHashMap<>();
-    private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+
+    // Redis缓存Key前缀
+    private static final String IP_CACHE_KEY_PREFIX = "ip:location:";
+    // 缓存过期时间（小时）
+    private static final long CACHE_EXPIRE_HOURS = 24;
 
     @PostConstruct
     public void init() {
         try {
-            // 方式1：完全基于文件的查询（推荐，内存使用少）
+            // 完全基于文件的查询
             String dbPath = new ClassPathResource("ipdb/ip2region.xdb").getFile().getPath();
             searcher = Searcher.newWithFileOnly(dbPath);
-
-            // 方式2：VectorIndex索引（更快，但需要额外内存）
-            // loadVectorIndex(dbPath);
-
             log.info("ip2region初始化成功");
         } catch (Exception e) {
             log.error("ip2region初始化失败", e);
@@ -45,18 +43,7 @@ public class Ip2RegionUtil {
     }
 
     /**
-     * 使用VectorIndex索引（速度更快）
-     */
-    private void loadVectorIndex(String dbPath) throws Exception {
-        // 1. 加载VectorIndex索引
-        byte[] vIndex = Searcher.loadVectorIndexFromFile(dbPath);
-        // 2. 使用全局VectorIndex创建带VectorIndex索引的查询对象
-        searcher = Searcher.newWithVectorIndex(dbPath, vIndex);
-        this.vIndex = vIndex;
-    }
-
-    /**
-     * 根据IP地址查询地理位置
+     * 根据IP地址查询地理位置（带Redis缓存）
      * @param ip IP地址
      * @return 地理位置信息
      */
@@ -66,12 +53,27 @@ public class Ip2RegionUtil {
             return null;
         }
 
+        // 1. 先从Redis缓存查询
+        String cacheKey = IP_CACHE_KEY_PREFIX + ip;
+        String cachedRegion = (String) redisTemplate.opsForValue().get(cacheKey);
+        if (cachedRegion != null) {
+            log.debug("IP缓存命中: {} -> {}", ip, cachedRegion);
+            return cachedRegion;
+        }
+
+        // 2. 缓存未命中，执行查询
         try {
             long startTime = System.nanoTime();
             String region = searcher.search(ip);
             long cost = (System.nanoTime() - startTime) / 1000; // 微秒
 
             log.debug("IP查询: {} -> {}，耗时: {}μs", ip, region, cost);
+
+            // 3. 存入Redis缓存（24小时过期）
+            if (region != null) {
+                redisTemplate.opsForValue().set(cacheKey, region, CACHE_EXPIRE_HOURS, TimeUnit.HOURS);
+            }
+
             return region;
         } catch (Exception e) {
             log.error("IP查询失败: {}", ip, e);
@@ -85,13 +87,6 @@ public class Ip2RegionUtil {
      * @return 城市名称（如：北京、上海）
      */
     public String getCityName(String ip) {
-        // 先检查缓存
-        String cacheKey = "city:" + ip;
-        String cachedCity = CITY_CACHE.get(cacheKey);
-        if (cachedCity != null) {
-            return cachedCity;
-        }
-
         String region = search(ip);
         if (region == null) {
             return null;
@@ -106,15 +101,6 @@ public class Ip2RegionUtil {
             if (city.endsWith("市")) {
                 city = city.substring(0, city.length() - 1);
             }
-            // 处理特殊城市
-            if ("北京".equals(city) || "上海市".equals(city) || "天津".equals(city) || "重庆".equals(city)) {
-                city = city.replace("市", "");
-            }
-
-            // 缓存结果（5分钟）
-            CITY_CACHE.put(cacheKey, city);
-            scheduler.schedule(() -> CITY_CACHE.remove(cacheKey), 5, TimeUnit.MINUTES);
-
             return city;
         }
 
@@ -140,6 +126,32 @@ public class Ip2RegionUtil {
         return null;
     }
 
+    /**
+     * 根据IP获取运营商
+     */
+    public String getIsp(String ip) {
+        String region = search(ip);
+        if (region == null) {
+            return null;
+        }
+
+        String[] parts = region.split("\\|");
+        if (parts.length >= 5) {
+            return parts[4];
+        }
+
+        return null;
+    }
+
+    /**
+     * 清除指定IP的缓存
+     */
+    public void clearCache(String ip) {
+        String cacheKey = IP_CACHE_KEY_PREFIX + ip;
+        redisTemplate.delete(cacheKey);
+        log.debug("已清除IP缓存: {}", ip);
+    }
+
     @PreDestroy
     public void destroy() {
         if (searcher != null) {
@@ -150,6 +162,5 @@ public class Ip2RegionUtil {
                 log.error("ip2region资源释放失败", e);
             }
         }
-        scheduler.shutdown();
     }
 }

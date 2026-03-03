@@ -54,27 +54,4 @@ public class SeckillOrderConsumer {
             }
         }
     }
-
-    /**
-     * 消费死信队列消息（处理超时未支付订单）
-     */
-    @RabbitListener(queues = "${seckill.config.dead-letter-queue:seckill.order.dead.queue}")
-    public void handleDeadLetterOrder(String orderNo, Channel channel, Message message) throws IOException {
-        log.info("收到死信队列消息，处理超时订单: orderNo={}", orderNo);
-
-        try {
-            // TODO这里可以调用订单服务取消订单
-            // 注意：实际项目中，死信队列应该触发订单取消逻辑
-
-            // 手动确认消息
-            channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);
-
-            log.info("超时订单处理成功: orderNo={}", orderNo);
-
-        } catch (Exception e) {
-            log.error("处理超时订单失败: orderNo={}", orderNo, e);
-            // 处理失败，拒绝消息（不重新入队）
-            channel.basicReject(message.getMessageProperties().getDeliveryTag(), false);
-        }
-    }
 }

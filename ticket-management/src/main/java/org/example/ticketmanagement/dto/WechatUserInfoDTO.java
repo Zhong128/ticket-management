@@ -19,4 +19,8 @@ public class WechatUserInfoDTO {
     private String unionid;
     private Integer errcode;
     private String errmsg;
+
+    public boolean isSuccess() {
+        return (errcode == null || errcode == 0) && openid != null;
+    }
 }

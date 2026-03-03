@@ -9,9 +9,12 @@ import org.example.ticketmanagement.dto.SeckillOrderDTO;
 import org.example.ticketmanagement.mapper.EventMapper;
 import org.example.ticketmanagement.mapper.EventSessionMapper;
 import org.example.ticketmanagement.mapper.TicketTierMapper;
+import org.example.ticketmanagement.mapper.UserMapper;
 import org.example.ticketmanagement.pojo.Event;
 import org.example.ticketmanagement.pojo.EventSession;
 import org.example.ticketmanagement.pojo.TicketTier;
+import org.example.ticketmanagement.pojo.User;
+import org.example.ticketmanagement.service.EmailService;
 import org.example.ticketmanagement.service.SeckillService;
 import org.example.ticketmanagement.service.StockService;
 import org.example.ticketmanagement.service.SeckillLockService;
@@ -35,6 +38,8 @@ public class SeckillServiceImpl implements SeckillService {
     private final SeckillLockService seckillLockService;
     private final RabbitMQUtil rabbitMQUtil;
     private final OrderNoGenerator orderNoGenerator;
+    private final EmailService emailService;
+    private final UserMapper userMapper;
 
     @Override
     public SeckillResultVO seckill(Long userId, SeckillOrderDTO seckillOrderDTO) {
@@ -110,21 +115,24 @@ public class SeckillServiceImpl implements SeckillService {
             // 7. 生成订单号
             String orderNo = orderNoGenerator.generateOrderNo();
 
-            // 8. 设置用户抢票记录（防重，过期时间30分钟）
+            // 8. 设置用户抢票记录（防重，过期时间 30 分钟）
             stockService.setUserSeckillRecord(userId, tierId, 30 * 60);
 
             // 9. 构建抢票消息
             SeckillMessageDTO message = buildSeckillMessage(userId, ticketTier, quantity, orderNo);
 
-            // 10. 发送消息到RabbitMQ，异步创建订单
+            // 10. 发送消息到 RabbitMQ，异步创建订单
             rabbitMQUtil.sendSeckillOrderMessage(message);
 
-            // 11. 返回抢票成功结果
-            log.info("抢票成功: userId={}, tierId={}, orderNo={}", userId, tierId, orderNo);
+            // 11. 发送成功通知邮件（使用封装的方法）
+            sendSuccessEmail(userId, message, event, session, ticketTier);
+
+            // 12. 返回抢票成功结果
+            log.info("抢票成功：userId={}, tierId={}, orderNo={}", userId, tierId, orderNo);
 
             return SeckillResultVO.success(
                     orderNo,
-                    null,  // orderId暂时为空，符合新的接口定义
+                    null,  // orderId 暂时为空，符合新的接口定义
                     message.getTotalAmount(),
                     ticketTier.getTierName(),
                     ticketTier.getCurrentPrice(),
@@ -133,7 +141,7 @@ public class SeckillServiceImpl implements SeckillService {
 
         } catch (Exception e) {
             // 如果后续步骤失败，回滚库存
-            log.error("抢票后续步骤失败，回滚库存: userId={}, tierId={}, quantity={}",
+            log.error("抢票后续步骤失败，回滚库存：userId={}, tierId={}, quantity={}",
                     userId, tierId, quantity, e);
             stockService.restoreStock(tierId, quantity);
             stockService.deleteUserSeckillRecord(userId, tierId);
@@ -228,5 +236,25 @@ public class SeckillServiceImpl implements SeckillService {
         message.setTimestamp(System.currentTimeMillis());
 
         return message;
+    }
+
+    /**
+     * 发送抢票成功通知邮件（调用 EmailService 的封装方法）
+     */
+    private void sendSuccessEmail(Long userId, SeckillMessageDTO message, 
+                                  Event event, EventSession session, TicketTier ticketTier) {
+        try {
+            User user = userMapper.getUserById(userId);
+            if (user == null) {
+                log.warn("用户不存在，无法发送邮件：userId={}", userId);
+                return;
+            }
+
+            // 调用 EmailService 的封装方法
+            emailService.sendSeckillSuccessEmail(user, message, event, session, ticketTier);
+        } catch (Exception e) {
+            log.error("发送抢票成功邮件异常：userId={}", userId, e);
+            // 邮件发送失败不影响抢票流程
+        }
     }
 }
