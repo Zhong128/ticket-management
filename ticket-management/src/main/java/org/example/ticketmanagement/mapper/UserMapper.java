@@ -114,6 +114,10 @@ public interface UserMapper {
             "</script>")
     List<User> selectUsersByIds(@Param("ids") List<Long> ids);
 
+    // UserMapper.java 中添加
+    @Delete("DELETE FROM user WHERE username LIKE 'test%'")
+    int deleteTestUsers();
+
 
 }
 

@@ -1,20 +1,16 @@
 // org/example/ticketmanagement/service/impl/OrderServiceImpl.java
 package org.example.ticketmanagement.serviceimpl;
 
-import cn.dev33.satoken.stp.StpUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.constant.OrderConstant;
-import org.example.ticketmanagement.constant.RoleConstant;
 import org.example.ticketmanagement.dto.OrderQueryDTO;
 import org.example.ticketmanagement.dto.OrderUpdateDTO;
 import org.example.ticketmanagement.dto.SeckillMessageDTO;
-import org.example.ticketmanagement.dto.StockReturnMessageDTO;
 import org.example.ticketmanagement.mapper.*;
 import org.example.ticketmanagement.pojo.*;
 import org.example.ticketmanagement.service.OrderService;
 import org.example.ticketmanagement.service.StockService;
-import org.example.ticketmanagement.util.OrderNoGenerator;
 import org.example.ticketmanagement.util.RabbitMQUtil;
 import org.example.ticketmanagement.vo.OrderInfoVO;
 import org.springframework.stereotype.Service;
@@ -36,7 +32,6 @@ public class OrderServiceImpl implements OrderService {
     private final EventSessionMapper eventSessionMapper;
     private final UserMapper userMapper;
     private final StockService stockService;
-    private final RabbitMQUtil rabbitMQUtil;
 
     // ==================== 基础订单操作 ====================
 
@@ -82,8 +77,6 @@ public class OrderServiceImpl implements OrderService {
 
             log.info("订单创建成功: orderId={}, orderNo={}", orderInfo.getId(), orderInfo.getOrderNo());
 
-            // 5. 发送库存回退消息到延迟队列（用于超时取消订单）
-            sendStockReturnMessage(orderInfo);
 
             return orderInfo.getId();
 
@@ -479,23 +472,6 @@ public class OrderServiceImpl implements OrderService {
     }
 
     // ==================== 私有辅助方法 ====================
-
-    /**
-     * 发送库存回退消息到延迟队列
-     */
-    private void sendStockReturnMessage(OrderInfo orderInfo) {
-        StockReturnMessageDTO message = new StockReturnMessageDTO();
-        message.setTierId(orderInfo.getTierId());
-        message.setQuantity(orderInfo.getQuantity());
-        message.setOrderId(orderInfo.getId());
-        message.setReason("timeout");
-        message.setTimestamp(System.currentTimeMillis());
-
-        rabbitMQUtil.sendStockReturnDelayMessage(message);
-        log.debug("发送库存回退消息: orderId={}, tierId={}, quantity={}, delay={}分钟",
-                orderInfo.getId(), orderInfo.getTierId(), orderInfo.getQuantity(),
-                OrderConstant.ORDER_TIMEOUT_MINUTES);
-    }
 
     /**
      * 转换为完整VO（包含所有关联信息）

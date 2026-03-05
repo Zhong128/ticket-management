@@ -60,13 +60,14 @@ public interface SeckillLockService {
 
     /**
      * 执行分段锁操作（减少锁竞争）
+     * @param userId 用户ID
      * @param tierId 票档ID
      * @param segmentCount 分段数量
      * @param supplier 要执行的操作
      * @param <T> 返回值类型
      * @return 操作结果
      */
-    <T> T executeWithSegmentLock(Long tierId, int segmentCount, Supplier<T> supplier);
+    <T> T executeWithSegmentLock(Long userId,Long tierId, int segmentCount, Supplier<T> supplier);
 
     /**
      * 等待锁并执行操作（可设置超时）

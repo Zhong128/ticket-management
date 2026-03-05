@@ -58,27 +58,33 @@ public class RedissonLockUtil {
      */
     public <T> T executeWithLock(String lockKey, long waitTime, long leaseTime, Supplier<T> supplier) {
         RLock lock = getLock(lockKey);
+        boolean isLockAcquired = false;
         try {
-            // 尝试获取锁
             if (lock.tryLock(waitTime, leaseTime, TimeUnit.SECONDS)) {
-                try {
-                    return supplier.get();
-                } finally {
-                    if (lock.isLocked() && lock.isHeldByCurrentThread()) {
-                        lock.unlock();
-                    }
-                }
+                isLockAcquired = true;
+                return supplier.get();
             } else {
-                log.warn("获取锁超时, lockKey: {}, waitTime: {}s", lockKey, waitTime);
+                log.warn("获取锁超时，lockKey: {}, waitTime: {}s", lockKey, waitTime);
                 throw new RuntimeException("系统繁忙，请稍后重试");
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            log.error("获取锁被中断, lockKey: {}", lockKey, e);
+            log.error("获取锁被中断，lockKey: {}", lockKey, e);
             throw new RuntimeException("系统繁忙，请稍后重试");
+        } catch (RuntimeException e) {
+            // 运行时异常直接抛出，避免重复包装
+            throw e;
         } catch (Exception e) {
-            log.error("执行带锁操作异常, lockKey: {}", lockKey, e);
+            log.error("执行带锁操作异常，lockKey: {}, error: {}", lockKey, e.getMessage(), e);
             throw new RuntimeException("系统繁忙，请稍后重试");
+        } finally {
+            if (isLockAcquired && lock.isLocked() && lock.isHeldByCurrentThread()) {
+                try {
+                    lock.unlock();
+                } catch (Exception e) {
+                    log.error("释放锁异常，lockKey: {}", lockKey, e);
+                }
+            }
         }
     }
 }

@@ -3,10 +3,8 @@ package org.example.ticketmanagement.util;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.ticketmanagement.constant.OrderConstant;
 import org.example.ticketmanagement.constant.SeckillConstant;
 import org.example.ticketmanagement.dto.SeckillMessageDTO;
-import org.example.ticketmanagement.dto.StockReturnMessageDTO;
 import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
@@ -46,25 +44,6 @@ public class RabbitMQUtil {
         } catch (Exception e) {
             log.error("抢票订单消息发送失败: {}", message.getOrderNo(), e);
             throw new RuntimeException("消息发送失败", e);
-        }
-    }
-
-    /**
-     * 发送库存回退延迟消息（用于订单超时自动取消）
-     */
-    public void sendStockReturnDelayMessage(StockReturnMessageDTO message) {
-        try {
-            rabbitTemplate.convertAndSend(
-                    SeckillConstant.STOCK_RETURN_DELAY_EXCHANGE,
-                    SeckillConstant.STOCK_RETURN_DELAY_ROUTING_KEY,
-                    message
-            );
-
-            log.debug("库存回退延迟消息发送成功: {}, delay={}分钟",
-                    message, OrderConstant.ORDER_TIMEOUT_MINUTES);
-        } catch (Exception e) {
-            log.error("库存回退延迟消息发送失败: {}", message, e);
-            throw new RuntimeException("库存回退延迟消息发送失败", e);
         }
     }
 

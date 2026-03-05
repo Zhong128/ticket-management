@@ -46,29 +46,28 @@ public class SeckillServiceImpl implements SeckillService {
         Long tierId = seckillOrderDTO.getTierId();
         Integer quantity = seckillOrderDTO.getQuantity();
 
-        log.info("用户开始抢票: userId={}, tierId={}, quantity={}", userId, tierId, quantity);
+        log.info("用户开始抢票：userId={}, tierId={}, quantity={}", userId, tierId, quantity);
 
         // 1. 基础参数校验
         if (quantity == null || quantity <= 0) {
-            return SeckillResultVO.fail("购买数量必须大于0");
+            return SeckillResultVO.fail("购买数量必须大于 0");
         }
         if (quantity > SeckillConstant.MAX_QUANTITY) {
             return SeckillResultVO.fail(SeckillConstant.ERROR_MAX_QUANTITY+",单次最多购买" + SeckillConstant.MAX_QUANTITY + "张");
         }
 
-        // 2. 使用用户锁防止重复提交（等待3秒，持有5秒）
-        return seckillLockService.executeWithUserLock(userId, tierId, () -> {
-            // 3. 使用票档锁保护核心业务逻辑（等待5秒，持有10秒）
-            return seckillLockService.executeWithTierLock(tierId, () -> {
-                return doSeckill(userId, tierId, quantity);
-            });
+        // 2. 使用分段锁减少竞争（基于用户 ID 分段，增加到 20 个分段）
+        return seckillLockService.executeWithSegmentLock(userId, tierId, 20, () -> {
+            return doSeckill(userId, tierId, quantity);
         });
     }
 
     /**
-     * 执行抢票核心逻辑
+     * 执行抢票核心逻辑（优化版：缩小锁范围）
      */
     private SeckillResultVO doSeckill(Long userId, Long tierId, Integer quantity) {
+        // ========== 锁外预检查（不持有锁）==========
+        
         // 1. 检查票档信息
         TicketTier ticketTier = ticketTierMapper.selectById(tierId);
         if (ticketTier == null) {
@@ -86,7 +85,7 @@ public class SeckillServiceImpl implements SeckillService {
             return SeckillResultVO.fail("场次不存在或不可用");
         }
 
-        // 4. 检查演出是否在售票时间内（关键修改）
+        // 4. 检查演出是否在售票时间内
         Event event = eventMapper.selectById(ticketTier.getEventId());
         if (event == null || event.getStatus() != 1) {
             return SeckillResultVO.fail("演出不存在或不可用");
@@ -94,18 +93,20 @@ public class SeckillServiceImpl implements SeckillService {
         
         LocalDateTime now = LocalDateTime.now();
         if (event.getSaleStartTime() != null && event.getSaleStartTime().isAfter(now)) {
-            return SeckillResultVO.fail("抢票尚未开始"); // 还未到售票开始时间
+            return SeckillResultVO.fail("抢票尚未开始");
         }
         if (event.getSaleEndTime() != null && event.getSaleEndTime().isBefore(now)) {
-            return SeckillResultVO.fail("抢票已结束"); // 已超过售票结束时间
+            return SeckillResultVO.fail("抢票已结束");
         }
 
+        // ========== 关键优化：只保留核心原子操作在锁内 ==========
+        
         // 5. 检查用户是否已抢过该票档（防重）
         if (stockService.hasUserSeckilled(userId, tierId)) {
             return SeckillResultVO.fail(SeckillConstant.ERROR_USER_REPEAT);
         }
 
-        // 6. 预扣库存（原子操作）
+        // 6. 预扣库存（原子操作）- 这是唯一需要在锁内的核心操作
         Long remainingStock = stockService.decrStock(tierId, quantity);
         if (remainingStock == null || remainingStock < 0) {
             return SeckillResultVO.fail(SeckillConstant.ERROR_STOCK_NOT_ENOUGH);
@@ -124,15 +125,15 @@ public class SeckillServiceImpl implements SeckillService {
             // 10. 发送消息到 RabbitMQ，异步创建订单
             rabbitMQUtil.sendSeckillOrderMessage(message);
 
-            // 11. 发送成功通知邮件（使用封装的方法）
-            sendSuccessEmail(userId, message, event, session, ticketTier);
+            // 11. 【优化】邮件发送移到锁外（异步发送，不阻塞）
+            sendSuccessEmailAsync(userId, message, event, session, ticketTier);
 
             // 12. 返回抢票成功结果
             log.info("抢票成功：userId={}, tierId={}, orderNo={}", userId, tierId, orderNo);
 
             return SeckillResultVO.success(
                     orderNo,
-                    null,  // orderId 暂时为空，符合新的接口定义
+                    null,
                     message.getTotalAmount(),
                     ticketTier.getTierName(),
                     ticketTier.getCurrentPrice(),
@@ -140,13 +141,30 @@ public class SeckillServiceImpl implements SeckillService {
             );
 
         } catch (Exception e) {
-            // 如果后续步骤失败，回滚库存
             log.error("抢票后续步骤失败，回滚库存：userId={}, tierId={}, quantity={}",
                     userId, tierId, quantity, e);
             stockService.restoreStock(tierId, quantity);
             stockService.deleteUserSeckillRecord(userId, tierId);
 
             return SeckillResultVO.fail(SeckillConstant.ERROR_SYSTEM_BUSY);
+        }
+    }
+
+    /**
+     * 异步发送邮件（不阻塞主流程）
+     */
+    private void sendSuccessEmailAsync(Long userId, SeckillMessageDTO message, 
+                                       Event event, EventSession session, TicketTier ticketTier) {
+        try {
+            User user = userMapper.getUserById(userId);
+            if (user == null) {
+                log.warn("用户不存在，无法发送邮件：userId={}", userId);
+                return;
+            }
+            
+            emailService.sendSeckillSuccessEmail(user, message, event, session, ticketTier);
+        } catch (Exception e) {
+            log.error("异步发送抢票成功邮件异常：userId={}", userId, e);
         }
     }
 

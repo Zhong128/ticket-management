@@ -3,6 +3,7 @@ package org.example.ticketmanagement.service;
 
 import org.example.ticketmanagement.dto.CreatePaymentDTO;
 import org.example.ticketmanagement.dto.PaymentResultDTO;
+import org.example.ticketmanagement.pojo.PaymentRecord;
 import org.example.ticketmanagement.vo.PaymentRecordVO;
 
 import java.util.Map;
@@ -58,4 +59,6 @@ public interface PaymentService {
      * 处理超时关单
      */
     void processTimeoutClose();
+
+
 }

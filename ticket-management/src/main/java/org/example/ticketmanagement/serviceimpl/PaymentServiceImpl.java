@@ -496,6 +496,8 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
+
+
     // ==================== 私有辅助方法 ====================
 
     /**
@@ -550,11 +552,11 @@ public class PaymentServiceImpl implements PaymentService {
         message.setUserId(paymentRecord.getUserId());
         message.setTimestamp(System.currentTimeMillis());
 
-        // 使用RabbitMQUtil发送到延迟队列
-        rabbitMQUtil.sendTtlDelayedMessage(
-                PaymentConstant.PAYMENT_TIMEOUT_QUEUE,
-                message,
-                PaymentConstant.PAYMENT_TIMEOUT_DELAY
+        // 直接发送到超时队列，队列已设置TTL，消息无需单独设置TTL
+        rabbitMQUtil.convertAndSend(
+                PaymentConstant.PAYMENT_TIMEOUT_EXCHANGE,
+                PaymentConstant.PAYMENT_TIMEOUT_ROUTING_KEY,
+                message
         );
 
         log.debug("发送支付超时检查消息: paymentNo={}, delay={}ms",

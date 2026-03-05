@@ -245,6 +245,10 @@ public interface TicketTierMapper {
     @Update("UPDATE ticket_tier SET available_stock = available_stock + #{quantity} WHERE id = #{tierId}")
     int increaseStock(@Param("tierId") Long tierId, @Param("quantity") Integer quantity);
 
+    // 便于redis和数据库的对账，提供查询所有启用的票档
+    @Select("SELECT * FROM ticket_tier WHERE status = 1")
+    List<TicketTier> selectAllEnabled();
+
 
 
 }

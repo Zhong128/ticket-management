@@ -17,38 +17,39 @@ public class SeckillLockServiceImpl implements SeckillLockService {
 
     private final RedissonLockUtil redissonLockUtil;
 
+
     /**
-     * 获取用户锁的key
+     * 获取用户锁的 key
      */
     private String getUserLockKey(Long userId, Long tierId) {
         return "user:" + userId + ":tier:" + tierId;
     }
 
     /**
-     * 获取票档锁的key
+     * 获取票档锁的 key
      */
     private String getTierLockKey(Long tierId) {
         return "tier:" + tierId;
     }
 
     /**
-     * 获取分段锁的key
+     * 获取分段锁的 key（关键修改：基于用户 ID 分段）
      */
-    private String getSegmentLockKey(Long tierId, int segmentCount) {
-        int segment = (int) (tierId % segmentCount);
-        return "tier:segment:" + segment;
+    private String getSegmentLockKey(Long userId, Long tierId, int segmentCount) {
+        int segment = (int) (userId % segmentCount);
+        return "tier:" + tierId + ":segment:" + segment;
     }
 
     @Override
     public <T> T executeWithUserLock(Long userId, Long tierId, Supplier<T> supplier) {
         String lockKey = getUserLockKey(userId, tierId);
-        return redissonLockUtil.executeWithLock(lockKey, 3, 5, supplier); // 等待3秒，持有5秒
+        return redissonLockUtil.executeWithLock(lockKey, 2, 3, supplier); // 等待 2 秒，持有 3 秒
     }
 
     @Override
     public <T> T executeWithTierLock(Long tierId, Supplier<T> supplier) {
         String lockKey = getTierLockKey(tierId);
-        return redissonLockUtil.executeWithLock(lockKey, 5, 10, supplier); // 等待5秒，持有10秒
+        return redissonLockUtil.executeWithLock(lockKey, 3, 5, supplier); // 等待 3 秒，持有 5 秒
     }
 
     @Override
@@ -75,10 +76,14 @@ public class SeckillLockServiceImpl implements SeckillLockService {
         redissonLockUtil.unlock(lockKey);
     }
 
-    @Override
-    public <T> T executeWithSegmentLock(Long tierId, int segmentCount, Supplier<T> supplier) {
-        String lockKey = getSegmentLockKey(tierId, segmentCount);
-        return redissonLockUtil.executeWithLock(lockKey, 3, 8, supplier); // 等待3秒，持有8秒
+    /**
+     * 执行带分段锁的操作（推荐方案：基于用户 ID 分段，缩短持有时间）
+     */
+    public <T> T executeWithSegmentLock(Long userId, Long tierId, int segmentCount, Supplier<T> supplier) {
+        String lockKey = getSegmentLockKey(userId, tierId, segmentCount);
+        log.debug("使用分段锁：userId={}, tierId={}, segmentCount={}, lockKey={}", 
+                 userId, tierId, segmentCount, lockKey);
+        return redissonLockUtil.executeWithLock(lockKey, 2, 2, supplier); // 等待 2 秒，持有 1.5 秒
     }
 
     @Override
@@ -93,7 +98,7 @@ public class SeckillLockServiceImpl implements SeckillLockService {
             }
             return null;
         } catch (Exception e) {
-            log.error("tryLockWithWait操作异常, lockKey: {}", lockKey, e);
+            log.error("tryLockWithWait 操作异常，lockKey: {}", lockKey, e);
             return null;
         }
     }
