@@ -29,31 +29,25 @@ public class EventSessionController {
 
     // ==================== 公共接口（无需登录） ====================
     /**
-     * 获取所有场次列表（公共接口）
-     * 可选参数：
-     * - status: 状态 (0-禁用，1-启用)
-     * - eventId: 演出ID
+     * 获取所有启用场次列表（公共接口）
+     * 可选参数：eventId (演出 ID)
+     * 默认查询 status=1 的启用状态场次
      */
-    @Operation(summary = "获取场次列表", tags = {"演出场次-公共接口"})
+    @Operation(summary = "获取场次列表", tags = {"演出场次 - 公共接口"})
     @GetMapping("/public/sessions")
     public Result<List<EventSessionVO>> getAllSessions(
-            @RequestParam(required = false) Integer status,
             @RequestParam(required = false) Long eventId) {
 
         List<EventSessionVO> sessions;
 
-        if (eventId != null && status != null) {
-            log.debug("根据演出ID和状态查询场次，eventId: {}, status: {}", eventId, status);
-            sessions = eventSessionService.getSessionsByEventIdAndStatus(eventId, status);
-        } else if (eventId != null) {
-            log.debug("根据演出ID查询场次，eventId: {}", eventId);
-            sessions = eventSessionService.getSessionsByEventId(eventId);
-        } else if (status != null) {
-            log.debug("根据状态查询场次，status: {}", status);
-            sessions = eventSessionService.getSessionsByStatus(status);
+        if (eventId != null) {
+            log.debug("根据演出 ID 查询启用的场次，eventId: {}", eventId);
+            // 查询指定演出的启用场次
+            sessions = eventSessionService.getSessionsByEventIdAndStatus(eventId, 1);
         } else {
-            log.debug("查询所有场次列表");
-            sessions = eventSessionService.getAllSessions();
+            log.debug("查询所有启用的场次");
+            // 查询所有启用的场次
+            sessions = eventSessionService.getSessionsByStatus(1);
         }
 
         return Result.success("查询成功", sessions);
@@ -91,33 +85,6 @@ public class EventSessionController {
             return Result.error("场次不存在");
         }
     }
-
-    /**
-     * 根据演出ID获取场次列表（用户端）
-     */
-    @Operation(summary = "根据演出ID获取场次列表", tags = {"演出场次-用户端"})
-    @GetMapping("/user/sessions/event/{eventId}")
-    @SaCheckLogin
-    public Result<List<EventSessionVO>> getSessionsByEventId(@PathVariable Long eventId) {
-        log.debug("根据演出ID查询场次，eventId: {}", eventId);
-
-        List<EventSessionVO> sessions = eventSessionService.getSessionsByEventId(eventId);
-        return Result.success("查询成功", sessions);
-    }
-
-    /**
-     * 根据状态获取场次列表（用户端）
-     */
-    @Operation(summary = "根据状态获取场次列表", tags = {"演出场次-用户端"})
-    @GetMapping("/user/sessions/status/{status}")
-    @SaCheckLogin
-    public Result<List<EventSessionVO>> getSessionsByStatus(@PathVariable Integer status) {
-        log.debug("根据状态查询场次，status: {}", status);
-
-        List<EventSessionVO> sessions = eventSessionService.getSessionsByStatus(status);
-        return Result.success("查询成功", sessions);
-    }
-
 
     // ==================== 管理端接口（需要管理员权限） ====================
 

@@ -2,6 +2,7 @@ package org.example.ticketmanagement.controller;
 
 import cn.dev33.satoken.annotation.SaCheckDisable;
 import cn.dev33.satoken.annotation.SaCheckLogin;
+import cn.dev33.satoken.stp.StpUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -69,10 +70,10 @@ public class HomeController {
     /**
      * 获取首页推荐
      * 逻辑：
-     * 1. 如果用户已登录 -> 从token获取用户ID -> 使用用户设置城市或IP定位
-     * 2. 如果传入了cityId -> 优先使用传入的城市
+     * 1. 如果用户已登录 -> 从 token 获取用户 ID -> 使用用户设置城市或 IP 定位
+     * 2. 如果传入了 cityId -> 优先使用传入的城市
      */
-    @Operation(summary = "根据用户ip智能获取首页推荐", tags = {"首页推荐-用户端"})
+    @Operation(summary = "根据用户 ip 智能获取首页推荐", tags = {"首页推荐 - 用户端"})
     @GetMapping("/user/home/recommend")
     @SaCheckLogin
     public Result<HomeRecommendVO> getHomeRecommend(
@@ -80,12 +81,11 @@ public class HomeController {
             @RequestParam(defaultValue = "4") Integer limit,
             HttpServletRequest request) {
 
-        log.info("首页推荐请求 - 路径: {}, cityId: {}, limit: {}",
+        log.info("首页推荐请求 - 路径：{}, cityId: {}, limit: {}",
                 request.getRequestURI(), cityId, limit);
 
         try {
-            // 从请求属性中获取用户ID（拦截器设置的）
-            Long userId = (Long) request.getAttribute("userId");
+            Long userId = StpUtil.getLoginIdAsLong();
 
             HomeRecommendVO result = homeService.getHomeRecommend(cityId, userId, request, limit);
 

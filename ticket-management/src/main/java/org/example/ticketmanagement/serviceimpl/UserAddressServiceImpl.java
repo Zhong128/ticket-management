@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -289,8 +290,44 @@ public class UserAddressServiceImpl implements UserAddressService {
      * Entity转VO
      */
     private UserAddressVO convertToVO(UserAddress entity) {
+        if (entity == null) {
+            return null;
+        }
+        
         UserAddressVO vo = new UserAddressVO();
+        
+        //复制基本属性
         BeanUtils.copyProperties(entity, vo);
+        
+        //拼接完整地址
+        String fullAddress = buildFullAddress(
+            entity.getProvince(),
+            entity.getCity(),
+            entity.getDistrict(),
+            entity.getDetailAddress()
+        );
+        vo.setFullAddress(fullAddress);
+        
+        //格式化时间（如果 VO 中有这个字段）
+        if (entity.getCreateTime() != null) {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            vo.setFormattedCreateTime(entity.getCreateTime().format(formatter));
+        }
+        
         return vo;
     }
+
+    /**
+     * 拼接完整地址
+     */
+    private String buildFullAddress(String province, String city, 
+                                    String district, String detailAddress) {
+        StringBuilder sb = new StringBuilder();
+        if (province != null) sb.append(province);
+        if (city != null) sb.append(city);
+        if (district != null) sb.append(district);
+        if (detailAddress != null) sb.append(detailAddress);
+        return sb.toString();
+    }
+
 }

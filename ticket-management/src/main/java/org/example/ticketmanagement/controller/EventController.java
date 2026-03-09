@@ -31,49 +31,18 @@ public class EventController {
     // ==================== 公共接口（无需登录） ====================
 
     /**
-     * 获取演出列表（公共接口）
-     * 可选参数：
-     * - status: 演出状态
-     * - categoryId: 分类ID
-     * - cityId: 城市ID
-     * - artistName: 艺人名称（模糊查询）
-     * - name: 演出名称（模糊查询）
+     * 分页查询演出列表
      */
-    @Operation(summary = "获取演出列表", tags = {"演出-公共接口"})
-    @GetMapping("/public/events")
-    public Result<List<EventVO>> getAllEvents(
-            @RequestParam(required = false) Integer status,
-            @RequestParam(required = false) Long categoryId,
-            @RequestParam(required = false) Long cityId,
-            @RequestParam(required = false) String artistName,
-            @RequestParam(required = false) String name) {
+    @Operation(summary = "分页查询演出列表", tags = {"演出-公共接口"})
+    @GetMapping("/public/events/page")
+    public Result<PageResult<EventVO>> getEventsByPage(
+            @Valid EventQueryDTO queryDTO) {
 
-        List<EventVO> events;
+        log.debug("分页查询演出列表，参数: {}", queryDTO);
 
-        if (artistName != null) {
-            log.debug("根据艺人名称模糊查询演出，artistName: {}", artistName);
-            events = eventService.searchEventsByArtistName(artistName);
-        } else if (name != null) {
-            log.debug("根据演出名称模糊查询演出，name: {}", name);
-            events = eventService.searchEventsByName(name);
-        } else if (categoryId != null && cityId != null) {
-            log.debug("根据分类和城市查询演出，categoryId: {}, cityId: {}", categoryId, cityId);
-            events = eventService.getEventsByCategoryAndCity(categoryId, cityId);
-        } else if (categoryId != null) {
-            log.debug("根据分类查询演出，categoryId: {}", categoryId);
-            events = eventService.getEventsByCategoryId(categoryId);
-        } else if (cityId != null) {
-            log.debug("根据城市查询演出，cityId: {}", cityId);
-            events = eventService.getEventsByCityId(cityId);
-        } else if (status != null) {
-            log.debug("根据状态查询演出，status: {}", status);
-            events = eventService.getEventsByStatus(status);
-        } else {
-            log.debug("查询所有演出列表");
-            events = eventService.getAllEvents();
-        }
-
-        return Result.success("查询成功", events);
+        // 调用分页查询方法
+        PageResult<EventVO> result = eventService.queryEvents(queryDTO);
+        return Result.success("查询成功", result);
     }
 
     /**
@@ -122,61 +91,6 @@ public class EventController {
         } else {
             return Result.error("演出不存在");
         }
-    }
-
-    /**
-     * 分页查询演出列表（用户端）
-     */
-    @Operation(summary = "分页查询演出列表", tags = {"演出-用户端"})
-    @GetMapping("/user/events/page")
-    @SaCheckLogin
-    public Result<PageResult<EventVO>> getEventsByPage(
-            @Valid EventQueryDTO queryDTO) {  // 直接接收DTO，而不是单独的参数
-        
-        log.debug("分页查询演出列表，参数: {}", queryDTO);
-        
-        // 调用分页查询方法
-        PageResult<EventVO> result = eventService.queryEvents(queryDTO);
-        return Result.success("查询成功", result);
-    }
-
-    /**
-     * 根据分类ID获取演出列表（用户端）
-     */
-    @Operation(summary = "根据分类获取演出列表", tags = {"演出-用户端"})
-    @GetMapping("/user/events/category/{categoryId}")
-    @SaCheckLogin
-    public Result<List<EventVO>> getEventsByCategoryId(@PathVariable Long categoryId) {
-        log.debug("根据分类ID查询演出列表，categoryId: {}", categoryId);
-
-        List<EventVO> events = eventService.getEventsByCategoryId(categoryId);
-        return Result.success("查询成功", events);
-    }
-
-    /**
-     * 根据城市ID获取演出列表（用户端）
-     */
-    @Operation(summary = "根据城市获取演出列表", tags = {"演出-用户端"})
-    @GetMapping("/user/events/city/{cityId}")
-    @SaCheckLogin
-    public Result<List<EventVO>> getEventsByCityId(@PathVariable Long cityId) {
-        log.debug("根据城市ID查询演出列表，cityId: {}", cityId);
-
-        List<EventVO> events = eventService.getEventsByCityId(cityId);
-        return Result.success("查询成功", events);
-    }
-
-    /**
-     * 根据状态获取演出列表（用户端）
-     */
-    @Operation(summary = "根据状态获取演出列表", tags = {"演出-用户端"})
-    @GetMapping("/user/events/status/{status}")
-    @SaCheckLogin
-    public Result<List<EventVO>> getEventsByStatus(@PathVariable Integer status) {
-        log.debug("根据状态查询演出列表，status: {}", status);
-
-        List<EventVO> events = eventService.getEventsByStatus(status);
-        return Result.success("查询成功", events);
     }
 
     // ==================== 管理端接口（需要管理员权限） ====================
@@ -253,7 +167,7 @@ public class EventController {
     /**
      * 5.分页查询演出列表（支持多条件筛选）
      */
-    @Operation(summary = "分页查询演出列表（多条件筛选）", tags = {"演出-管理端"})
+    @Operation(summary = "分页查询演出列表（管理端）", tags = {"演出-管理端"})
     @GetMapping("/admin/events/query")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<PageResult<EventVO>> queryEvents(@Valid EventQueryDTO queryDTO) {

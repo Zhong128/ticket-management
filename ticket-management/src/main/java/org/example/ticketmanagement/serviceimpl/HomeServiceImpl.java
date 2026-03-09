@@ -96,10 +96,6 @@ public class HomeServiceImpl implements HomeService {
         return result;
     }
 
-    @Override
-    public HomeRecommendVO getHomeRecommend(Long cityId, HttpServletRequest request, Integer limit) {
-        return getHomeRecommend(cityId, null, request, limit);
-    }
 
     @Override
     public HomeRecommendVO getHomeRecommendByCityId(Long cityId, Integer limit) {

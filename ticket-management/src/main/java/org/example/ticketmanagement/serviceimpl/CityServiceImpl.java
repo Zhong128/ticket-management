@@ -153,24 +153,6 @@ public class CityServiceImpl implements CityService {
     }
 
     @Override
-    public List<CityVO> getCitiesByStatus(Integer status) {
-        log.debug("根据状态查询城市，status: {}", status);
-        List<City> cities = cityMapper.selectByStatus(status);
-        return cities.stream()
-                .map(this::convertToVO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<CityVO> getCitiesByHotLevel(Integer hotLevel) {
-        log.debug("根据热门等级查询城市，hotLevel: {}", hotLevel);
-        List<City> cities = cityMapper.selectByHotLevel(hotLevel);
-        return cities.stream()
-                .map(this::convertToVO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
     public PageResult<CityVO> queryCities(CityQueryDTO queryDTO) {
         log.debug("分页查询城市，参数: {}", queryDTO);
 

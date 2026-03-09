@@ -51,14 +51,24 @@ public interface PaymentService {
     boolean closePayment(String paymentNo);
 
     /**
-     * 处理掉单补偿
+     * 【核心】处理超时订单（延迟队列兜底）
+     * @param timeoutMinutes 超时时间（分钟）
+     * @return 处理的订单数量
      */
-    void processCompensation();
+    int processTimeoutOrders(int timeoutMinutes);
 
     /**
-     * 处理超时关单
+     * 【补偿】处理支付状态不一致的订单（支付宝回调兜底）
+     * @param waitingMinutes 等待时间（分钟）
+     * @return 补偿的订单数量
      */
-    void processTimeoutClose();
+    int processCompensation(int waitingMinutes);
 
+    /**
+     * 【清理】清理过期的支付记录
+     * @param daysToKeep 保留天数
+     * @return 清理的记录数
+     */
+    int cleanExpiredPayments(int daysToKeep);
 
 }

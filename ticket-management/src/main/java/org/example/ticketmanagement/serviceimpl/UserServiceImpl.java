@@ -12,6 +12,9 @@ import org.example.ticketmanagement.pojo.UserAddress;
 import org.example.ticketmanagement.pojo.UserQuery;
 import org.example.ticketmanagement.service.OrderService;
 import org.example.ticketmanagement.service.UserService;
+import org.example.ticketmanagement.dto.UserDTO;
+import org.example.ticketmanagement.vo.UserVO;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -21,6 +24,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -159,13 +163,13 @@ public class UserServiceImpl implements UserService {
 
 
     @Override
-    public PageResult<User> listUsers(UserQuery query) {
-        log.debug("分页查询用户，参数: {}", query);
+    public PageResult<UserVO> listUsers(UserQuery query) {
+        log.debug("分页查询用户，参数：{}", query);
 
         try {
             // 验证分页参数
             if (!query.validate()) {
-                log.warn("分页查询用户失败，分页参数不合法: {}", query);
+                log.warn("分页查询用户失败，分页参数不合法：{}", query);
                 throw new IllegalArgumentException("分页参数不合法");
             }
 
@@ -175,23 +179,37 @@ public class UserServiceImpl implements UserService {
             // 查询总数
             Long total = userMapper.countUsers(query);
 
-            // 计算有效页码（防止请求超出范围的页码）
+            // 计算有效页码
             int maxPage = (int) Math.ceil((double) total / query.getSize());
             if (query.getPage() > maxPage && maxPage > 0) {
                 query.setPage(maxPage);
                 users = userMapper.selectUsersByPage(query);
             }
 
-            log.debug("查询到用户总数: {}, 当前页数量: {}", total, users.size());
-            return new PageResult<>(users, total, query);
+            log.debug("查询到用户总数：{}, 当前页数量：{}", total, users.size());
+
+            List<UserVO> voList = users.stream()
+                    .map(this::convertToVO)
+                    .collect(Collectors.toList());
+
+            return PageResult.success(voList, total, query);
 
         } catch (IllegalArgumentException e) {
-            log.warn("分页查询用户参数错误: {}", e.getMessage());
+            log.warn("分页查询用户参数错误：{}", e.getMessage());
             throw e;
         } catch (Exception e) {
-            log.error("分页查询用户失败: {}", e.getMessage(), e);
+            log.error("分页查询用户失败：{}", e.getMessage(), e);
             throw new RuntimeException("查询用户列表失败");
         }
+    }
+
+    /**
+     * 将 User 实体转换为 UserVO
+     */
+    private UserVO convertToVO(User user) {
+        UserVO vo = new UserVO();
+        BeanUtils.copyProperties(user, vo);
+        return vo;
     }
 
     @Override
@@ -233,7 +251,7 @@ public class UserServiceImpl implements UserService {
                 checkUserBusinessConstraints(userId);
             }
 
-            // 批量删除 - 由于Mapper没有批量删除方法，我们循环删除
+            // 批量删除 - 采用for循环
             int deletedCount = 0;
             for (Long id : ids) {
                 userMapper.deleteUserById(id);
@@ -271,7 +289,7 @@ public class UserServiceImpl implements UserService {
         log.info("批量修改用户状态，ID列表: {}, 状态: {}", ids, status);
 
         try {
-            // 检查所有用户是否存在
+            // 检查所有用户是否存在或者否是管理员账户，如果是给出警告，不能修改
             List<String> notExistIds = new ArrayList<>();
             List<String> adminIds = new ArrayList<>();
 
@@ -294,7 +312,7 @@ public class UserServiceImpl implements UserService {
                 throw new RuntimeException("不能禁用管理员账户: " + String.join(",", adminIds));
             }
 
-            // 批量更新状态 - 由于Mapper没有批量更新方法，我们循环更新
+            // 批量更新状态 -采用增强for循环
             int updatedCount = 0;
             for (Long id : ids) {
                 User user = userMapper.getUserById(id);
@@ -318,30 +336,6 @@ public class UserServiceImpl implements UserService {
         } catch (Exception e) {
             log.error("批量修改用户状态异常: {}", e.getMessage(), e);
             throw new RuntimeException("批量修改用户状态失败");
-        }
-    }
-
-    @Override
-    public boolean isUsernameExists(String username) {
-        try {
-            boolean exists = userMapper.getUserByUsername(username) != null;
-            log.debug("检查用户名是否存在，username: {}, 结果: {}", username, exists);
-            return exists;
-        } catch (Exception e) {
-            log.error("检查用户名是否存在失败，username: {}", username, e);
-            throw new RuntimeException("检查用户名是否存在失败");
-        }
-    }
-
-    @Override
-    public boolean isEmailExists(String email) {
-        try {
-            boolean exists = userMapper.getUserByEmail(email) != null;
-            log.debug("检查邮箱是否存在，email: {}, 结果: {}", email, exists);
-            return exists;
-        } catch (Exception e) {
-            log.error("检查邮箱是否存在失败，email: {}", email, e);
-            throw new RuntimeException("检查邮箱是否存在失败");
         }
     }
 

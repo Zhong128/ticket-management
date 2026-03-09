@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/constant/OrderConstant.java
 package org.example.ticketmanagement.constant;
 
 /**
@@ -22,11 +21,6 @@ public class OrderConstant {
     public static final String ORDER_STATUS_CANCELED_DESC = "已取消";
     public static final String ORDER_STATUS_COMPLETED_DESC = "已完成";
 
-    /**
-     * 默认分页大小
-     */
-    public static final int DEFAULT_PAGE_SIZE = 10;
-    public static final int MAX_PAGE_SIZE = 100;
 
     /**
      * 订单超时时间（分钟）
@@ -38,17 +32,12 @@ public class OrderConstant {
      */
     public static String getStatusDesc(Integer status) {
         if (status == null) return "未知";
-        switch (status) {
-            case ORDER_STATUS_PENDING:
-                return ORDER_STATUS_PENDING_DESC;
-            case ORDER_STATUS_PAID:
-                return ORDER_STATUS_PAID_DESC;
-            case ORDER_STATUS_CANCELED:
-                return ORDER_STATUS_CANCELED_DESC;
-            case ORDER_STATUS_COMPLETED:
-                return ORDER_STATUS_COMPLETED_DESC;
-            default:
-                return "未知";
-        }
+        return switch (status) {
+            case ORDER_STATUS_PENDING -> ORDER_STATUS_PENDING_DESC;
+            case ORDER_STATUS_PAID -> ORDER_STATUS_PAID_DESC;
+            case ORDER_STATUS_CANCELED -> ORDER_STATUS_CANCELED_DESC;
+            case ORDER_STATUS_COMPLETED -> ORDER_STATUS_COMPLETED_DESC;
+            default -> "未知";
+        };
     }
 }

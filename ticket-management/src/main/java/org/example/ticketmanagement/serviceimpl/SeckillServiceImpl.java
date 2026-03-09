@@ -24,6 +24,7 @@ import org.example.ticketmanagement.vo.SeckillResultVO;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.concurrent.CompletableFuture;
 
 
 @Slf4j
@@ -63,7 +64,7 @@ public class SeckillServiceImpl implements SeckillService {
     }
 
     /**
-     * 执行抢票核心逻辑（优化版：缩小锁范围）
+     * 抢票核心逻辑
      */
     private SeckillResultVO doSeckill(Long userId, Long tierId, Integer quantity) {
         // ========== 锁外预检查（不持有锁）==========
@@ -93,7 +94,7 @@ public class SeckillServiceImpl implements SeckillService {
         
         LocalDateTime now = LocalDateTime.now();
         if (event.getSaleStartTime() != null && event.getSaleStartTime().isAfter(now)) {
-            return SeckillResultVO.fail("抢票尚未开始");
+            return SeckillResultVO.fail(SeckillConstant.ERROR_SESSION_NOT_ON_SALE);
         }
         if (event.getSaleEndTime() != null && event.getSaleEndTime().isBefore(now)) {
             return SeckillResultVO.fail("抢票已结束");
@@ -125,7 +126,7 @@ public class SeckillServiceImpl implements SeckillService {
             // 10. 发送消息到 RabbitMQ，异步创建订单
             rabbitMQUtil.sendSeckillOrderMessage(message);
 
-            // 11. 【优化】邮件发送移到锁外（异步发送，不阻塞）
+            // 11. 【关键修改】异步发送邮件（不阻塞主线程）
             sendSuccessEmailAsync(userId, message, event, session, ticketTier);
 
             // 12. 返回抢票成功结果
@@ -151,20 +152,40 @@ public class SeckillServiceImpl implements SeckillService {
     }
 
     /**
-     * 异步发送邮件（不阻塞主流程）
+     * 【关键修改】异步发送邮件（使用线程池，不阻塞主线程）
      */
     private void sendSuccessEmailAsync(Long userId, SeckillMessageDTO message, 
                                        Event event, EventSession session, TicketTier ticketTier) {
+        // ✅ 使用异步线程池发送邮件
+        CompletableFuture.runAsync(() -> {
+            try {
+                sendSuccessEmail(userId, message, event, session, ticketTier);
+            } catch (Exception e) {
+                log.error("异步发送抢票成功邮件异常：userId={}", userId, e);
+                // 邮件发送失败不影响抢票流程
+            }
+        });
+    }
+
+    /**
+     * 同步发送邮件方法（供异步线程调用）
+     */
+    private void sendSuccessEmail(Long userId, SeckillMessageDTO message, 
+                                  Event event, EventSession session, TicketTier ticketTier) {
         try {
             User user = userMapper.getUserById(userId);
             if (user == null) {
                 log.warn("用户不存在，无法发送邮件：userId={}", userId);
                 return;
             }
-            
+
+            // 调用 EmailService 的封装方法
             emailService.sendSeckillSuccessEmail(user, message, event, session, ticketTier);
+            
+            log.info("抢票成功邮件发送完成：userId={}, email={}", userId, user.getEmail());
         } catch (Exception e) {
-            log.error("异步发送抢票成功邮件异常：userId={}", userId, e);
+            log.error("发送抢票成功邮件异常：userId={}", userId, e);
+            // 邮件发送失败不影响抢票流程
         }
     }
 
@@ -215,17 +236,6 @@ public class SeckillServiceImpl implements SeckillService {
     }
 
     @Override
-    public boolean preDeductStock(Long tierId, Integer quantity) {
-        Long result = stockService.decrStock(tierId, quantity);
-        return result != null && result >= 0;
-    }
-
-    @Override
-    public void restoreStock(Long tierId, Integer quantity) {
-        stockService.restoreStock(tierId, quantity);
-    }
-
-    @Override
     public Integer getRealTimeStock(Long tierId) {
         return stockService.getStock(tierId);
     }
@@ -254,25 +264,5 @@ public class SeckillServiceImpl implements SeckillService {
         message.setTimestamp(System.currentTimeMillis());
 
         return message;
-    }
-
-    /**
-     * 发送抢票成功通知邮件（调用 EmailService 的封装方法）
-     */
-    private void sendSuccessEmail(Long userId, SeckillMessageDTO message, 
-                                  Event event, EventSession session, TicketTier ticketTier) {
-        try {
-            User user = userMapper.getUserById(userId);
-            if (user == null) {
-                log.warn("用户不存在，无法发送邮件：userId={}", userId);
-                return;
-            }
-
-            // 调用 EmailService 的封装方法
-            emailService.sendSeckillSuccessEmail(user, message, event, session, ticketTier);
-        } catch (Exception e) {
-            log.error("发送抢票成功邮件异常：userId={}", userId, e);
-            // 邮件发送失败不影响抢票流程
-        }
     }
 }

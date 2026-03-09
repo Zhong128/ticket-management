@@ -2,11 +2,12 @@
 package org.example.ticketmanagement.service;
 
 import org.example.ticketmanagement.dto.TicketTierDTO;
+import org.example.ticketmanagement.dto.TicketTierQueryDTO;
+import org.example.ticketmanagement.pojo.PageResult;
 import org.example.ticketmanagement.vo.StockStatisticsVO;
 import org.example.ticketmanagement.vo.TicketStockVO;
 import org.example.ticketmanagement.vo.TicketTierVO;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 public interface TicketTierService {
@@ -47,51 +48,6 @@ public interface TicketTierService {
     List<TicketTierVO> getAllTicketTiers();
 
     /**
-     * 根据状态查询票档列表
-     * @param status 状态 (0-禁用，1-启用)
-     * @return 符合条件的票档列表
-     */
-    List<TicketTierVO> getTicketTiersByStatus(Integer status);
-
-    /**
-     * 根据演出ID查询票档列表
-     * @param eventId 演出ID
-     * @return 该演出的所有票档列表
-     */
-    List<TicketTierVO> getTicketTiersByEventId(Long eventId);
-
-    /**
-     * 根据场次ID查询票档列表
-     * @param sessionId 场次ID
-     * @return 该场次的所有票档列表
-     */
-    List<TicketTierVO> getTicketTiersBySessionId(Long sessionId);
-
-    /**
-     * 根据演出ID和状态查询票档列表
-     * @param eventId 演出ID
-     * @param status 状态 (0-禁用，1-启用)
-     * @return 符合条件的票档列表
-     */
-    List<TicketTierVO> getTicketTiersByEventIdAndStatus(Long eventId, Integer status);
-
-    /**
-     * 根据场次ID和状态查询票档列表
-     * @param sessionId 场次ID
-     * @param status 状态 (0-禁用，1-启用)
-     * @return 符合条件的票档列表
-     */
-    List<TicketTierVO> getTicketTiersBySessionIdAndStatus(Long sessionId, Integer status);
-
-    /**
-     * 根据价格范围查询票档列表
-     * @param minPrice 最低价格
-     * @param maxPrice 最高价格
-     * @param status 状态 (1-启用)
-     * @return 符合条件的票档列表
-     */
-    List<TicketTierVO> getTicketTiersByPriceRange(BigDecimal minPrice, BigDecimal maxPrice, Integer status);
-    /**
      * 获取票档库存信息（用户端）
      * @param sessionId 场次ID
      * @return 库存信息视图对象
@@ -127,4 +83,9 @@ public interface TicketTierService {
      * @return 库存统计视图对象
      */
     StockStatisticsVO getStockStatistics(Long eventId, Long sessionId, Long tierId);
+
+    /**
+     * 分页查询票档（动态条件）
+     */
+    PageResult<TicketTierVO> queryTicketTiers(TicketTierQueryDTO queryDTO);
 }

@@ -99,7 +99,7 @@ public class IpLocationUtil {
     }
 
     /**
-     * 获取客户端真实IP（增强版）
+     * 获取客户端真实IP
      */
     public String getClientIp(HttpServletRequest request) {
         // 开发环境模拟

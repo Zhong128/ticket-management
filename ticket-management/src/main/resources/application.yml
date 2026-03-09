@@ -221,3 +221,4 @@ alipay:
   charset: UTF-8
   # 支付超时时间（分钟）
   timeout-minutes: 30
+

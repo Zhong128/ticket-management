@@ -115,15 +115,6 @@ public class EventCategoryServiceImpl implements EventCategoryService {
         return convertToVO(category);
     }
 
-    @Override
-    public List<EventCategoryVO> getAllCategories() {
-        log.debug("查询所有演出分类列表");
-        List<EventCategory> categories = eventCategoryMapper.selectAll();
-        // 使用Stream API将Entity列表转换为VO列表
-        return categories.stream()
-                .map(this::convertToVO)
-                .collect(Collectors.toList());
-    }
 
     @Override
     public List<EventCategoryVO> getCategoriesByStatus(Integer status) {
@@ -138,42 +129,48 @@ public class EventCategoryServiceImpl implements EventCategoryService {
 
     @Override
     public PageResult<EventCategoryVO> queryCategories(EventCategoryQueryDTO queryDTO) {
-        log.debug("分页查询分类，参数: {}", queryDTO);
+        log.debug("分页查询分类，参数：{}", queryDTO);
 
         // 1. 参数校验
         if (!queryDTO.validate()) {
-            log.warn("分页参数无效: page={}, size={}", queryDTO.getPage(), queryDTO.getSize());
+            log.warn("分页参数无效：page={}, size={}", queryDTO.getPage(), queryDTO.getSize());
             queryDTO.setPage(1);
             queryDTO.setSize(10);
         }
 
-        // 2. 查询总记录数
-        Long total = eventCategoryMapper.countByCondition(queryDTO);
-        log.debug("查询到符合条件的分类总数: {}", total);
+        // 2. 如果未指定 status，默认为 1（启用状态）
+        if (queryDTO.getStatus() == null) {
+            queryDTO.setStatus(1);
+            log.debug("未指定 status 参数，默认查询启用状态 (status=1)");
+        }
 
-        // 3. 如果没有数据，直接返回空结果
+        // 3. 查询总记录数
+        Long total = eventCategoryMapper.countByCondition(queryDTO);
+        log.debug("查询到符合条件的分类总数：{}", total);
+
+        // 4. 如果没有数据，直接返回空结果
         if (total == 0) {
             log.debug("未找到符合条件的分类");
             return PageResult.empty(queryDTO);
         }
 
-        // 4. 计算有效页码
+        // 5. 计算有效页码
         int maxPage = (int) Math.ceil((double) total / queryDTO.getSize());
         if (queryDTO.getPage() > maxPage) {
             log.debug("请求页码 {} 超出范围，调整为最大页码 {}", queryDTO.getPage(), maxPage);
             queryDTO.setPage(maxPage);
         }
 
-        // 5. 分页查询数据
+        // 6. 分页查询数据
         List<EventCategory> categories = eventCategoryMapper.selectByCondition(queryDTO);
-        log.debug("查询到当前页分类数量: {}", categories.size());
+        log.debug("查询到当前页分类数量：{}", categories.size());
 
-        // 6. 转换为VO
+        // 7. 转换为 VO
         List<EventCategoryVO> voList = categories.stream()
                 .map(this::convertToVO)
                 .collect(Collectors.toList());
 
-        // 7. 返回分页结果
+        // 8. 返回分页结果
         return PageResult.success(voList, total, queryDTO);
     }
 

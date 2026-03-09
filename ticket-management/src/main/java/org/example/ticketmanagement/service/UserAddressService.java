@@ -18,11 +18,6 @@ public interface UserAddressService {
     UserAddressVO getUserAddressById(Long id);
 
     /**
-     * 检查是否存在重复的收货地址
-     */
-//    boolean isDuplicateAddress(UserAddressDTO userAddressDTO);
-
-    /**
      * 新增收货地址
      */
     boolean addUserAddress(UserAddressDTO userAddressDTO);

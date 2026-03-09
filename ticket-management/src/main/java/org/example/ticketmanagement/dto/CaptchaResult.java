@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/dto/CaptchaResult.java
 package org.example.ticketmanagement.dto;
 
 import lombok.Data;

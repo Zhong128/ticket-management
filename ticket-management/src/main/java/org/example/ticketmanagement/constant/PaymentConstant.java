@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/constant/PaymentConstant.java
 package org.example.ticketmanagement.constant;
 
 /**
@@ -40,13 +39,6 @@ public class PaymentConstant {
     public static final String ALIPAY_TRADE_SUCCESS = "TRADE_SUCCESS";            // 交易支付成功
     public static final String ALIPAY_TRADE_FINISHED = "TRADE_FINISHED";          // 交易结束，不可退款
 
-    /**
-     * 补偿任务状态
-     */
-    public static final int COMPENSATION_STATUS_PENDING = 0;   // 待处理
-    public static final int COMPENSATION_STATUS_PROCESSING = 1;// 处理中
-    public static final int COMPENSATION_STATUS_SUCCESS = 2;   // 处理成功
-    public static final int COMPENSATION_STATUS_FAILED = 3;    // 处理失败
 
     // ==================== RabbitMQ相关常量 ====================
 
@@ -59,30 +51,21 @@ public class PaymentConstant {
     public static final String PAYMENT_TIMEOUT_EXCHANGE = "payment.timeout.exchange";
     public static final String PAYMENT_TIMEOUT_QUEUE = "payment.timeout.queue";
     public static final String PAYMENT_TIMEOUT_ROUTING_KEY = "payment.timeout";
-    public static final int PAYMENT_TIMEOUT_DELAY = 2 * 60 * 1000; // 30分钟，单位毫秒
-
-    // 支付补偿队列
-    public static final String PAYMENT_COMPENSATION_EXCHANGE = "payment.compensation.exchange";
-    public static final String PAYMENT_COMPENSATION_QUEUE = "payment.compensation.queue";
-    public static final String PAYMENT_COMPENSATION_ROUTING_KEY = "payment.compensation";
-
-    // ==================== 其他常量 ====================
-    public static final int MAX_COMPENSATION_RETRY = 3;     // 最大补偿重试次数
-    public static final int COMPENSATION_BATCH_SIZE = 100;  // 补偿批量处理数量
+    public static final int PAYMENT_TIMEOUT_DELAY = 30 * 60 * 1000; // 30分钟，单位毫秒
 
     /**
      * 根据状态码获取描述
      */
     public static String getPayStatusDesc(Integer status) {
         if (status == null) return "未知";
-        switch (status) {
-            case PAY_STATUS_WAITING: return PAY_STATUS_WAITING_DESC;
-            case PAY_STATUS_PROCESSING: return PAY_STATUS_PROCESSING_DESC;
-            case PAY_STATUS_SUCCESS: return PAY_STATUS_SUCCESS_DESC;
-            case PAY_STATUS_FAILED: return PAY_STATUS_FAILED_DESC;
-            case PAY_STATUS_CLOSED: return PAY_STATUS_CLOSED_DESC;
-            case PAY_STATUS_REFUNDED: return PAY_STATUS_REFUNDED_DESC;
-            default: return "未知";
-        }
+        return switch (status) {
+            case PAY_STATUS_WAITING -> PAY_STATUS_WAITING_DESC;
+            case PAY_STATUS_PROCESSING -> PAY_STATUS_PROCESSING_DESC;
+            case PAY_STATUS_SUCCESS -> PAY_STATUS_SUCCESS_DESC;
+            case PAY_STATUS_FAILED -> PAY_STATUS_FAILED_DESC;
+            case PAY_STATUS_CLOSED -> PAY_STATUS_CLOSED_DESC;
+            case PAY_STATUS_REFUNDED -> PAY_STATUS_REFUNDED_DESC;
+            default -> "未知";
+        };
     }
 }

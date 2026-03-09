@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/mapper/PaymentRecordMapper.java
 package org.example.ticketmanagement.mapper;
 
 import org.apache.ibatis.annotations.*;
@@ -92,4 +91,26 @@ public interface PaymentRecordMapper {
             "AND c.id IS NULL LIMIT #{limit}")
     @ResultMap("paymentResultMap")
     List<PaymentRecord> selectNeedCompensation(@Param("limit") Integer limit);
+
+    /**
+     * 【新增】查询待支付超过指定时间的订单（用于补偿）
+     */
+    @Select("SELECT * FROM payment_record " +
+            "WHERE pay_status = 0 " +
+            "AND create_time < DATE_SUB(NOW(), INTERVAL #{waitingMinutes} MINUTE) " +
+            "ORDER BY create_time ASC " +
+            "LIMIT #{limit}")
+    @ResultMap("paymentResultMap")
+    List<PaymentRecord> selectWaitingPayments(
+        @Param("waitingMinutes") int waitingMinutes, 
+        @Param("limit") int limit
+    );
+
+    /**
+     * 【新增】清理过期的支付记录
+     */
+    @Delete("DELETE FROM payment_record " +
+            "WHERE pay_status IN (2, 3) " +  // 已关闭或已取消
+            "AND update_time < DATE_SUB(NOW(), INTERVAL #{daysToKeep} DAY)")
+    int cleanExpiredPayments(@Param("daysToKeep") int daysToKeep);
 }

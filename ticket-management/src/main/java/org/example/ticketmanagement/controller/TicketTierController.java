@@ -9,6 +9,8 @@ import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.constant.RoleConstant;
 import org.example.ticketmanagement.dto.TicketTierDTO;
+import org.example.ticketmanagement.dto.TicketTierQueryDTO;
+import org.example.ticketmanagement.pojo.PageResult;
 import org.example.ticketmanagement.pojo.Result;
 import org.example.ticketmanagement.service.TicketTierService;
 import org.example.ticketmanagement.vo.StockStatisticsVO;
@@ -31,85 +33,44 @@ public class TicketTierController {
 
 
     // ==================== 公共接口（无需登录） ====================
-
     /**
-     * 获取票档列表（公共接口）
+     * 分页查询票档列表
+     * 默认查询 status=1 的启用状态票档
      * 可选参数：
-     * - status: 状态 (0-禁用，1-启用)
-     * - eventId: 演出ID
-     * - sessionId: 场次ID
+     * - eventId: 演出 ID
+     * - sessionId: 场次 ID
      * - minPrice: 最低价格
      * - maxPrice: 最高价格
      */
-    @Operation(summary = "获取票档列表", tags = {"票档-公共接口"})
-    @GetMapping("/public/ticket-tiers")
-    public Result<List<TicketTierVO>> getAllTicketTiers(
-            @RequestParam(required = false) Integer status,
+    @Operation(summary = "分页查询票档列表", tags = {"票档 - 公共接口"})
+    @GetMapping("/public/ticket-tiers/page")
+    @SaCheckLogin
+    public Result<PageResult<TicketTierVO>> getTicketTiersByPage(
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer size,
             @RequestParam(required = false) Long eventId,
             @RequestParam(required = false) Long sessionId,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice) {
 
-        List<TicketTierVO> ticketTiers;
+        log.debug("分页查询票档，page: {}, size: {}, eventId: {}, sessionId: {}, minPrice: {}, maxPrice: {}",
+                page, size, eventId, sessionId, minPrice, maxPrice);
 
-        if (eventId != null && status != null && sessionId != null) {
-            // 根据演出ID、场次ID和状态查询
-            log.debug("根据演出ID、场次ID和状态查询票档，eventId: {}, sessionId: {}, status: {}", eventId, sessionId, status);
-            ticketTiers = ticketTierService.getTicketTiersBySessionIdAndStatus(sessionId, status);
-        } else if (eventId != null && status != null) {
-            log.debug("根据演出ID和状态查询票档，eventId: {}, status: {}", eventId, status);
-            ticketTiers = ticketTierService.getTicketTiersByEventIdAndStatus(eventId, status);
-        } else if (sessionId != null && status != null) {
-            log.debug("根据场次ID和状态查询票档，sessionId: {}, status: {}", sessionId, status);
-            ticketTiers = ticketTierService.getTicketTiersBySessionIdAndStatus(sessionId, status);
-        } else if (minPrice != null && maxPrice != null) {
-            log.debug("根据价格范围查询票档，minPrice: {}, maxPrice: {}", minPrice, maxPrice);
-            // 默认查询启用状态的票档
-            Integer queryStatus = (status != null) ? status : 1;
-            ticketTiers = ticketTierService.getTicketTiersByPriceRange(minPrice, maxPrice, queryStatus);
-        } else if (eventId != null) {
-            log.debug("根据演出ID查询票档，eventId: {}", eventId);
-            ticketTiers = ticketTierService.getTicketTiersByEventId(eventId);
-        } else if (sessionId != null) {
-            log.debug("根据场次ID查询票档，sessionId: {}", sessionId);
-            ticketTiers = ticketTierService.getTicketTiersBySessionId(sessionId);
-        } else if (status != null) {
-            log.debug("根据状态查询票档，status: {}", status);
-            ticketTiers = ticketTierService.getTicketTiersByStatus(status);
-        } else {
-            log.debug("查询所有票档列表");
-            ticketTiers = ticketTierService.getAllTicketTiers();
-        }
+        // 构建查询参数
+        TicketTierQueryDTO queryDTO = new TicketTierQueryDTO();
+        queryDTO.setPage(page);
+        queryDTO.setSize(size);
+        queryDTO.setEventId(eventId);
+        queryDTO.setSessionId(sessionId);
+        queryDTO.setStatus(1);  // 固定查询启用状态
+        queryDTO.setMinPrice(minPrice);
+        queryDTO.setMaxPrice(maxPrice);
 
-        return Result.success("查询成功", ticketTiers);
+        // 调用统一的分页查询方法
+        PageResult<TicketTierVO> result = ticketTierService.queryTicketTiers(queryDTO);
+        return Result.success("查询成功", result);
     }
 
-    /**
-     * 根据价格范围查询票档列表（公共接口）
-     * 参数：
-     * - minPrice: 最低价格（必填）
-     * - maxPrice: 最高价格（必填）
-     * - status: 状态 (1-启用，默认1)
-     */
-    @Operation(summary = "根据价格范围查询票档列表", tags = {"票档-公共接口"})
-    @GetMapping("/public/ticket-tiers/price-range")
-    public Result<List<TicketTierVO>> getTicketTiersByPriceRange(
-            @RequestParam BigDecimal minPrice,
-            @RequestParam BigDecimal maxPrice,
-            @RequestParam(defaultValue = "1") Integer status) {
-        log.debug("根据价格范围查询票档，minPrice: {}, maxPrice: {}, status: {}", minPrice, maxPrice, status);
-
-        // 参数校验
-        if (minPrice.compareTo(BigDecimal.ZERO) < 0 || maxPrice.compareTo(BigDecimal.ZERO) < 0) {
-            return Result.error("价格不能为负数");
-        }
-        if (minPrice.compareTo(maxPrice) > 0) {
-            return Result.error("最低价格不能大于最高价格");
-        }
-
-        List<TicketTierVO> ticketTiers = ticketTierService.getTicketTiersByPriceRange(minPrice, maxPrice, status);
-        return Result.success("查询成功", ticketTiers);
-    }
 
     // ==================== 用户端接口（需要登录） ====================
 
@@ -130,52 +91,14 @@ public class TicketTierController {
         }
     }
 
-    /**
-     * 根据演出ID查询票档列表（用户端）
-     */
-    @Operation(summary = "根据演出ID查询票档列表", tags = {"票档-用户端"})
-    @GetMapping("/user/ticket-tiers/event/{eventId}")
-    @SaCheckLogin
-    public Result<List<TicketTierVO>> getTicketTiersByEventId(@PathVariable Long eventId) {
-        log.debug("根据演出ID查询票档，eventId: {}", eventId);
-
-        List<TicketTierVO> ticketTiers = ticketTierService.getTicketTiersByEventId(eventId);
-        return Result.success("查询成功", ticketTiers);
-    }
-
-    /**
-     * 根据场次ID查询票档列表（用户端）
-     */
-    @Operation(summary = "根据场次ID查询票档列表", tags = {"票档-用户端"})
-    @GetMapping("/user/ticket-tiers/session/{sessionId}")
-    @SaCheckLogin
-    public Result<List<TicketTierVO>> getTicketTiersBySessionId(@PathVariable Long sessionId) {
-        log.debug("根据场次ID查询票档，sessionId: {}", sessionId);
-
-        List<TicketTierVO> ticketTiers = ticketTierService.getTicketTiersBySessionId(sessionId);
-        return Result.success("查询成功", ticketTiers);
-    }
-
-    /**
-     * 根据状态查询票档列表（用户端）
-     */
-    @Operation(summary = "根据状态查询票档列表", tags = {"票档-用户端"})
-    @GetMapping("/user/ticket-tiers/status/{status}")
-    @SaCheckLogin
-    public Result<List<TicketTierVO>> getTicketTiersByStatus(@PathVariable Integer status) {
-        log.debug("根据状态查询票档，status: {}", status);
-
-        List<TicketTierVO> ticketTiers = ticketTierService.getTicketTiersByStatus(status);
-        return Result.success("查询成功", ticketTiers);
-    }
 
     /**
      * 获取票档库存信息（客户端）
      * 参数：
-     * - eventId: 演出ID
-     * - sessionId: 场次ID
+     * - eventId: 演出 ID
+     * - sessionId: 场次 ID
      */
-    @Operation(summary = "获取票档库存信息", tags = {"票档-用户端"})
+    @Operation(summary = "获取票档库存信息", tags = {"票档 - 用户端"})
     @GetMapping("/user/ticket-tiers/stock")
     @SaCheckLogin
     public Result<TicketStockVO> getTicketStock(
@@ -199,7 +122,7 @@ public class TicketTierController {
                 return Result.error("演出不存在");
             }
         } else {
-            return Result.error("请提供演出ID或场次ID");
+            return Result.error("请提供演出 ID 或场次 ID");
         }
     }
 
@@ -301,61 +224,43 @@ public class TicketTierController {
     }
 
     /**
-     * 根据演出ID查询票档列表（管理端）
+     * 分页查询票档列表（管理端）
+     * 可选参数：
+     * - eventId: 演出 ID
+     * - sessionId: 场次 ID
+     * - status: 状态 (0-禁用，1-启用)
+     * - minPrice: 最低价格
+     * - maxPrice: 最高价格
      */
-    @Operation(summary = "根据演出ID查询票档列表", tags = {"票档-管理端"})
-    @GetMapping("/admin/ticket-tiers/event/{eventId}")
+    @Operation(summary = "分页查询票档列表(管理端)", tags = {"票档 - 管理端"})
+    @GetMapping("/admin/ticket-tiers/page")
     @SaCheckRole(RoleConstant.ADMIN)
-    public Result<List<TicketTierVO>> AdminGetTicketTiersByEventId(@PathVariable Long eventId) {
-        log.debug("根据演出ID查询票档，eventId: {}", eventId);
+    public Result<PageResult<TicketTierVO>> getTicketTiersByPage(
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer size,
+            @RequestParam(required = false) Long eventId,
+            @RequestParam(required = false) Long sessionId,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice) {
 
-        List<TicketTierVO> ticketTiers = ticketTierService.getTicketTiersByEventId(eventId);
-        return Result.success("查询成功", ticketTiers);
+        log.debug("管理端分页查询票档，page: {}, size: {}, eventId: {}, sessionId: {}, status: {}, minPrice: {}, maxPrice: {}",
+                page, size, eventId, sessionId, status, minPrice, maxPrice);
+
+        // 构建查询参数
+        TicketTierQueryDTO queryDTO = new TicketTierQueryDTO();
+        queryDTO.setPage(page);
+        queryDTO.setSize(size);
+        queryDTO.setEventId(eventId);
+        queryDTO.setSessionId(sessionId);
+        queryDTO.setStatus(status);
+        queryDTO.setMinPrice(minPrice);
+        queryDTO.setMaxPrice(maxPrice);
+
+        // 调用统一的分页查询方法
+        PageResult<TicketTierVO> result = ticketTierService.queryTicketTiers(queryDTO);
+        return Result.success("查询成功", result);
     }
-
-    /**
-     * 根据场次ID查询票档列表（管理端）
-     */
-    @Operation(summary = "根据场次ID查询票档列表", tags = {"票档-管理端"})
-    @GetMapping("/admin/ticket-tiers/session/{sessionId}")
-    @SaCheckRole(RoleConstant.ADMIN)
-    public Result<List<TicketTierVO>> AdminGetTicketTiersBySessionId(@PathVariable Long sessionId) {
-        log.debug("根据场次ID查询票档，sessionId: {}", sessionId);
-
-        List<TicketTierVO> ticketTiers = ticketTierService.getTicketTiersBySessionId(sessionId);
-        return Result.success("查询成功", ticketTiers);
-    }
-
-    /**
-     * 根据演出ID和状态查询票档列表（管理端）
-     */
-    @Operation(summary = "根据演出ID和状态查询票档列表", tags = {"票档-管理端"})
-    @GetMapping("/admin/ticket-tiers/event/{eventId}/status/{status}")
-    @SaCheckRole(RoleConstant.ADMIN)
-    public Result<List<TicketTierVO>> getTicketTiersByEventIdAndStatus(
-            @PathVariable Long eventId,
-            @PathVariable Integer status) {
-        log.debug("根据演出ID和状态查询票档，eventId: {}, status: {}", eventId, status);
-
-        List<TicketTierVO> ticketTiers = ticketTierService.getTicketTiersByEventIdAndStatus(eventId, status);
-        return Result.success("查询成功", ticketTiers);
-    }
-
-    /**
-     * 根据场次ID和状态查询票档列表（管理端）
-     */
-    @Operation(summary = "根据场次ID和状态查询票档列表", tags = {"票档管理相关接口"})
-    @GetMapping("/admin/ticket-tiers/session/{sessionId}/status/{status}")
-    @SaCheckRole(RoleConstant.ADMIN)
-    public Result<List<TicketTierVO>> getTicketTiersBySessionIdAndStatus(
-            @PathVariable Long sessionId,
-            @PathVariable Integer status) {
-        log.debug("根据场次ID和状态查询票档，sessionId: {}, status: {}", sessionId, status);
-
-        List<TicketTierVO> ticketTiers = ticketTierService.getTicketTiersBySessionIdAndStatus(sessionId, status);
-        return Result.success("查询成功", ticketTiers);
-    }
-
 
     /**
      * 获取库存统计信息（管理端）
@@ -394,7 +299,7 @@ public class TicketTierController {
         // 获取统计信息
         StockStatisticsVO statistics = ticketTierService.getStockStatistics(eventId, sessionId, null);
 
-        // 筛选售罄票档（availableStock = 0 且 status = 1）
+        // 筛选售罄票档
         List<StockStatisticsVO.TierStockDetail> soldOutTiers = statistics.getTierDetails().stream()
                 .filter(tier -> tier.getAvailableStock() == 0 && tier.getStatus() == 1)
                 .collect(java.util.stream.Collectors.toList());

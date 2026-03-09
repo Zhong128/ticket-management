@@ -170,7 +170,7 @@ public class OrderSqlProvider {
     }
 
     /**
-     * 构建管理端WHERE条件（支持演出名称、用户名称模糊查询）
+     * 构建管理端 WHERE 条件（支持演出名称、用户名称模糊查询）
      */
     private void buildAdminWhereClause(SQL sql, OrderQueryDTO queryDTO) {
         // 1. 先调用基础条件
@@ -189,6 +189,11 @@ public class OrderSqlProvider {
         // 4. 用户手机号查询（管理端）
         if (queryDTO.getUserPhone() != null && !queryDTO.getUserPhone().trim().isEmpty()) {
             sql.WHERE("u.phone LIKE CONCAT('%', #{userPhone}, '%')");
+        }
+
+        // 5. 用户邮箱精确查询（管理端）
+        if (queryDTO.needUserEmailExact()) {
+            sql.WHERE("u.email = #{userEmail}");
         }
     }
 }

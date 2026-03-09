@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/pojo/UserQuery.java
 package org.example.ticketmanagement.pojo;
 
 import lombok.Data;
@@ -6,7 +5,7 @@ import lombok.EqualsAndHashCode;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-
+//比较当前类 + 父类字段
 @EqualsAndHashCode(callSuper = true)
 @Data
 public class UserQuery extends PageQuery {
@@ -22,41 +21,4 @@ public class UserQuery extends PageQuery {
     private LocalDateTime createTimeFrom;  // 创建时间范围开始
     private LocalDateTime createTimeTo;    // 创建时间范围结束
 
-    /**
-     * 检查是否有查询条件
-     */
-    public boolean hasQueryConditions() {
-        return username != null || email != null || phone != null ||
-                nickname != null || realName != null || status != null ||
-                role != null || birthdayFrom != null || birthdayTo != null ||
-                createTimeFrom != null || createTimeTo != null;
-    }
-
-    /**
-     * 获取生日范围SQL条件
-     */
-    public String getBirthdayCondition() {
-        if (birthdayFrom != null && birthdayTo != null) {
-            return " AND birthday BETWEEN #{birthdayFrom} AND #{birthdayTo}";
-        } else if (birthdayFrom != null) {
-            return " AND birthday >= #{birthdayFrom}";
-        } else if (birthdayTo != null) {
-            return " AND birthday <= #{birthdayTo}";
-        }
-        return "";
-    }
-
-    /**
-     * 获取创建时间范围SQL条件
-     */
-    public String getCreateTimeCondition() {
-        if (createTimeFrom != null && createTimeTo != null) {
-            return " AND create_time BETWEEN #{createTimeFrom} AND #{createTimeTo}";
-        } else if (createTimeFrom != null) {
-            return " AND create_time >= #{createTimeFrom}";
-        } else if (createTimeTo != null) {
-            return " AND create_time <= #{createTimeTo}";
-        }
-        return "";
-    }
 }

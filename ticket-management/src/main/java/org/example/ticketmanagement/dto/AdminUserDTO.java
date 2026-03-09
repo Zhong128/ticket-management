@@ -1,4 +1,3 @@
-// AdminUserDTO.java
 package org.example.ticketmanagement.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;

@@ -41,21 +41,12 @@ public class OrderController {
     public Result<PageResult<OrderInfoVO>> getUserOrders(
             @Valid OrderQueryDTO queryDTO) {
 
-        // 从token中获取当前登录用户的ID
         Long currentUserId = StpUtil.getLoginIdAsLong();
         
         log.debug("用户分页查询订单列表: userId={}, page={}, size={}, sortBy={}, sortOrder={}",
                 currentUserId, queryDTO.getPage(), queryDTO.getSize(), 
                 queryDTO.getSortBy(), queryDTO.getSortOrder());
 
-        // 校验价格范围参数
-        if (!queryDTO.isValidAmountRange()) {
-            String errorMsg = queryDTO.getAmountRangeErrorMessage();
-            log.warn("价格范围参数校验失败: userId={}, error={}", currentUserId, errorMsg);
-            return Result.error(400, errorMsg);
-        }
-
-        // 强制设置用户ID，防止任何参数篡改
         PageResult<OrderInfoVO> pageResult = orderService.getUserOrders(queryDTO, currentUserId);
         return Result.success("查询成功", pageResult);
     }
@@ -98,19 +89,20 @@ public class OrderController {
 
     /**
      * 1. 管理端分页查询订单列表
+     * 支持根据邮箱、订单号、用户名等多种条件查询
      */
-    @Operation(summary = "管理端分页查询订单列表", tags = {"订单-管理端"})
+    @Operation(summary = "管理端分页查询订单列表", tags = {"订单 - 管理端"})
     @GetMapping("/admin/orders/page")
     @SaCheckRole({RoleConstant.ADMIN})
     public Result<PageResult<OrderInfoVO>> adminQueryOrders(
             @Valid OrderQueryDTO queryDTO) {
 
-        log.info("管理员分页查询订单列表: {}", queryDTO);
+        log.info("管理员分页查询订单列表：{}", queryDTO);
         
         // 校验价格范围参数
         if (!queryDTO.isValidAmountRange()) {
             String errorMsg = queryDTO.getAmountRangeErrorMessage();
-            log.warn("价格范围参数校验失败: {}", errorMsg);
+            log.warn("价格范围参数校验失败：{}", errorMsg);
             return Result.error(400, errorMsg);
         }
 
@@ -121,12 +113,12 @@ public class OrderController {
     /**
      * 2. 管理端获取订单详情
      */
-    @Operation(summary = "管理端获取订单详情", tags = {"订单-管理端"})
+    @Operation(summary = "管理端获取订单详情", tags = {"订单 - 管理端"})
     @GetMapping("/admin/orders/{orderId}")
     @SaCheckRole({RoleConstant.ADMIN})
     public Result<OrderInfoVO> adminGetOrderDetail(@PathVariable Long orderId) {
 
-        log.debug("管理员查询订单详情: orderId={}", orderId);
+        log.debug("管理员查询订单详情：orderId={}", orderId);
 
         OrderInfoVO orderVO = orderService.adminGetOrderDetail(orderId);
         return Result.success("查询成功", orderVO);
@@ -135,7 +127,7 @@ public class OrderController {
     /**
      * 3. 管理端修改订单信息
      */
-    @Operation(summary = "修改订单信息", tags = {"订单-管理端"})
+    @Operation(summary = "修改订单信息", tags = {"订单 - 管理端"})
     @PutMapping("/admin/orders/{orderId}")
     @SaCheckRole({RoleConstant.ADMIN})
     public Result<Void> adminUpdateOrder(
@@ -143,7 +135,7 @@ public class OrderController {
             @Valid @RequestBody OrderUpdateDTO updateDTO) {
 
         Long adminId = StpUtil.getLoginIdAsLong();
-        log.info("管理员修改订单: orderId={}, adminId={}, updateDTO={}",
+        log.info("管理员修改订单：orderId={}, adminId={}, updateDTO={}",
                 orderId, adminId, updateDTO);
 
         boolean success = orderService.adminUpdateOrder(orderId, updateDTO, adminId);
@@ -157,41 +149,14 @@ public class OrderController {
     /**
      * 4. 批量取消订单（管理端）
      */
-    @Operation(summary = "批量取消订单", tags = {"订单-管理端"})
+    @Operation(summary = "批量取消订单", tags = {"订单 - 管理端"})
     @PutMapping("/admin/orders/batch-cancel")
     @SaCheckRole({RoleConstant.ADMIN})
     public Result<Integer> batchCancelOrders(@RequestBody List<Long> orderIds) {
 
-        log.info("管理员批量取消订单: count={}", orderIds.size());
+        log.info("管理员批量取消订单：count={}", orderIds.size());
 
         int successCount = orderService.batchCancelOrders(orderIds);
         return Result.success("成功取消" + successCount + "个订单", successCount);
-    }
-
-    /**
-     * 5. 根据用户邮箱查询订单列表（管理端）
-     */
-    @Operation(summary = "根据用户邮箱查询订单", tags = {"订单-管理端"})
-    @GetMapping("/admin/orders/user-orders")
-    @SaCheckRole({RoleConstant.ADMIN})
-    public Result<PageResult<OrderInfoVO>> getOrdersByUserEmail(
-            @RequestParam String email,
-            @Valid OrderQueryDTO queryDTO) {
-
-        log.info("管理员根据邮箱查询用户订单: email={}, queryDTO={}", email, queryDTO);
-
-        try {
-            PageResult<OrderInfoVO> pageResult = orderService.getOrdersByUserEmail(email, queryDTO);
-            return Result.success("查询成功", pageResult);
-        } catch (IllegalArgumentException e) {
-            log.warn("参数错误: {}", e.getMessage());
-            return Result.error(400, e.getMessage());
-        } catch (RuntimeException e) {
-            log.warn("根据邮箱查询订单失败: {}", e.getMessage());
-            return Result.error(e.getMessage());
-        } catch (Exception e) {
-            log.error("根据邮箱查询订单异常: {}", e.getMessage(), e);
-            return Result.error("查询失败，请稍后重试");
-        }
     }
 }

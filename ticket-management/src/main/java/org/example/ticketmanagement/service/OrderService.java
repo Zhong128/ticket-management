@@ -24,7 +24,7 @@ public interface OrderService {
      */
     OrderInfoVO getOrderByOrderNo(String orderNo);
 
-    // 在接口中添加新方法
+
     /**
      * 获取用户最新的待支付订单
      * @param userId 用户ID
@@ -75,11 +75,6 @@ public interface OrderService {
     // ==================== 定时任务/系统内部调用 ====================
 
     /**
-     * 处理超时未支付订单
-     */
-    void processTimeoutOrders(Integer timeoutMinutes, Integer batchSize);
-
-    /**
      * 根据订单号取消订单（供死信消费者使用）
      */
     boolean cancelOrderByOrderNo(String orderNo);
@@ -102,11 +97,4 @@ public interface OrderService {
      */
     boolean updateOrderStatus(Long orderId, Integer orderStatus);
 
-    /**
-     * 管理端根据用户邮箱查询订单列表
-     * @param email 用户邮箱
-     * @param queryDTO 查询条件
-     * @return 订单分页结果
-     */
-    PageResult<OrderInfoVO> getOrdersByUserEmail(String email, OrderQueryDTO queryDTO);
 }

@@ -72,21 +72,4 @@ public class AlipaySignatureUtil {
         return verifyAlipaySignature(params);
     }
 
-    /**
-     * 获取支付宝公钥（用于调试）
-     *
-     * @return 支付宝公钥
-     */
-    public String getAlipayPublicKey() {
-        return alipayProperties.getAlipayPublicKey();
-    }
-
-    /**
-     * 获取商户私钥（用于调试）
-     *
-     * @return 商户私钥
-     */
-    public String getMerchantPrivateKey() {
-        return alipayProperties.getMerchantPrivateKey();
-    }
 }

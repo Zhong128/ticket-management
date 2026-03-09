@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/service/EventSessionService.java
 package org.example.ticketmanagement.service;
 
 import org.example.ticketmanagement.dto.EventSessionDTO;
@@ -48,13 +47,6 @@ public interface EventSessionService {
      * @return 符合条件的场次列表
      */
     List<EventSessionVO> getSessionsByStatus(Integer status);
-
-    /**
-     * 根据演出ID查询场次列表
-     * @param eventId 演出ID
-     * @return 该演出的所有场次列表
-     */
-    List<EventSessionVO> getSessionsByEventId(Long eventId);
 
     /**
      * 根据演出ID和状态查询场次列表

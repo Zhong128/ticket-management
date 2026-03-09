@@ -239,6 +239,7 @@ public class AuthServiceImpl implements AuthService {
 
             // 执行注册
             register(user);
+
             log.info("新用户注册成功: email={}, username={}", email, user.getUsername());
 
             // 清除用户主动发送验证码的状态记录

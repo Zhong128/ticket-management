@@ -39,12 +39,6 @@ public interface EventCategoryService {
     EventCategoryVO getCategoryById(Long id);
 
     /**
-     * 查询所有演出分类列表
-     * @return 分类视图对象列表
-     */
-    List<EventCategoryVO> getAllCategories();
-
-    /**
      * 根据状态查询演出分类列表
      * @param status 状态 (0-禁用， 1-启用)
      * @return 符合条件的分类视图对象列表

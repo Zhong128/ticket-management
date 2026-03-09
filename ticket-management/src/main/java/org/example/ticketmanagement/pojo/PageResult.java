@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/pojo/PageResult.java
 package org.example.ticketmanagement.pojo;
 
 import lombok.Data;

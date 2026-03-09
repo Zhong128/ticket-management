@@ -1,7 +1,7 @@
-// org/example/ticketmanagement/mapper/TicketTierMapper.java
 package org.example.ticketmanagement.mapper;
 
 import org.apache.ibatis.annotations.*;
+import org.example.ticketmanagement.dto.TicketTierQueryDTO;
 import org.example.ticketmanagement.mapper.provider.TicketTierSqlProvider;
 import org.example.ticketmanagement.pojo.TicketTier;
 
@@ -212,40 +212,41 @@ public interface TicketTierMapper {
             "AND e.sale_start_time <= NOW()")
     Boolean hasTicketsOnSaleByEventId(@Param("eventId") Long eventId);
 
+
     /**
-     * 18. 根据条件查询票档库存统计（动态SQL）
-     * @param eventId 演出ID（可选）
-     * @param sessionId 场次ID（可选）
-     * @param tierId 票档ID（可选）
+     * 19. 分页查询票档（动态 SQL）
+     * @param queryDTO 查询参数对象
      * @return 符合条件的票档列表
      */
     @SelectProvider(type = TicketTierSqlProvider.class, method = "selectByCondition")
-    List<TicketTier> selectByCondition(@Param("eventId") Long eventId,
-                                       @Param("sessionId") Long sessionId,
-                                       @Param("tierId") Long tierId);
+    List<TicketTier> selectByCondition(TicketTierQueryDTO queryDTO);
 
     /**
-     * 19. 根据价格范围和状态查询票档（动态SQL）
+     * 20. 统计符合条件的票档数量（动态 SQL）
+     * @param queryDTO 查询参数对象
+     * @return 符合条件的票档总数
+     */
+    @SelectProvider(type = TicketTierSqlProvider.class, method = "countByCondition")
+    Long countByCondition(TicketTierQueryDTO queryDTO);
+
+    /**
+     * 21. 根据价格范围和状态查询票档（动态 SQL）
      * @param minPrice 最低价格（可选）
      * @param maxPrice 最高价格（可选）
      * @param status 状态
      * @return 符合条件的票档列表
      */
-    @SelectProvider(type = TicketTierSqlProvider.class, method = "selectByPriceRangeAndStatus")
-    List<TicketTier> selectByPriceRangeAndStatus(@Param("minPrice") BigDecimal minPrice,
-                                                 @Param("maxPrice") BigDecimal maxPrice,
-                                                 @Param("status") Integer status);
 
     /**
-     * 20. 恢复票档的库存
-     * @param tierId 票档ID
+     * 22. 恢复票档的库存
+     * @param tierId 票档 ID
      * @param quantity 恢复的数量
      * @return 受影响的行数
      */
     @Update("UPDATE ticket_tier SET available_stock = available_stock + #{quantity} WHERE id = #{tierId}")
     int increaseStock(@Param("tierId") Long tierId, @Param("quantity") Integer quantity);
 
-    // 便于redis和数据库的对账，提供查询所有启用的票档
+    // 便于 redis 和数据库的对账，提供查询所有启用的票档
     @Select("SELECT * FROM ticket_tier WHERE status = 1")
     List<TicketTier> selectAllEnabled();
 

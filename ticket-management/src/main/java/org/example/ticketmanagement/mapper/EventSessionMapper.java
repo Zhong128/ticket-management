@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/mapper/EventSessionMapper.java
 package org.example.ticketmanagement.mapper;
 
 import org.apache.ibatis.annotations.*;

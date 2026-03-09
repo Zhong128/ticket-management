@@ -1,4 +1,3 @@
-// PaymentRabbitMQConfig.java - 简化配置，只保留超时队列（使用TTL）
 package org.example.ticketmanagement.config;
 
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +9,9 @@ import org.springframework.context.annotation.Configuration;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * 支付RabbitMQ配置类，简化配置，只保留超时队列（使用TTL）
+ */
 @Slf4j
 @Configuration
 public class PaymentRabbitMQConfig {

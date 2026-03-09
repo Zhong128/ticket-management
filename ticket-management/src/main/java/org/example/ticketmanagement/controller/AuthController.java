@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/controller/AuthController.java
 package org.example.ticketmanagement.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
@@ -107,9 +106,9 @@ public class AuthController {
     }
 
     /**
-     * 获取当前用户信息
+     * 获取当前用户信息（调试用）
      */
-    @Operation(summary = "获取当前用户信息", tags = {"认证-公共接口"})
+    @Operation(summary = "获取当前用户信息（调试用）", tags = {"认证-公共接口"})
     @GetMapping("/userinfo")
     @SaCheckLogin
     public Result<Map<String, Object>> getCurrentUserInfo() {
@@ -129,22 +128,6 @@ public class AuthController {
         }
     }
 
-    /**
-     * 获取当前用户角色
-     */
-    @Operation(summary = "获取当前用户角色", tags = {"认证-公共接口"})
-    @GetMapping("/role")
-    @SaCheckLogin
-    public Result<Map<String, String>> getCurrentRole() {
-        try {
-            Map<String, String> data = new HashMap<>();
-            data.put("role", (String) StpUtil.getSession().get("role"));
-            return Result.success("查询成功", data);
-        } catch (Exception e) {
-            log.error("获取用户角色失败", e);
-            return Result.error("获取用户角色失败");
-        }
-    }
 
     // ==================== 管理员认证接口 ====================
 

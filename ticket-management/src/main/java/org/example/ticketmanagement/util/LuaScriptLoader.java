@@ -22,7 +22,6 @@ public class LuaScriptLoader {
     public void init() {
         // 预加载Lua脚本
         loadScript("decrStock.lua", Long.class);
-        loadScript("checkAndCreateOrder.lua", Long.class);
         log.info("Lua脚本加载完成");
     }
 

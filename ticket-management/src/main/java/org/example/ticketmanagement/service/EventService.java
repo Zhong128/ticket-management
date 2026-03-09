@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/service/EventService.java
 package org.example.ticketmanagement.service;
 
 import org.example.ticketmanagement.dto.EventDTO;
@@ -8,7 +7,7 @@ import org.example.ticketmanagement.vo.EventVO;
 
 import java.util.List;
 
-public interface EventService {
+public interface  EventService {
 
     /**
      * 新增演出
@@ -46,47 +45,12 @@ public interface EventService {
     List<EventVO> getAllEvents();
 
     /**
-     * 根据状态查询演出列表
-     * @param status 状态 (0-草稿，1-已发布，2-已结束)
-     * @return 符合条件的演出列表
-     */
-    List<EventVO> getEventsByStatus(Integer status);
-
-    /**
-     * 根据分类查询演出列表
-     * @param categoryId 分类ID
-     * @return 符合条件的演出列表
-     */
-    List<EventVO> getEventsByCategoryId(Long categoryId);
-
-    /**
-     * 根据城市查询演出列表
-     * @param cityId 城市ID
-     * @return 符合条件的演出列表
-     */
-    List<EventVO> getEventsByCityId(Long cityId);
-
-    /**
      * 根据分类和城市查询演出列表
      * @param categoryId 分类ID
      * @param cityId 城市ID
      * @return 符合条件的演出列表
      */
     List<EventVO> getEventsByCategoryAndCity(Long categoryId, Long cityId);
-
-    /**
-     * 根据艺人名称模糊查询演出
-     * @param artistName 艺人名称（模糊匹配）
-     * @return 符合条件的演出列表
-     */
-    List<EventVO> searchEventsByArtistName(String artistName);
-
-    /**
-     * 根据演出名称模糊查询演出
-     * @param name 演出名称（模糊匹配）
-     * @return 符合条件的演出列表
-     */
-    List<EventVO> searchEventsByName(String name);
 
     /**
      * 获取热门演出（状态为已发布，按时间排序）

@@ -50,20 +50,6 @@ public interface CityService {
     City getCityByName(String cityName);
 
     /**
-     * 根据状态查询城市列表
-     * @param status 状态 (0-禁用，1-启用)
-     * @return 符合条件的城市视图对象列表
-     */
-    List<CityVO> getCitiesByStatus(Integer status);
-
-    /**
-     * 根据热门等级查询城市列表
-     * @param hotLevel 热门等级 (0-普通，1-热门)
-     * @return 符合条件的城市视图对象列表
-     */
-    List<CityVO> getCitiesByHotLevel(Integer hotLevel);
-
-    /**
      * 根据城市名称模糊查询城市列表
      * @param name 城市名称（支持模糊匹配）
      * @return 符合条件的城市视图对象列表

@@ -13,7 +13,7 @@ public class CitySqlProvider {
      */
     public String selectByCondition(CityQueryDTO queryDTO) {
         return new SQL() {{
-            SELECT("id, name, code, province, hot_level, status, create_time, update_time");
+            SELECT("*");
             FROM("city");
 
             // 动态添加WHERE条件
@@ -66,7 +66,7 @@ public class CitySqlProvider {
         }
 
         if (queryDTO.needProvince()) {
-            sql.WHERE("province = #{province}");
+            sql.WHERE("province LIKE CONCAT('%', #{province}, '%')");
         }
     }
 }

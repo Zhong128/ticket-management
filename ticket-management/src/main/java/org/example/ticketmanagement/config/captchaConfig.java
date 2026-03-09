@@ -40,8 +40,6 @@ public class captchaConfig {
         // 阴影
         properties.setProperty("kaptcha.obscurificator.impl", "com.google.code.kaptcha.impl.ShadowGimpy");
 
-        // 去掉Session相关（因为是无状态）
-        // properties.setProperty("kaptcha.session.key", "code");
 
         Config config = new Config(properties);
         DefaultKaptcha defaultKaptcha = new DefaultKaptcha();

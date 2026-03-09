@@ -16,6 +16,7 @@ import org.example.ticketmanagement.pojo.Result;
 import org.example.ticketmanagement.pojo.User;
 import org.example.ticketmanagement.pojo.UserQuery;
 import org.example.ticketmanagement.service.UserService;
+import org.example.ticketmanagement.vo.UserVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -31,45 +32,6 @@ public class UserController {
 
     @Autowired
     private UserService userService;
-
-    // ==================== 公共接口（无需登录） ====================
-
-    /**
-     * 检查用户名是否可用
-     * 用于前端在注册或者修改信息时进行用户名查重检查
-     */
-    @Operation(summary = "检查用户名是否可用", tags = {"用户信息-公共接口"})
-    @GetMapping("/public/check-username")
-    public Result<Boolean> checkUsername(@RequestParam String username) {
-        log.debug("检查用户名是否可用: {}", username);
-
-        try {
-            boolean exists = userService.isUsernameExists(username);
-            boolean isAvailable = !exists; // 用户名是否存在，如果存在，则返回false（不可用）
-            return Result.success(isAvailable);
-        } catch (Exception e) {
-            log.error("检查用户名失败: {}", e.getMessage(), e);
-            return Result.error("检查失败");
-        }
-    }
-
-    /**
-     * 检查邮箱是否可用
-     * 用于前端在注册或者修改信息时进行邮箱查重检查
-     */
-    @Operation(summary = "检查邮箱是否可用", tags = {"用户信息-公共接口"})
-    @GetMapping("/public/user/check-email")
-    public Result<Boolean> checkEmail(@RequestParam String email) {
-        log.debug("检查邮箱是否可用: {}", email);
-
-        try {
-            boolean exists = userService.isEmailExists(email);
-            return Result.success(!exists); // 如果不存在返回true（可用）
-        } catch (Exception e) {
-            log.error("检查邮箱失败: {}", e.getMessage(), e);
-            return Result.error("检查失败");
-        }
-    }
 
     // ==================== 用户端接口（需要登录） ====================
 
@@ -114,7 +76,7 @@ public class UserController {
 
             // 创建User对象并复制属性
             User user = new User();
-            BeanUtils.copyProperties(profileDTO, user); // 修正参数顺序：source, target
+            BeanUtils.copyProperties(profileDTO, user);
             user.setId(userId); // 手动设置用户ID
 
             boolean success = userService.updateUser(user);
@@ -171,40 +133,21 @@ public class UserController {
     /**
      * 分页查询用户信息
      */
-    @Operation(summary = "分页查询用户列表", tags = {"用户信息-管理端"})
+    @Operation(summary = "分页查询用户列表", tags = {"用户信息 - 管理端"})
     @GetMapping("/admin/user")
     @SaCheckRole(RoleConstant.ADMIN)
-    public Result<PageResult<UserDTO>> listUsers(@Valid UserQuery query) {
-        log.info("分页查询用户，参数: {}", query);
+    public Result<PageResult<UserVO>> listUsers(@Valid UserQuery query) {
+        log.info("分页查询用户，参数：{}", query);
 
         try {
-            // 查询用户数据
-            PageResult<User> pageResult = userService.listUsers(query);
-
-            // 转换为UserDTO
-            List<UserDTO> userDTOs = pageResult.getRecords().stream().map(user -> {
-                UserDTO dto = new UserDTO();
-                BeanUtils.copyProperties(user, dto);
-                // 敏感信息不返回
-                dto.setPassword(null);
-                return dto;
-            }).collect(Collectors.toList());
-
-            // 创建新的分页结果
-            PageResult<UserDTO> result = new PageResult<>(
-                    userDTOs,
-                    pageResult.getTotal(),
-                    query.getPage(),
-                    query.getSize()
-            );
-
-            return Result.success(result);
+            PageResult<UserVO> result = userService.listUsers(query);
+            return Result.success("查询成功", result);
 
         } catch (IllegalArgumentException e) {
-            log.error("分页参数错误: {}", e.getMessage());
+            log.error("分页参数错误：{}", e.getMessage());
             return Result.error(400, e.getMessage());
         } catch (Exception e) {
-            log.error("查询用户列表失败: {}", e.getMessage(), e);
+            log.error("查询用户列表失败：{}", e.getMessage(), e);
             return Result.error("查询失败，请稍后重试");
         }
     }

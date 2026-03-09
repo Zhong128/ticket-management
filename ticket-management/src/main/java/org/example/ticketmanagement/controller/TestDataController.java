@@ -1,7 +1,7 @@
-// TestDataController.java - 优化版
 package org.example.ticketmanagement.controller;
 
 import cn.dev33.satoken.stp.StpUtil;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.mapper.UserMapper;
@@ -18,7 +18,8 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/test")
+@RequestMapping("/api/public/test")
+@Tag(name = "并发测试用户生成器", description = "并发测试")
 @RequiredArgsConstructor
 public class TestDataController {
 
@@ -26,6 +27,7 @@ public class TestDataController {
 
     /**
      * 生成测试用户和token，并返回CSV内容（不保存文件）
+     * 适用于少量用户的测试场景
      */
     @PostMapping("/generate-test-users")
     public Result<String> generateTestUsers(@RequestParam int count) {

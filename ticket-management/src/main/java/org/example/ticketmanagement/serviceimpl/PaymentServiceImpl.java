@@ -3,7 +3,6 @@ package org.example.ticketmanagement.serviceimpl;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.alipay.api.AlipayClient;
-import com.alipay.api.AlipayConstants;
 import com.alipay.api.domain.AlipayTradePagePayModel;
 import com.alipay.api.domain.AlipayTradeQueryModel;
 import com.alipay.api.domain.AlipayTradeCloseModel;
@@ -40,12 +39,10 @@ import org.example.ticketmanagement.vo.PaymentRecordVO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
 
 @Slf4j
 @Service
@@ -360,143 +357,212 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
+    /**
+     * 【核心】处理超时订单（延迟队列兜底）
+     */
     @Override
     @Transactional
-    public void processCompensation() {
-        log.info("开始处理支付补偿任务");
+    public int processTimeoutOrders(int timeoutMinutes) {
+        log.info("开始处理超时订单：timeoutMinutes={}", timeoutMinutes);
 
-        // 1. 查询需要补偿的支付记录（待支付但已过期，且没有补偿任务）
-        List<PaymentRecord> needCompensation = paymentRecordMapper.selectNeedCompensation(
-                PaymentConstant.COMPENSATION_BATCH_SIZE);
+        try {
+            // 1. 查询超时未支付的订单
+            List<OrderInfo> timeoutOrders = orderInfoMapper.selectTimeoutOrders(timeoutMinutes, 100);
 
-        if (needCompensation.isEmpty()) {
-            log.info("没有需要补偿的支付记录");
-            return;
-        }
-
-        log.info("找到{}条需要补偿的支付记录", needCompensation.size());
-
-        for (PaymentRecord record : needCompensation) {
-            try {
-                // 2. 创建补偿任务
-                PaymentCompensation compensation = new PaymentCompensation();
-                compensation.setPaymentNo(record.getPaymentNo());
-                compensation.setOrderId(record.getOrderId());
-                compensation.setOrderNo(record.getOrderNo());
-                compensation.setUserId(record.getUserId());
-                compensation.setTaskStatus(PaymentConstant.COMPENSATION_STATUS_PENDING);
-                compensation.setRetryCount(0);
-                compensation.setMaxRetry(PaymentConstant.MAX_COMPENSATION_RETRY);
-                compensation.setNextExecuteTime(LocalDateTime.now().plusMinutes(1));
-                compensation.setCreateTime(LocalDateTime.now());
-                compensation.setUpdateTime(LocalDateTime.now());
-
-                paymentCompensationMapper.insert(compensation);
-
-                // 3. 立即执行一次查询
-                boolean success = checkAndUpdatePaymentStatus(record);
-
-                if (success) {
-                    log.info("补偿任务立即执行成功: paymentNo={}", record.getPaymentNo());
-
-                    // 更新补偿任务状态
-                    compensation.setTaskStatus(PaymentConstant.COMPENSATION_STATUS_SUCCESS);
-                    compensation.setLastExecuteTime(LocalDateTime.now());
-                    compensation.setUpdateTime(LocalDateTime.now());
-                    paymentCompensationMapper.updateStatus(compensation);
-                }
-
-            } catch (Exception e) {
-                log.error("创建补偿任务失败: paymentNo={}", record.getPaymentNo(), e);
+            if (timeoutOrders.isEmpty()) {
+                log.debug("没有超时未支付订单");
+                return 0;
             }
+
+            log.info("找到{}个超时未支付订单", timeoutOrders.size());
+
+            int processedCount = 0;
+
+            // 2. 批量处理超时订单
+            for (OrderInfo order : timeoutOrders) {
+                try {
+                    // 3. 查询支付记录
+                    PaymentRecord paymentRecord = paymentRecordMapper.selectByOrderNo(order.getOrderNo());
+                    
+                    if (paymentRecord == null) {
+                        log.warn("支付记录不存在：orderNo={}", order.getOrderNo());
+                        continue;
+                    }
+
+                    // 4. 如果已支付成功，跳过
+                    if (paymentRecord.getPayStatus().equals(PaymentConstant.PAY_STATUS_SUCCESS)) {
+                        log.info("订单已支付，跳过超时处理：orderNo={}", order.getOrderNo());
+                        continue;
+                    }
+
+                    // 5. 查询支付宝真实状态（二次确认）
+                    boolean alipayChecked = checkAlipayStatusAndProcess(paymentRecord);
+                    
+                    if (!alipayChecked) {
+                        // 6. 支付宝查询失败或确认未支付，关闭订单
+                        boolean closeSuccess = closePayment(paymentRecord.getPaymentNo());
+                        
+                        if (closeSuccess) {
+                            // 7. 取消订单（会恢复库存）
+                            boolean cancelSuccess = orderService.cancelOrderByOrderNo(order.getOrderNo());
+                            
+                            if (cancelSuccess) {
+                                processedCount++;
+                                log.info("✅ 超时订单已关闭：orderNo={}, paymentNo={}", 
+                                        order.getOrderNo(), paymentRecord.getPaymentNo());
+                            }
+                        }
+                    } else {
+                        // 支付宝状态已同步，计数
+                        processedCount++;
+                    }
+
+                } catch (Exception e) {
+                    log.error("处理超时订单异常：orderId={}", order.getId(), e);
+                }
+            }
+
+            log.info("超时订单处理完成：处理了{}个订单", processedCount);
+            return processedCount;
+
+        } catch (Exception e) {
+            log.error("处理超时订单异常", e);
+            throw new RuntimeException("处理超时订单异常", e);
         }
     }
 
+    /**
+     * 【补偿】处理支付状态不一致的订单（支付宝回调兜底）
+     */
     @Override
     @Transactional
-    public void processTimeoutClose() {
-        log.info("开始处理超时关单");
+    public int processCompensation(int waitingMinutes) {
+        log.info("开始处理支付补偿：waitingMinutes={}", waitingMinutes);
 
-        // 1. 查询待处理的补偿任务
-        List<PaymentCompensation> pendingTasks = paymentCompensationMapper.selectPendingTasks(100);
+        try {
+            // 1. 查询待支付超过指定时间的订单
+            List<PaymentRecord> waitingRecords = paymentRecordMapper.selectWaitingPayments(
+                waitingMinutes, 
+                100
+            );
 
-        if (pendingTasks.isEmpty()) {
-            log.info("没有待处理的补偿任务");
-            return;
-        }
-
-        log.info("找到{}个待处理的补偿任务", pendingTasks.size());
-
-        for (PaymentCompensation task : pendingTasks) {
-            try {
-                // 2. 更新任务状态为处理中
-                task.setTaskStatus(PaymentConstant.COMPENSATION_STATUS_PROCESSING);
-                task.setLastExecuteTime(LocalDateTime.now());
-                task.setUpdateTime(LocalDateTime.now());
-                paymentCompensationMapper.updateStatus(task);
-
-                // 3. 查询支付记录
-                PaymentRecord record = paymentRecordMapper.selectByPaymentNo(task.getPaymentNo());
-                if (record == null) {
-                    log.warn("支付记录不存在，关闭补偿任务: paymentNo={}", task.getPaymentNo());
-                    task.setTaskStatus(PaymentConstant.COMPENSATION_STATUS_FAILED);
-                    task.setErrorMsg("支付记录不存在");
-                    task.setUpdateTime(LocalDateTime.now());
-                    paymentCompensationMapper.updateStatus(task);
-                    continue;
-                }
-
-                // 4. 查询支付宝状态
-                boolean success = checkAndUpdatePaymentStatus(record);
-
-                if (success) {
-                    // 5. 处理成功，更新任务状态
-                    task.setTaskStatus(PaymentConstant.COMPENSATION_STATUS_SUCCESS);
-                    task.setUpdateTime(LocalDateTime.now());
-                    paymentCompensationMapper.updateStatus(task);
-
-                } else if (task.canRetry()) {
-                    // 6. 可以重试，计算下次执行时间
-                    task.setRetryCount(task.getRetryCount() + 1);
-                    task.setLastExecuteTime(LocalDateTime.now());
-                    task.calculateNextExecuteTime();
-                    task.setTaskStatus(PaymentConstant.COMPENSATION_STATUS_PENDING);
-                    task.setUpdateTime(LocalDateTime.now());
-                    paymentCompensationMapper.updateStatus(task);
-
-                    log.info("补偿任务将重试: paymentNo={}, retryCount={}, nextExecuteTime={}",
-                            task.getPaymentNo(), task.getRetryCount(), task.getNextExecuteTime());
-                } else {
-                    // 7. 超过最大重试次数，标记为失败
-                    task.setTaskStatus(PaymentConstant.COMPENSATION_STATUS_FAILED);
-                    task.setErrorMsg("超过最大重试次数");
-                    task.setUpdateTime(LocalDateTime.now());
-                    paymentCompensationMapper.updateStatus(task);
-
-                    log.error("补偿任务超过最大重试次数: paymentNo={}", task.getPaymentNo());
-                }
-
-            } catch (Exception e) {
-                log.error("处理补偿任务异常: paymentNo={}", task.getPaymentNo(), e);
-
-                task.setErrorMsg(e.getMessage());
-                task.setUpdateTime(LocalDateTime.now());
-
-                if (task.canRetry()) {
-                    task.setRetryCount(task.getRetryCount() + 1);
-                    task.setLastExecuteTime(LocalDateTime.now());
-                    task.calculateNextExecuteTime();
-                    task.setTaskStatus(PaymentConstant.COMPENSATION_STATUS_PENDING);
-                } else {
-                    task.setTaskStatus(PaymentConstant.COMPENSATION_STATUS_FAILED);
-                }
-
-                paymentCompensationMapper.updateStatus(task);
+            if (waitingRecords.isEmpty()) {
+                log.debug("无需补偿的订单");
+                return 0;
             }
+
+            log.info("找到{}个待补偿的订单", waitingRecords.size());
+
+            int compensatedCount = 0;
+
+            // 2. 逐个查询支付宝状态并更新
+            for (PaymentRecord record : waitingRecords) {
+                try {
+                    boolean success = checkAndUpdatePaymentStatus(record);
+                    
+                    if (success) {
+                        compensatedCount++;
+                        log.info("✅ 补偿成功：paymentNo={}, orderNo={}", 
+                                record.getPaymentNo(), record.getOrderNo());
+                    }
+
+                } catch (Exception e) {
+                    log.error("处理补偿订单异常：paymentNo={}", record.getPaymentNo(), e);
+                }
+            }
+
+            log.info("支付补偿完成：补偿了{}个订单", compensatedCount);
+            return compensatedCount;
+
+        } catch (Exception e) {
+            log.error("处理支付补偿异常", e);
+            throw new RuntimeException("处理支付补偿异常", e);
         }
     }
 
+    /**
+     * 【清理】清理过期的支付记录
+     */
+    @Override
+    @Transactional
+    public int cleanExpiredPayments(int daysToKeep) {
+        log.info("开始清理过期支付记录：daysToKeep={}", daysToKeep);
 
+        try {
+            // 调用 Mapper 清理 7 天前已关闭的支付记录
+            int cleanedCount = paymentRecordMapper.cleanExpiredPayments(daysToKeep);
+            
+            log.info("清理过期支付记录完成：清理了{}条记录", cleanedCount);
+            return cleanedCount;
+
+        } catch (Exception e) {
+            log.error("清理过期支付记录异常", e);
+            throw new RuntimeException("清理过期支付记录异常", e);
+        }
+    }
+
+    /**
+     * 查询支付宝状态并处理（新增辅助方法）
+     */
+    private boolean checkAlipayStatusAndProcess(PaymentRecord record) {
+        try {
+            // 1. 调用支付宝查询接口
+            AlipayTradeQueryRequest request = new AlipayTradeQueryRequest();
+            AlipayTradeQueryModel model = new AlipayTradeQueryModel();
+            model.setOutTradeNo(record.getPaymentNo());
+            model.setTradeNo(record.getTradeNo());
+            request.setBizModel(model);
+
+            AlipayTradeQueryResponse response = alipayClient.execute(request);
+
+            if (!response.isSuccess()) {
+                log.warn("查询支付宝订单失败：paymentNo={}, code={}, msg={}",
+                        record.getPaymentNo(), response.getCode(), response.getMsg());
+                return false;
+            }
+
+            String tradeStatus = response.getTradeStatus();
+            log.debug("查询支付宝订单状态：paymentNo={}, tradeStatus={}",
+                    record.getPaymentNo(), tradeStatus);
+
+            // 2. 根据支付宝状态更新本地
+            if (PaymentConstant.ALIPAY_TRADE_SUCCESS.equals(tradeStatus) ||
+                    PaymentConstant.ALIPAY_TRADE_FINISHED.equals(tradeStatus)) {
+
+                // 支付成功
+                record.setTradeNo(response.getTradeNo());
+                record.setPayStatus(PaymentConstant.PAY_STATUS_SUCCESS);
+                record.setPayTime(LocalDateTime.now());
+                record.setUpdateTime(LocalDateTime.now());
+                paymentRecordMapper.updateStatus(record);
+
+                // 更新订单状态
+                orderService.updateOrderStatus(record.getOrderId(), OrderConstant.ORDER_STATUS_PAID);
+
+                // 发送支付成功消息
+                sendPaymentSuccessMessage(record);
+
+                log.info("超时检查发现支付成功：paymentNo={}", record.getPaymentNo());
+                return true;
+
+            } else if (PaymentConstant.ALIPAY_TRADE_CLOSED.equals(tradeStatus)) {
+                // 交易关闭
+                record.setPayStatus(PaymentConstant.PAY_STATUS_CLOSED);
+                record.setUpdateTime(LocalDateTime.now());
+                paymentRecordMapper.updateStatus(record);
+
+                log.info("超时检查发现交易关闭：paymentNo={}", record.getPaymentNo());
+                return true;
+            }
+
+            // 其他状态（如 WAIT_BUYER_PAY）返回 false，表示需要关闭
+            return false;
+
+        } catch (Exception e) {
+            log.error("查询支付宝订单状态异常：paymentNo={}", record.getPaymentNo(), e);
+            return false;
+        }
+    }
 
     // ==================== 私有辅助方法 ====================
 

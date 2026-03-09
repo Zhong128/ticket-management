@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 
 /**
- * 支付结果DTO（用于返回给前端）
+ * 支付结果DTO
  */
 @Data
 @AllArgsConstructor

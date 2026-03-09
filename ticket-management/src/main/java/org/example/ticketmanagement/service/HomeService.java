@@ -21,12 +21,6 @@ public interface HomeService {
                                      jakarta.servlet.http.HttpServletRequest request,
                                      Integer limit);
 
-    /**
-     * 获取首页演出推荐（简化版，未登录用户）
-     */
-    HomeRecommendVO getHomeRecommend(Long cityId,
-                                     jakarta.servlet.http.HttpServletRequest request,
-                                     Integer limit);
 
     /**
      * 根据城市ID获取首页推荐

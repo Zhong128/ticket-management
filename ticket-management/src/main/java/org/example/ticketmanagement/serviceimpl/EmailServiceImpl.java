@@ -186,6 +186,126 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    @Override
+    public boolean sendPaymentSuccessEmail(String userEmail, String paymentNo, String tradeNo,
+                                          String orderNo, java.math.BigDecimal totalAmount,
+                                          java.time.LocalDateTime payTime, String eventName,
+                                          String sessionName, String tierName, Integer quantity) {
+        if (userEmail == null || userEmail.trim().isEmpty()) {
+            log.warn("用户邮箱为空，无法发送邮件：orderNo={}", orderNo);
+            return false;
+        }
+
+        try {
+            String subject = "🎉 支付成功！订单已完成 - " + (eventName != null ? eventName : "演出");
+            String htmlContent = buildPaymentSuccessEmailHtml(
+                paymentNo, tradeNo, orderNo, totalAmount, payTime, 
+                eventName, sessionName, tierName, quantity
+            );
+
+            boolean sent = sendHtmlEmail(userEmail, subject, htmlContent);
+            if (sent) {
+                log.info("支付成功邮件发送成功：orderNo={}, email={}", orderNo, userEmail);
+            } else {
+                log.error("支付成功邮件发送失败：orderNo={}", orderNo);
+            }
+            return sent;
+        } catch (Exception e) {
+            log.error("发送支付成功邮件异常：orderNo={}", orderNo, e);
+            return false;
+        }
+    }
+
+    /**
+     * 构建支付成功邮件 HTML 内容
+     */
+    private String buildPaymentSuccessEmailHtml(String paymentNo, String tradeNo, String orderNo,
+                                                java.math.BigDecimal totalAmount,
+                                                java.time.LocalDateTime payTime,
+                                                String eventName, String sessionName,
+                                                String tierName, Integer quantity) {
+        String payTimeStr = payTime != null ? 
+                payTime.format(DATE_TIME_FORMATTER) : "未知";
+        
+        return String.format("""
+                <!DOCTYPE html>
+                <html lang='zh-CN'>
+                <head>
+                    <meta charset='UTF-8'>
+                    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+                    <title>支付成功通知</title>
+                    <style>
+                        body { font-family: 'Microsoft YaHei', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+                        .header { background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                        .header h1 { margin: 0; font-size: 28px; }
+                        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+                        .success-icon { font-size: 60px; text-align: center; display: block; margin-bottom: 20px; }
+                        .info-box { background: white; border-left: 4px solid #667eea; padding: 15px; margin: 15px 0; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+                        .info-item { margin: 10px 0; }
+                        .info-label { font-weight: bold; color: #667eea; }
+                        .price-box { background: linear-gradient(135deg, #f093fb 0%%, #f5576c 100%%); color: white; padding: 20px; text-align: center; border-radius: 10px; margin: 20px 0; }
+                        .price-amount { font-size: 36px; font-weight: bold; }
+                        .footer { text-align: center; margin-top: 30px; color: #999; font-size: 12px; }
+                    </style>
+                </head>
+                <body>
+                    <div class='header'>
+                        <span class='success-icon'>✅</span>
+                        <h1>支付成功！</h1>
+                        <p style='margin: 10px 0 0 0; font-size: 16px;'>恭喜您，订单已支付完成！</p>
+                    </div>
+                    <div class='content'>
+                        <div class='info-box'>
+                            <h3 style='margin-top: 0;'>📋 订单信息</h3>
+                            <div class='info-item'><span class='info-label'>🔢 订单编号：</span>%s</div>
+                            <div class='info-item'><span class='info-label'>💳 支付流水号：</span>%s</div>
+                            <div class='info-item'><span class='info-label'>🏦 支付宝交易号：</span>%s</div>
+                            <div class='info-item'><span class='info-label'>⏰ 支付时间：</span>%s</div>
+                        </div>
+                        
+                        <div class='info-box'>
+                            <h3 style='margin-top: 0;'>🎫 演出信息</h3>
+                            <div class='info-item'><span class='info-label'>📺 演出名称：</span>%s</div>
+                            <div class='info-item'><span class='info-label'>🎭 场次信息：</span>%s</div>
+                            <div class='info-item'><span class='info-label'>🎟️ 票档类型：</span>%s</div>
+                            <div class='info-item'><span class='info-label'>📦 购买数量：</span>%s 张</div>
+                        </div>
+                        
+                        <div class='price-box'>
+                            <div style='font-size: 14px; margin-bottom: 10px;'>订单总金额</div>
+                            <div class='price-amount'>¥%s</div>
+                        </div>
+                        
+                        <div class='info-box' style='background: #e8f5e9; border-left-color: #4caf50;'>
+                            <h3 style='margin-top: 0; color: #2e7d32;'>💡 温馨提示</h3>
+                            <ul style='margin: 10px 0; padding-left: 20px; color: #1b5e20;'>
+                                <li>请妥善保管此邮件，入场时需出示订单信息</li>
+                                <li>如有疑问，请联系客服或在系统中查看订单详情</li>
+                                <li>本演出实行一票一证制，请携带有效身份证件</li>
+                                <li>门票一经售出，不支持退换，请合理安排时间</li>
+                            </ul>
+                        </div>
+                        
+                        <div class='footer'>
+                            <p>票务管理系统 敬上</p>
+                            <p>本邮件为系统自动发送，请勿回复</p>
+                            <p>© 2026 票务管理系统。All rights reserved.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>""",
+                orderNo,
+                paymentNo,
+                tradeNo,
+                payTimeStr,
+                eventName,
+                sessionName,
+                tierName,
+                quantity,
+                totalAmount
+        );
+    }
+
     /**
      * 构建抢票成功邮件 HTML 内容
      */

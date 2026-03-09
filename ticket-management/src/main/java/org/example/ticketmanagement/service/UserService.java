@@ -1,6 +1,8 @@
 package org.example.ticketmanagement.service;
 
+import org.example.ticketmanagement.dto.UserDTO;
 import org.example.ticketmanagement.pojo.*;
+import org.example.ticketmanagement.vo.UserVO;
 
 import java.util.List;
 
@@ -21,9 +23,11 @@ public interface UserService {
     boolean updateUser(User user);
 
     /**
-     * 分页查询用户列表
+     * 分页查询用户列表（管理端）
+     * @param query 查询参数
+     * @return 分页结果（UserDTO）
      */
-    PageResult<User> listUsers(UserQuery query);
+    PageResult<UserVO> listUsers(UserQuery query);
 
     /**
      * 批量删除用户
@@ -35,16 +39,6 @@ public interface UserService {
      */
     boolean updateUsersStatus(List<Long> ids, Integer status);
 
-    // 校验方法
-    /**
-     * 检查用户名是否已存在
-     */
-    boolean isUsernameExists(String username);
-
-    /**
-     * 检查邮箱是否已存在
-     */
-    boolean isEmailExists(String email);
 
     /**
      * 修改用户状态（带校验）

@@ -1,6 +1,5 @@
 package org.example.ticketmanagement.controller;
 
-import cn.dev33.satoken.annotation.SaCheckDisable;
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckRole;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,36 +28,6 @@ public class CityController {
     private CityService cityService;
 
     // ==================== 公共接口（无需登录） ====================
-
-    /**
-     * 获取所有城市列表（公开接口）
-     * 可选参数：status (0-禁用，1-启用)
-     * 可选参数：hotLevel (0-普通，1-热门)
-     */
-    @Operation(summary = "获取城市列表", tags = {"城市-公共接口"})
-    @GetMapping("/public/cities")
-    public Result<List<CityVO>> getAllCities(
-            @RequestParam(required = false) Integer status,
-            @RequestParam(required = false) Integer hotLevel) {
-
-        List<CityVO> cities;
-
-        if (status != null && hotLevel != null) {
-            log.debug("查询城市列表：status={}, hotLevel={}", status, hotLevel);
-            cities = cityService.getCitiesByStatus(status);
-        } else if (status != null) {
-            log.debug("根据状态查询城市列表，status: {}", status);
-            cities = cityService.getCitiesByStatus(status);
-        } else if (hotLevel != null) {
-            log.debug("根据热门等级查询城市列表，hotLevel: {}", hotLevel);
-            cities = cityService.getCitiesByHotLevel(hotLevel);
-        } else {
-            log.debug("查询所有城市列表");
-            cities = cityService.getAllCities();
-        }
-
-        return Result.success("查询成功", cities);
-    }
 
     /**
      * 根据名称模糊查询城市（公共接口）
@@ -99,54 +68,14 @@ public class CityController {
     /**
      * 分页查询城市列表（用户端）
      */
-    @Operation(summary = "分页查询城市列表", tags = {"城市-用户端"})
+    @Operation(summary = "分页查询城市列表", tags = {"城市 - 用户端"})
     @GetMapping("/user/cities/page")
     @SaCheckLogin
-    public Result<PageResult<CityVO>> getCitiesByPage(
-            @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(defaultValue = "10") Integer size,
-            @RequestParam(required = false) Integer status,
-            @RequestParam(required = false) Integer hotLevel) {
+    public Result<PageResult<CityVO>> getCitiesByPage(@Valid CityQueryDTO queryDTO) {
+        log.debug("分页查询城市列表，参数：{}", queryDTO);
 
-        log.debug("分页查询城市列表，page: {}, size: {}, status: {}, hotLevel: {}",
-                page, size, status, hotLevel);
-
-        // 构建查询参数
-        org.example.ticketmanagement.dto.CityQueryDTO queryDTO = new org.example.ticketmanagement.dto.CityQueryDTO();
-        queryDTO.setPage(page);
-        queryDTO.setSize(size);
-        queryDTO.setStatus(status);
-        queryDTO.setHotLevel(hotLevel);
-
-        // 调用统一的分页查询方法
         PageResult<CityVO> result = cityService.queryCities(queryDTO);
         return Result.success("查询成功", result);
-    }
-
-    /**
-     * 根据状态查询城市列表（用户端）
-     */
-    @Operation(summary = "根据状态查询城市列表", tags = {"城市-用户端"})
-    @GetMapping("/user/cities/status/{status}")
-    @SaCheckLogin
-    public Result<List<CityVO>> getCitiesByStatus(@PathVariable Integer status) {
-        log.debug("根据状态查询城市列表，status: {}", status);
-
-        List<CityVO> cities = cityService.getCitiesByStatus(status);
-        return Result.success("查询成功", cities);
-    }
-
-    /**
-     * 根据热门等级查询城市列表（用户端）
-     */
-    @Operation(summary = "根据热门等级查询城市列表", tags = {"城市-用户端"})
-    @GetMapping("/user/cities/hot/{hotLevel}")
-    @SaCheckLogin
-    public Result<List<CityVO>> getCitiesByHotLevel(@PathVariable Integer hotLevel) {
-        log.debug("根据热门等级查询城市列表，hotLevel: {}", hotLevel);
-
-        List<CityVO> cities = cityService.getCitiesByHotLevel(hotLevel);
-        return Result.success("查询成功", cities);
     }
 
     // ==================== 管理端接口（需要管理员权限） ====================
@@ -223,7 +152,7 @@ public class CityController {
     /**
      * 分页查询城市列表（支持多条件筛选）
      */
-    @Operation(summary = "分页查询城市列表（多条件筛选）", tags = {"城市-管理端"})
+    @Operation(summary = "分页查询城市列表", tags = {"城市-管理端"})
     @GetMapping("/admin/cities/query")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<PageResult<CityVO>> queryCities(@Valid CityQueryDTO queryDTO) {

@@ -33,7 +33,7 @@ public class Ip2RegionUtil {
     @PostConstruct
     public void init() {
         try {
-            // 完全基于文件的查询
+            // xdb数据库的初始化
             String dbPath = new ClassPathResource("ipdb/ip2region.xdb").getFile().getPath();
             searcher = Searcher.newWithFileOnly(dbPath);
             log.info("ip2region初始化成功");

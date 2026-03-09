@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/dto/CityDTO.java
 package org.example.ticketmanagement.dto;
 
 import jakarta.validation.constraints.NotBlank;

@@ -11,7 +11,6 @@ import org.example.ticketmanagement.mapper.*;
 import org.example.ticketmanagement.pojo.*;
 import org.example.ticketmanagement.service.OrderService;
 import org.example.ticketmanagement.service.StockService;
-import org.example.ticketmanagement.util.RabbitMQUtil;
 import org.example.ticketmanagement.vo.OrderInfoVO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -162,7 +161,6 @@ public class OrderServiceImpl implements OrderService {
     public PageResult<OrderInfoVO> getUserOrders(OrderQueryDTO queryDTO, Long userId) {
         log.debug("用户查询订单列表: userId={}, page={}, size={}", userId, queryDTO.getPage(), queryDTO.getSize());
 
-        // 安全检查：强制使用传入的userId，防止越界问题
         queryDTO.setUserId(userId);
         
         // 校验价格范围参数
@@ -172,7 +170,7 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalArgumentException(errorMsg);
         }
 
-        // 执行分页查询 - 使用selectByCondition
+        // 执行分页查询
         List<OrderInfo> orderList = orderInfoMapper.selectByCondition(queryDTO);
         Long total = orderInfoMapper.countByCondition(queryDTO);
 
@@ -326,32 +324,6 @@ public class OrderServiceImpl implements OrderService {
     // ==================== 定时任务/系统内部调用 ====================
 
     @Override
-    public void processTimeoutOrders(Integer timeoutMinutes, Integer batchSize) {
-        log.info("开始处理超时未支付订单: timeoutMinutes={}, batchSize={}", timeoutMinutes, batchSize);
-
-        Integer actualTimeout = OrderConstant.ORDER_TIMEOUT_MINUTES + 1;
-        List<OrderInfo> timeoutOrders = orderInfoMapper.selectTimeoutOrders(actualTimeout, batchSize);
-
-        if (timeoutOrders.isEmpty()) {
-            log.info("没有超时未支付订单");
-            return;
-        }
-
-        log.info("找到{}个超时未支付订单", timeoutOrders.size());
-
-        for (OrderInfo order : timeoutOrders) {
-            try {
-                boolean success = cancelOrder(order.getId());
-                if (success) {
-                    log.info("成功取消超时订单: orderId={}, orderNo={}", order.getId(), order.getOrderNo());
-                }
-            } catch (Exception e) {
-                log.error("取消超时订单异常: orderId={}", order.getId(), e);
-            }
-        }
-    }
-
-    @Override
     public boolean cancelOrderByOrderNo(String orderNo) {
         log.info("根据订单号取消订单: orderNo={}", orderNo);
         OrderInfo orderInfo = orderInfoMapper.selectByOrderNo(orderNo);
@@ -426,49 +398,6 @@ public class OrderServiceImpl implements OrderService {
         }
 
         return success;
-    }
-
-    @Override
-    public PageResult<OrderInfoVO> getOrdersByUserEmail(String email, OrderQueryDTO queryDTO) {
-        log.info("管理端根据邮箱查询用户订单: email={}, queryDTO={}", email, queryDTO);
-
-        try {
-            // 1. 先根据邮箱查找用户
-            User user = userMapper.getUserByEmail(email);
-            if (user == null) {
-                log.warn("用户不存在，邮箱: {}", email);
-                throw new RuntimeException("用户不存在");
-            }
-
-            // 2. 设置用户ID到查询条件中
-            queryDTO.setUserId(user.getId());
-
-            // 3. 执行分页查询 - 使用管理端联表查询
-            List<OrderInfoVO> orderList = orderInfoMapper.selectAdminByCondition(queryDTO);
-            Long total = orderInfoMapper.countAdminByCondition(queryDTO);
-
-            // 4. 计算有效页码
-            int maxPage = (int) Math.ceil((double) total / queryDTO.getSize());
-            if (queryDTO.getPage() > maxPage && maxPage > 0) {
-                queryDTO.setPage(maxPage);
-                orderList = orderInfoMapper.selectAdminByCondition(queryDTO);
-            }
-
-            log.info("根据邮箱查询订单成功: email={}, userId={}, 总数: {}, 当前页数量: {}", 
-                    email, user.getId(), total, orderList.size());
-
-            return new PageResult<>(orderList, total, queryDTO);
-
-        } catch (IllegalArgumentException e) {
-            log.warn("分页参数错误: {}", e.getMessage());
-            throw e;
-        } catch (RuntimeException e) {
-            log.warn("根据邮箱查询订单失败: {}", e.getMessage());
-            throw e;
-        } catch (Exception e) {
-            log.error("根据邮箱查询订单异常: {}", e.getMessage(), e);
-            throw new RuntimeException("查询订单列表失败");
-        }
     }
 
     // ==================== 私有辅助方法 ====================

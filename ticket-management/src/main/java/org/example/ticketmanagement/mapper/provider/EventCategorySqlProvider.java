@@ -13,7 +13,7 @@ public class EventCategorySqlProvider {
      */
     public String selectByCondition(EventCategoryQueryDTO queryDTO) {
         return new SQL() {{
-            SELECT("id, name, sort_order, status, create_time");
+            SELECT("*");
             FROM("event_category");
 
             // 动态添加WHERE条件
@@ -46,17 +46,23 @@ public class EventCategorySqlProvider {
     }
 
     /**
-     * 构建WHERE条件（公共逻辑）
+     * 构建 WHERE 条件（公共逻辑）
      */
     private void buildWhereClause(SQL sql, EventCategoryQueryDTO queryDTO) {
+        // 默认查询启用状态，除非明确指定其他状态
         if (queryDTO.getStatus() != null) {
             sql.WHERE("status = #{status}");
+        } else {
+            // 如果没有传 status 参数，默认查询 status=1
+            sql.WHERE("status = 1");
         }
 
+        // 名称模糊匹配
         if (queryDTO.needNameLike()) {
             sql.WHERE("name LIKE CONCAT('%', #{name}, '%')");
         }
 
+        // 排序范围
         if (queryDTO.needSortRange()) {
             sql.WHERE("sort_order BETWEEN #{minSort} AND #{maxSort}");
         }

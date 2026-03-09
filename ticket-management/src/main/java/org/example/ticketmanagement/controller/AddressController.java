@@ -6,7 +6,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
-import org.example.ticketmanagement.dto.SetDefaultAddressDTO;
 import org.example.ticketmanagement.dto.UserAddressDTO;
 import org.example.ticketmanagement.pojo.Result;
 import org.example.ticketmanagement.service.UserAddressService;
@@ -173,32 +172,31 @@ public class AddressController {
      * 设置默认收货地址
      */
     @Operation(summary = "设置默认收货地址", tags = {"收货管理"})
-    @PostMapping("/default")
-    public Result<Void> setDefaultAddress(@Valid @RequestBody SetDefaultAddressDTO dto) {
+    @PostMapping("/{id}/default")
+    public Result<Void> setDefaultAddress(@PathVariable Long id) {
         Long userId = StpUtil.getLoginIdAsLong();
-        Long addressId = dto.getAddressId();
-        log.info("设置默认收货地址，地址ID: {}, 用户ID: {}", addressId, userId);
+        log.info("设置默认收货地址，地址 ID: {}, 用户 ID: {}", id, userId);
 
         try {
             // 验证地址所有权
-            if (!userAddressService.validateAddressOwnership(addressId, userId)) {
+            if (!userAddressService.validateAddressOwnership(id, userId)) {
                 return Result.error("收货地址不存在或无权操作");
             }
 
-            boolean success = userAddressService.setDefaultAddress(userId, addressId);
+            boolean success = userAddressService.setDefaultAddress(userId, id);
             if (success) {
                 return Result.success("设置默认地址成功");
             } else {
                 return Result.error("设置默认地址失败");
             }
         } catch (IllegalArgumentException e) {
-            log.warn("参数错误: {}", e.getMessage());
+            log.warn("参数错误：{}", e.getMessage());
             return Result.error(400, e.getMessage());
         } catch (RuntimeException e) {
-            log.warn("设置默认地址失败: {}", e.getMessage());
+            log.warn("设置默认地址失败：{}", e.getMessage());
             return Result.error(e.getMessage());
         } catch (Exception e) {
-            log.error("设置默认地址失败: {}", e.getMessage(), e);
+            log.error("设置默认地址失败：{}", e.getMessage(), e);
             return Result.error("设置默认地址失败");
         }
     }

@@ -41,7 +41,7 @@ public class PaymentController {
     /**
      * 1. 创建支付订单（自动关联最新待支付订单，并获取订单二维码）
      */
-    @Operation(summary = "开启订单支付", tags = {"支付-客户端"})
+    @Operation(summary = "开启订单支付（展示支付宝二维码）", tags = {"支付-客户端"})
     @PostMapping("/user/payments/create")
     @SaCheckLogin
     public Result<PaymentResultDTO> createPayment(@Valid @RequestBody PayTypeDTO payTypeDTO) {
@@ -77,9 +77,11 @@ public class PaymentController {
     }
 
     /**
-     * 3. 主动关闭支付订单（用户取消支付）
+     * 3. 关闭支付订单（客户端）
+     * 作用：仅关闭支付记录，不影响订单状态
+     * 场景：用户关闭支付窗口、暂时不想支付
      */
-    @Operation(summary = "关闭支付订单", tags = {"支付-客户端"})
+    @Operation(summary = "用户关闭支付", tags = {"支付-客户端"})
     @PutMapping("/user/payments/close/{paymentNo}")
     @SaCheckLogin
     public Result<Void> closePayment(@PathVariable String paymentNo) {
@@ -103,7 +105,6 @@ public class PaymentController {
 
     /**
      * 4. 支付宝异步回调通知
-     * 注意：此接口是支付宝服务器调用，不能加登录拦截
      */
     @Operation(summary = "支付宝异步回调", tags = {"支付-回调"}, hidden = true)
     @PostMapping("/public/payments/notify")
@@ -177,22 +178,23 @@ public class PaymentController {
     /**
      * 6. 管理员手动触发补偿任务
      */
-    @Operation(summary = "手动触发支付补偿", tags = {"支付-管理端"})
+    @Operation(summary = "手动触发支付补偿", tags = {"支付 - 管理端"})
     @PostMapping("/admin/payments/compensation")
     @SaCheckRole({RoleConstant.ADMIN})
-    public Result<String> triggerCompensation() {
+    public Result<String> triggerCompensation(
+            @RequestParam(defaultValue = "10") int waitingMinutes) {
         Long adminId = StpUtil.getLoginIdAsLong();
-        log.info("管理员手动触发支付补偿: adminId={}", adminId);
+        log.info("管理员手动触发支付补偿：adminId={}, waitingMinutes={}", adminId, waitingMinutes);
 
         try {
             // 异步执行补偿任务，避免接口超时
             new Thread(() -> {
-                paymentService.processCompensation();
+                paymentService.processCompensation(waitingMinutes);
             }).start();
 
             return Result.success("补偿任务已触发，请查看日志");
         } catch (Exception e) {
-            log.error("手动触发补偿任务失败: adminId={}", adminId, e);
+            log.error("手动触发补偿任务失败：adminId={}", adminId, e);
             return Result.error("触发失败：" + e.getMessage());
         }
     }
@@ -200,21 +202,23 @@ public class PaymentController {
     /**
      * 7. 管理员手动触发超时关单
      */
-    @Operation(summary = "手动触发超时关单", tags = {"支付-管理端"})
+    @Operation(summary = "手动触发超时关单", tags = {"支付 - 管理端"})
     @PostMapping("/admin/payments/timeout-close")
     @SaCheckRole({RoleConstant.ADMIN})
-    public Result<String> triggerTimeoutClose() {
+    public Result<String> triggerTimeoutClose(
+            @RequestParam(defaultValue = "35") int timeoutMinutes) {
         Long adminId = StpUtil.getLoginIdAsLong();
-        log.info("管理员手动触发超时关单: adminId={}", adminId);
+        log.info("管理员手动触发超时关单：adminId={}, timeoutMinutes={}", adminId, timeoutMinutes);
 
         try {
+            // 异步执行超时关单任务，避免接口超时
             new Thread(() -> {
-                paymentService.processTimeoutClose();
+                paymentService.processTimeoutOrders(timeoutMinutes);
             }).start();
 
             return Result.success("超时关单任务已触发，请查看日志");
         } catch (Exception e) {
-            log.error("手动触发超时关单失败: adminId={}", adminId, e);
+            log.error("手动触发超时关单失败：adminId={}", adminId, e);
             return Result.error("触发失败：" + e.getMessage());
         }
     }

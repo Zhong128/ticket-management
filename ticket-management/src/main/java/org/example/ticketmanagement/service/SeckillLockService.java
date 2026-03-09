@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/service/lock/SeckillLockService.java
 package org.example.ticketmanagement.service;
 
 import java.util.concurrent.TimeUnit;

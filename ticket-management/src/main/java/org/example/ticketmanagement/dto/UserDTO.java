@@ -55,5 +55,5 @@ public class UserDTO {
     private Integer status;
 
     @Pattern(regexp = "^(USER|ADMIN)$", message = "角色必须是USER或ADMIN")
-    private String role; // ✅ 新增角色字段
+    private String role;
 }

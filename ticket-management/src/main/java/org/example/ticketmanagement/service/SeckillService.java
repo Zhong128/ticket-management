@@ -27,21 +27,6 @@ public interface SeckillService {
     boolean checkSeckillQualification(Long userId, Long tierId, Integer quantity);
 
     /**
-     * 预扣库存（Redis原子操作）
-     * @param tierId 票档ID
-     * @param quantity 购买数量
-     * @return 是否扣减成功
-     */
-    boolean preDeductStock(Long tierId, Integer quantity);
-
-    /**
-     * 恢复库存（用于订单取消等情况）
-     * @param tierId 票档ID
-     * @param quantity 恢复数量
-     */
-    void restoreStock(Long tierId, Integer quantity);
-
-    /**
      * 获取票档实时库存（从Redis）
      * @param tierId 票档ID
      * @return 实时库存数量

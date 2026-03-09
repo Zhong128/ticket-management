@@ -18,4 +18,8 @@ public class UserAddressVO {
     private String detailAddress;
     private String postalCode;
     private Integer isDefault;
+    //完整地址（前端直接使用）
+    private String fullAddress;
+    //格式化后的创建时间
+    private String formattedCreateTime;
 }

@@ -24,8 +24,8 @@ public class OrderQueryDTO extends PageQuery {
     private LocalDateTime endTime;   // 创建结束时间
     private BigDecimal minAmount;    // 最小金额
     private BigDecimal maxAmount;    // 最大金额
+    private String userEmail;        // 用户邮箱（管理端查询）
 
-    // 参照CityQueryDTO的needXxx方法风格
     public boolean needOrderNoLike() {
         return orderNo != null && !orderNo.trim().isEmpty();
     }
@@ -35,8 +35,15 @@ public class OrderQueryDTO extends PageQuery {
     }
     
     /**
+     * 检查是否需要邮箱精确匹配
+     */
+    public boolean needUserEmailExact() {
+        return userEmail != null && !userEmail.trim().isEmpty();
+    }
+    
+    /**
      * 检查价格范围参数是否有效
-     * @return true表示参数有效，false表示无效
+     * @return true 表示参数有效，false 表示无效
      */
     public boolean isValidAmountRange() {
         // 如果两个参数都为null，认为有效（不限制价格范围）

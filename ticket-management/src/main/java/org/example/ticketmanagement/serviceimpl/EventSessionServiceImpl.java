@@ -205,15 +205,6 @@ public class EventSessionServiceImpl implements EventSessionService {
     }
 
     @Override
-    public List<EventSessionVO> getSessionsByEventId(Long eventId) {
-        log.debug("根据演出ID查询场次，eventId: {}", eventId);
-        List<EventSession> sessions = eventSessionMapper.selectByEventId(eventId);
-        return sessions.stream()
-                .map(this::convertToVO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
     public List<EventSessionVO> getSessionsByEventIdAndStatus(Long eventId, Integer status) {
         log.debug("根据演出ID和状态查询场次，eventId: {}, status: {}", eventId, status);
         List<EventSession> sessions = eventSessionMapper.selectByEventIdAndStatus(eventId, status);
@@ -222,12 +213,10 @@ public class EventSessionServiceImpl implements EventSessionService {
                 .collect(Collectors.toList());
     }
 
-    // 在EventSessionServiceImpl.java中添加
     @Override
     public List<EventSessionVO> getUpcomingSessions(Integer limit) {
         log.debug("获取即将开始的场次，limit: {}", limit);
 
-        // 调用Mapper的selectUpcomingSessions方法
         List<EventSession> sessions = eventSessionMapper.selectUpcomingSessions(limit);
 
         return sessions.stream()

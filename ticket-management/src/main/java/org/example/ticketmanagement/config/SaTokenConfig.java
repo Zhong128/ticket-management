@@ -23,12 +23,12 @@ public class SaTokenConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new SaInterceptor(handler -> {
-                    // 打印当前请求路径
+
                     System.out.println("========== 请求路径: " + SaHolder.getRequest().getRequestPath() + " ==========");
 
                     //放行所有 OPTIONS 请求
                     if (SaHolder.getRequest().getMethod().equals("OPTIONS")) {
-                        return;  // 直接返回，不进行任何权限检查
+                        return;
                     }
 
                     // 放行所有不需要登录的接口（放在最前面）

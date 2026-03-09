@@ -184,54 +184,9 @@ public class EventServiceImpl implements EventService {
     }
 
     @Override
-    public List<EventVO> getEventsByStatus(Integer status) {
-        log.debug("根据状态查询演出，status: {}", status);
-        List<Event> events = eventMapper.selectByStatus(status);
-        return events.stream()
-                .map(this::convertToVO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<EventVO> getEventsByCategoryId(Long categoryId) {
-        log.debug("根据分类查询演出，categoryId: {}", categoryId);
-        List<Event> events = eventMapper.selectByCategoryId(categoryId);
-        return events.stream()
-                .map(this::convertToVO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<EventVO> getEventsByCityId(Long cityId) {
-        log.debug("根据城市查询演出，cityId: {}", cityId);
-        List<Event> events = eventMapper.selectByCityId(cityId);
-        return events.stream()
-                .map(this::convertToVO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
     public List<EventVO> getEventsByCategoryAndCity(Long categoryId, Long cityId) {
         log.debug("根据分类和城市查询演出，categoryId: {}, cityId: {}", categoryId, cityId);
         List<Event> events = eventMapper.selectByCategoryAndCity(categoryId, cityId);
-        return events.stream()
-                .map(this::convertToVO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<EventVO> searchEventsByArtistName(String artistName) {
-        log.debug("根据艺人名称模糊查询演出，artistName: {}", artistName);
-        List<Event> events = eventMapper.selectByArtistName(artistName);
-        return events.stream()
-                .map(this::convertToVO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<EventVO> searchEventsByName(String name) {
-        log.debug("根据演出名称模糊查询演出，name: {}", name);
-        List<Event> events = eventMapper.selectByName(name);
         return events.stream()
                 .map(this::convertToVO)
                 .collect(Collectors.toList());

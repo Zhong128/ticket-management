@@ -32,24 +32,17 @@ public class EventCategoryController {
     // ==================== 公共接口（无需登录） ====================
 
     /**
-     * 获取全部分类列表（公共接口）
-     * 可选参数：status (0-禁用，1-启用)
+     * 获取全部启用分类列表（公共接口）
+     * 默认返回 status=1 的启用状态分类
      */
-    @Operation(summary = "获取分类列表", tags = {"演出分类-公共接口"})
+    @Operation(summary = "获取分类列表", tags = {"演出分类 - 公共接口"})
     @GetMapping("/public/categories")
-    public Result<List<EventCategoryVO>> getAllCategories(
-            @RequestParam(required = false) Integer status) {
-
-        List<EventCategoryVO> categories;
-
-        if (status != null) {
-            log.debug("根据状态查询分类列表，status: {}", status);
-            categories = eventCategoryService.getCategoriesByStatus(status);
-        } else {
-            log.debug("查询全部分类列表");
-            categories = eventCategoryService.getAllCategories();
-        }
-
+    public Result<List<EventCategoryVO>> getAllCategories() {
+        log.debug("查询全部启用的分类列表");
+        
+        // 默认查询启用状态的分类
+        List<EventCategoryVO> categories = eventCategoryService.getCategoriesByStatus(1);
+        
         return Result.success("查询成功", categories);
     }
 
@@ -75,40 +68,30 @@ public class EventCategoryController {
 
     /**
      * 分页查询分类列表（用户端）
+     * 默认查询启用状态（status=1）的分类
      */
-    @Operation(summary = "分页查询分类列表", tags = {"演出分类-用户端"})
+    @Operation(summary = "分页查询分类列表", tags = {"演出分类 - 用户端"})
     @GetMapping("/user/categories/page")
     @SaCheckLogin
     public Result<PageResult<EventCategoryVO>> getCategoriesByPage(
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer size,
-            @RequestParam(required = false) Integer status) {
+            @RequestParam(required = false) String name) {
 
-        log.debug("简单分页查询分类，page: {}, size: {}, status: {}", page, size, status);
+        log.debug("分页查询分类，page: {}, size: {}, name: {}", page, size, name);
 
         // 构建查询参数
-        org.example.ticketmanagement.dto.EventCategoryQueryDTO queryDTO = new org.example.ticketmanagement.dto.EventCategoryQueryDTO();
+        EventCategoryQueryDTO queryDTO = new EventCategoryQueryDTO();
         queryDTO.setPage(page);
         queryDTO.setSize(size);
-        queryDTO.setStatus(status);
+        queryDTO.setStatus(1);  // 默认查询启用状态
+        queryDTO.setName(name);  // 支持模糊匹配
 
         // 调用统一的分页查询方法
         PageResult<EventCategoryVO> result = eventCategoryService.queryCategories(queryDTO);
         return Result.success("查询成功", result);
     }
 
-    /**
-     * 根据状态获取分类列表（用户端）
-     */
-    @Operation(summary = "根据状态获取分类列表", tags = {"演出分类-用户端"})
-    @GetMapping("/user/categories/status/{status}")
-    @SaCheckLogin
-    public Result<List<EventCategoryVO>> getCategoriesByStatus(@PathVariable Integer status) {
-        log.debug("根据状态查询分类列表，status: {}", status);
-
-        List<EventCategoryVO> categories = eventCategoryService.getCategoriesByStatus(status);
-        return Result.success("查询成功", categories);
-    }
 
     // ==================== 管理端接口（需要管理员权限） ====================
 
@@ -182,9 +165,9 @@ public class EventCategoryController {
     }
 
     /**
-     * 分页查询分类列表（支持多条件筛选）
+     * 分页查询分类列表
      */
-    @Operation(summary = "分页查询分类列表（多条件筛选）", tags = {"演出分类-管理端"})
+    @Operation(summary = "分页查询分类列表（管理端）", tags = {"演出分类-管理端"})
     @GetMapping("/admin/categories/query")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<PageResult<EventCategoryVO>> queryCategories(@Valid EventCategoryQueryDTO queryDTO) {

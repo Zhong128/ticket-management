@@ -2,6 +2,8 @@
 package org.example.ticketmanagement.mapper;
 
 import org.apache.ibatis.annotations.*;
+import org.example.ticketmanagement.dto.EventQueryDTO;
+import org.example.ticketmanagement.mapper.provider.EventSqlProvider;
 import org.example.ticketmanagement.pojo.Event;
 
 import java.util.List;
@@ -149,12 +151,12 @@ public interface EventMapper {
     /**
      * 分页查询演出列表
      */
-    @SelectProvider(type = org.example.ticketmanagement.mapper.provider.EventSqlProvider.class, method = "selectByCondition")
-    List<Event> selectByCondition(@Param("queryDTO") org.example.ticketmanagement.dto.EventQueryDTO queryDTO);
+    @SelectProvider(type = EventSqlProvider.class, method = "selectByCondition")
+    List<Event> selectByCondition(@Param("queryDTO") EventQueryDTO queryDTO);
 
     /**
      * 统计查询演出总数
      */
-    @SelectProvider(type = org.example.ticketmanagement.mapper.provider.EventSqlProvider.class, method = "countByCondition")
-    Long countByCondition(@Param("queryDTO") org.example.ticketmanagement.dto.EventQueryDTO queryDTO);
+    @SelectProvider(type = EventSqlProvider.class, method = "countByCondition")
+    Long countByCondition(@Param("queryDTO") EventQueryDTO queryDTO);
 }

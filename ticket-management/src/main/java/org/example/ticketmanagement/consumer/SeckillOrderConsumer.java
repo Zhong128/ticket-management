@@ -1,4 +1,3 @@
-// org/example/ticketmanagement/consumer/SeckillOrderConsumer.java
 package org.example.ticketmanagement.consumer;
 
 import com.rabbitmq.client.Channel;
