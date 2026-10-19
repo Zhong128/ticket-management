@@ -14,6 +14,8 @@ import org.example.ticketmanagement.pojo.PageResult;
 import org.example.ticketmanagement.pojo.Result;
 import org.example.ticketmanagement.service.EventCategoryService;
 import org.example.ticketmanagement.vo.EventCategoryVO;
+import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;

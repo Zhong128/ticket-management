@@ -36,9 +36,6 @@ public class RedisConfig {
         // 忽略未知属性
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-        // 禁用默认类型信息（避免循环引用导致的 StackOverflowError）
-        // objectMapper.disable(com.fasterxml.jackson.databind.MapperFeature.USE_ANNOTATIONS);
-
         // 创建序列化器（不使用 activateDefaultTyping）
         GenericJackson2JsonRedisSerializer jsonRedisSerializer =
                 new GenericJackson2JsonRedisSerializer(objectMapper);

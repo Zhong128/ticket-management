@@ -1,0 +1,57 @@
+spring:
+  datasource:
+    # 使用环境变量，支持容器内连接
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://mysql:3306/ticket}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:redis}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      database: ${SPRING_DATA_REDIS_DATABASE:0}
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:rabbitmq}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:tm}
+    password: ${SPRING_RABBITMQ_PASSWORD:}
+    virtual-host: ${SPRING_RABBITMQ_VIRTUAL_HOST:/tm}
+
+# Redisson 配置（使用环境变量）
+redisson:
+  config: |
+    singleServerConfig:
+      address: "redis://${SPRING_DATA_REDIS_HOST:redis}:${SPRING_DATA_REDIS_PORT:6379}"
+      database: 0
+      connectionMinimumIdleSize: 10
+      connectionPoolSize: 64
+      subscriptionConnectionPoolSize: 50
+      timeout: 3000
+      retryAttempts: 3
+      retryInterval: 1500
+
+# 日志配置
+logging:
+  file:
+    path: /app/logs
+    name: /app/logs/ticket-management.log
+  level:
+    org.example.ticketmanagement: INFO
+    org.springframework.web: INFO
+  logback:
+    rollingpolicy:
+      max-history: 7
+      max-file-size: 100MB
+

@@ -21,8 +21,8 @@ public class EventSqlProvider {
 
             // 分页
             if (queryDTO.getSize() != null && queryDTO.getOffset() != null) {
-                LIMIT("#{size}");
-                OFFSET("#{offset}");
+                LIMIT("#{queryDTO.size}");
+                OFFSET("#{queryDTO.offset}");
             }
         }}.toString();
     }
@@ -45,23 +45,23 @@ public class EventSqlProvider {
      */
     private void buildWhereClause(SQL sql, EventQueryDTO queryDTO) {
         if (queryDTO.getName() != null && !queryDTO.getName().isEmpty()) {
-            sql.WHERE("name LIKE CONCAT('%', #{name}, '%')");
+            sql.WHERE("name LIKE CONCAT('%', #{queryDTO.name}, '%')");
         }
 
         if (queryDTO.getArtistName() != null && !queryDTO.getArtistName().isEmpty()) {
-            sql.WHERE("artist_name LIKE CONCAT('%', #{artistName}, '%')");
+            sql.WHERE("artist_name LIKE CONCAT('%', #{queryDTO.artistName}, '%')");
         }
 
         if (queryDTO.getCategoryId() != null) {
-            sql.WHERE("category_id = #{categoryId}");
+            sql.WHERE("category_id = #{queryDTO.categoryId}");
         }
 
         if (queryDTO.getCityId() != null) {
-            sql.WHERE("city_id = #{cityId}");
+            sql.WHERE("city_id = #{queryDTO.cityId}");
         }
 
         if (queryDTO.getStatus() != null) {
-            sql.WHERE("status = #{status}");
+            sql.WHERE("status = #{queryDTO.status}");
         }
     }
 }

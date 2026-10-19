@@ -1,0 +1,10 @@
+.git
+.idea
+.vscode
+.env
+.env.*
+config/
+docker-data/
+logs/
+uploads/
+test-users*.csv

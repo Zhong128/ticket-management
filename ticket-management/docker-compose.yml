@@ -1,21 +1,33 @@
 version: '3.8'
 
 services:
+  # MySQL 数据库
   mysql:
     image: mysql:8.0
     container_name: ticket-mysql
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: zyh790201
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
       MYSQL_DATABASE: ticket
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
     ports:
-      - "3307:3306"
+      - "3307:3306"  # 映射到主机的 3307 端口，避免和本地冲突
     volumes:
-      - ./docker-data/mysql:/var/lib/mysql
+      - ./docker-data/mysql/data:/var/lib/mysql
+      - ./docker-data/mysql/conf:/etc/mysql/conf.d
+      - ./docker-data/mysql/init:/docker-entrypoint-initdb.d  # 初始化脚本
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     networks:
       - ticket-network
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h localhost -u root --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
+  # Redis 缓存
   redis:
     image: redis:7-alpine
     container_name: ticket-redis
@@ -23,52 +35,78 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - ./docker-data/redis:/data
+      - ./docker-data/redis/data:/data
     command: redis-server --appendonly yes
     networks:
       - ticket-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # 添加 RabbitMQ 服务
+  # RabbitMQ 消息队列
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
     container_name: ticket-rabbitmq
     restart: always
     environment:
-      RABBITMQ_DEFAULT_USER: tm
-      RABBITMQ_DEFAULT_PASS: 123456
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:?Set RABBITMQ_DEFAULT_USER in .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:?Set RABBITMQ_DEFAULT_PASS in .env}
       RABBITMQ_DEFAULT_VHOST: /tm
     ports:
       - "5672:5672"   # AMQP 协议端口
       - "15672:15672" # 管理界面端口
     volumes:
-      - ./docker-data/rabbitmq:/var/lib/rabbitmq
+      - ./docker-data/rabbitmq/data:/var/lib/rabbitmq
     networks:
       - ticket-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
+  # Spring Boot 应用
   app:
+    env_file:
+      - .env
     build: .
     container_name: ticket-app
     restart: always
     depends_on:
-      - mysql
-      - redis
-      - rabbitmq  # 添加依赖
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     ports:
-      - "8080:8080"
+      - "8080:8080"  # 映射到主机的 8080 端口
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/ticket?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+      # 数据库配置（使用服务名连接）
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/ticket?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: zyh790201
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:?Set SPRING_DATASOURCE_PASSWORD in .env}
+
+      # Redis 配置
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
-      # 添加 RabbitMQ 环境变量
+      SPRING_DATA_REDIS_DATABASE: 0
+
+      # RabbitMQ 配置
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: tm
-      SPRING_RABBITMQ_PASSWORD: 123456
+      SPRING_RABBITMQ_USERNAME: ${SPRING_RABBITMQ_USERNAME:?Set SPRING_RABBITMQ_USERNAME in .env}
+      SPRING_RABBITMQ_PASSWORD: ${SPRING_RABBITMQ_PASSWORD:?Set SPRING_RABBITMQ_PASSWORD in .env}
       SPRING_RABBITMQ_VIRTUAL_HOST: /tm
+
+      # 其他配置
+      TZ: Asia/Shanghai
     volumes:
       - ./logs:/app/logs
+      - ./uploads:/app/uploads  # 如果有文件上传
     networks:
       - ticket-network
 

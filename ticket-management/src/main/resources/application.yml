@@ -1,94 +1,31 @@
-# =======================上线测试所用配置===========================
-
-#spring:
-#  application:
-#    name: ticket-management
-#  datasource:
-#    url: jdbc:mysql://mysql:3306/ticket # ===========本地和上线不同==========
-#    driver-class-name: com.mysql.cj.jdbc.Driver
-#    username: root
-#    password: zyh790201
-#  data:
-#    redis:
-#      host: redis # ===========本地和上线不同==========
-#      port: 6379
-#      password:  # 如果有密码则填写
-#      database: 0
-#      timeout: 5000ms
-#      lettuce:
-#        pool:
-#          max-active: 8   # 连接池最大连接数
-#          max-idle: 8     # 连接池最大空闲连接数
-#          min-idle: 0     # 连接池最小空闲连接数
-#          max-wait: -1ms  # 连接池最大阻塞等待时间
-#
-#  rabbitmq:
-#    host: rabbitmq # ===========本地和上线不同==========
-#    port: 5672
-#    username: tm
-#    password: 123456
-#    virtual-host: /tm
-#    # 开启生产者确认模式
-#    publisher-confirm-type: correlated
-#    publisher-returns: true
-#    listener:
-#      simple:
-#        # 消费者手动确认
-#        acknowledge-mode: manual
-#        # 消费失败重试
-#        retry:
-#          enabled: true
-#          max-attempts: 3
-#          initial-interval: 1000ms
-#
-#  mail:
-#    host: smtp.qq.com
-#    port: 587
-#    username: 3197209971@qq.com  # 你的邮箱
-#    password: cikiahobyowodghc  # 邮箱授权码，不是登录密码
-#    protocol: smtp
-#    default-encoding: UTF-8
-#    properties:
-#      mail:
-#        smtp:
-#          auth: true
-#          starttls:
-#            enable: true
-#            required: true
-#
-#mybatis:
-#  configuration:
-#    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-#    map-underscore-to-camel-case: true
-#
-## Redisson配置
-#redisson:
-#  config: |
-#    singleServerConfig:
-#      address: "redis://redis:6379"
-#      database: 0
-#      connectionMinimumIdleSize: 10
-#      connectionPoolSize: 64
-#      subscriptionConnectionPoolSize: 50
-#      timeout: 3000
-#      retryAttempts: 3
-#      retryInterval: 1500
-
-# =======================本地测试所用配置===========================
-
 spring:
+  config:
+    import:
+      - optional:file:./ticket-management/config/application-local.properties
+      - optional:file:./config/application-local.properties
+
   application:
     name: ticket-management
+
+  ai:
+    openai:
+      chat:
+        options:
+          model: qwen3.6-plus
+      api-key: ${OPENAI_API_KEY:}
+      base-url: https://dashscope.aliyuncs.com/compatible-mode
+
   datasource:
     url: jdbc:mysql://localhost:3306/ticket
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: root
-    password: zyh790201
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+
   data:
     redis:
       host: localhost
       port: 6379
-      password:  # 如果有密码则填写
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
       database: 0
       timeout: 5000ms
       lettuce:
@@ -101,8 +38,8 @@ spring:
   rabbitmq:
     host: localhost
     port: 5672
-    username: tm
-    password: 123456
+    username: ${SPRING_RABBITMQ_USERNAME:tm}
+    password: ${SPRING_RABBITMQ_PASSWORD:}
     virtual-host: /tm
     # 开启生产者确认模式
     publisher-confirm-type: correlated
@@ -120,8 +57,8 @@ spring:
   mail:
     host: smtp.qq.com
     port: 587
-    username: 3197209971@qq.com  # 你的邮箱
-    password: cikiahobyowodghc  # 邮箱授权码，不是登录密码
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
     protocol: smtp
     default-encoding: UTF-8
     properties:
@@ -153,9 +90,9 @@ redisson:
 # 微信测试号配置
 wechat:
   test:
-    app-id: wx94cd5b487e8b7509  # 替换为你的测试号AppID
-    app-secret: 047b3810f687c2dfd2fd6033181345cf # 替换为你的测试号AppSecret
-    redirect-uri: http://pd9934a2.natappfree.cc/api/auth/wechat/callback  # 本地测试回调地址
+    app-id: ${WECHAT_APP_ID:}
+    app-secret: ${WECHAT_APP_SECRET:}
+    redirect-uri: ${WECHAT_REDIRECT_URI:http://localhost:8080/api/auth/wechat/callback}
 
 # 验证码配置
 verification:
@@ -197,22 +134,20 @@ sa-token:
 # 添加支付宝配置
 alipay:
   # 沙箱环境APPID（从支付宝沙箱后台获取）
-  app-id: 9021000161666460
+  app-id: ${ALIPAY_APP_ID:}
   # 商户私钥（你的应用私钥）
-  merchant-private-key: |
-    MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCvGd8dFvz5bYABsd0uf8hwO4Wp+S71N+yqYzvQ4Ty+2A/Wy9TzT+tfGbaQOTWPJ9QwMMurmhvWw9Z5ZV6eXu0FjGCAF1wPeNEOqAFPP7uN5viJWZX/BS2XryGUP3KjIz+BXBZzdK8Aq2KHxx/f4S//MWVOGlhpUo9iB93zeOWpftEnyXY+oolROBB1Ckz+NiYOQa8y98KSao02CCcxwarrjoGl495+7PHsqaTq6NKnxiVnfw/bdOATROuN4AXg6EWnXccCDcIePvgTcZv910sflQItprBp9m65o0uwmRjdkFscyC/Vgt/aq93QR9TVvYXSGEmcDotUjDYeG01/BkevAgMBAAECggEAXYSZzvWKIsVCyqTuFnmU2axQlRlK5Rj7Q31AYy0Ivnyy6OtwTorukJoxERIc8to4z4wgGwRxveBWWfuz7y2PtZjlqUPQnUrPjN5Z5LOLPhyPvPulytA/K3YTnxPL7ClVL4e5TeyR0u+17gKBmZaxhcAh9PbJJWc8wQSmm/SD5GO9P0UtVSZLHD7QQXSEmXHezKDOlQoKiSMnG+jXEIQ38jKu87jDTdVMmUr9/zaOGvukFHIchMsFXuovZIn9K/tpRKLkxugg3Ki0a9K7ShrQQUQJ1c2Tgvo3tIMf8iD2qBzhG7VdxZwRFaa2DobuV6ySDI8px0tSiaJX5sQajr/qgQKBgQDtM9xiJTxvqfYGGVZL1yWjn2qIVuELohfdg4ArNtOcKXHrdYYOOlownAhx1VOpyDbpkcH9z0lsBgI/O6dRzQMwg+uqP8BgQGaStrQGQdWFPM7lhy65Mjy7qwO2PDSFheOsxW3MZKaEKMnwtfW7FGa0B/3zxfI18vR1bJJh1/nFjwKBgQC8+ieGyvt2TS5RkGa2DdfESIxDeQKxPW2VvXGgQR542aShfkLgWqCiOghnRkn6Y8RPXMBL0grgTCm3SWQP6S13UckFHz2DTMGGX4posII+6kaYCVAB+snI8xLCXgU56k5s83EyZsxOdXTzoeIiMOXwdJ/IGtpdGQDmeAS/zpWL4QKBgQDsguNhsQMby/oVhrn3EOTkyxVsMERgVxU4t9/aNua0NNb0EdDC6wf2o/3/ktfC2HF4Xu9w5XiuDye6aP6in6poe4FF1h85Wb1s2GOUQZxnJ4ScdDfwTNklvpUK5ejwodmr8YdTX6Bw8kK4kpYcHXFyXO2oXVzu0ftSAhnLGZBgnQKBgQCznIsO6UQBl6/LZBTLOfL2owF1a8FsVfce2BTz/JCKyklYGJpVhK2iIsgz6DGN418FEyHNrpAZySnpA78wBC7rdnc6AAxGDCDvp0T05baVN7Pq8wbxKry42pbc1+Hdvt3VXbgb8GqEs8x5d0ZnutQBK8dluGgNDiO16SKSbzXh4QKBgAWKYlE8LJKjxYll2dVYDpjsnBvuIpkmru5GEc9abUDqiJXGScFv7cM4qP4gM4tMhnXEB6Fpqqywyg2UczE8r3WW2k7UiFJAaPcKjfbkiPDdZ/JDKG5J01/pnLkcZjKs1KxrrpLMYxxQsbnBeWX3fF0jMm3opTEyl3vgmIIxm2k8
+  merchant-private-key: ${ALIPAY_MERCHANT_PRIVATE_KEY:}
   # 支付宝公钥（从沙箱后台获取）
-  alipay-public-key: |
-    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmBBPTNtMsjw0Sycf6kkgFkPJ1bD+OJ7pzRow2oZFTB+qH1SsdOvPcfX4oT4YyYD5EmkexK21NepnJvHKcAeb7NKiaAMTFwGVwNtPfj4zTtP92K1vGn5jpI1ZsyQL/ZB/0fqPVJU9mgRffvth1p36Ez9I05fCamtTgQLYPPO71KdUfIwNMz7FlfHwS/POtNmo+5T4TixyjtoJIeADq35GAFGO9aiQkHExyNwCTcP7vpzD8/qV8m1Zu0lFuh6wJGuhtER96/fvnlsEfBJBUX+ePVVh0xtZIOwmAKIb2UUNPNvFcYLGbxEVCxtoABmq+XFBj0VF1/FSMJNKIMJkONrFJwIDAQAB
+  alipay-public-key: ${ALIPAY_PUBLIC_KEY:}
   # 支付宝网关（沙箱环境）
   gateway-url: https://openapi-sandbox.dl.alipaydev.com/gateway.do
   # 异步通知地址：使用 natapp 生成的公网地址，代码中动态传入，不需要在后台填
-  notify-url: http://pd9934a2.natappfree.cc/api/public/payments/notify
+  notify-url: ${ALIPAY_NOTIFY_URL:http://localhost:8080/api/public/payments/notify}
 
   # 同步返回地址：用户支付成功后跳转的页面
   # 如果你有前端页面，填写前端的地址
   # 如果没有，可以先填 natapp 地址测试
-  return-url: http://pd9934a2.natappfree.cc/payment/success
+  return-url: ${ALIPAY_RETURN_URL:http://localhost:8080/api/public/payments/return}
   # 或者填你的前端本地地址
   # return-url: http://localhost:5173/payment/success
   # 签名类型
@@ -222,3 +157,6 @@ alipay:
   # 支付超时时间（分钟）
   timeout-minutes: 30
 
+logging:
+  level:
+    org.springframework.ai.chat.client.advisor: debug

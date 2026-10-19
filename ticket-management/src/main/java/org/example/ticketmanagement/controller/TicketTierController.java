@@ -3,6 +3,7 @@ package org.example.ticketmanagement.controller;
 import cn.dev33.satoken.annotation.SaCheckDisable;
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckRole;
+import cn.dev33.satoken.annotation.SaIgnore;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -44,7 +45,7 @@ public class TicketTierController {
      */
     @Operation(summary = "分页查询票档列表", tags = {"票档 - 公共接口"})
     @GetMapping("/public/ticket-tiers/page")
-    @SaCheckLogin
+    @SaIgnore
     public Result<PageResult<TicketTierVO>> getTicketTiersByPage(
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer size,

@@ -1,0 +1,29 @@
+# Local IDE and assistant state
+/.idea/
+/.vscode/
+/.playwright-mcp/
+/.codeartsdoer/
+/.trae/
+*.iml
+
+# Local credentials, configuration backups and test tokens
+.env
+.env.*
+!.env.example
+**/application-local.properties
+/.baseline-local/
+test-users*.csv
+
+# Generated application files
+**/target/
+**/logs/
+**/uploads/
+*.log
+
+# Keep database initialization SQL, not live middleware data
+/ticket-management/docker-data/*
+!/ticket-management/docker-data/mysql/
+/ticket-management/docker-data/mysql/*
+!/ticket-management/docker-data/mysql/init/
+/ticket-management/docker-data/mysql/init/*
+!/ticket-management/docker-data/mysql/init/*.sql

@@ -39,6 +39,17 @@ public class UserAddressServiceImpl implements UserAddressService {
     }
 
     @Override
+    public List<UserAddress> listUserAddressesByUserIdEntity(Long userId) {
+        log.debug("查询用户所有收货地址（实体），用户ID: {}", userId);
+        try {
+            return userAddressMapper.listUserAddressesByUserId(userId);
+        } catch (Exception e) {
+            log.error("查询用户收货地址失败，用户ID: {}", userId, e);
+            throw new RuntimeException("查询收货地址失败");
+        }
+    }
+
+    @Override
     public UserAddressVO getUserAddressById(Long id) {
         log.debug("根据ID查询收货地址，地址ID: {}", id);
         try {
