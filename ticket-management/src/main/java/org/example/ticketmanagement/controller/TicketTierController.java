@@ -1,27 +1,32 @@
 package org.example.ticketmanagement.controller;
 
-import cn.dev33.satoken.annotation.SaCheckDisable;
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckRole;
 import cn.dev33.satoken.annotation.SaIgnore;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.groups.Default;
 import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.constant.RoleConstant;
+import org.example.ticketmanagement.dto.StockAdjustmentDTO;
 import org.example.ticketmanagement.dto.TicketTierDTO;
 import org.example.ticketmanagement.dto.TicketTierQueryDTO;
 import org.example.ticketmanagement.pojo.PageResult;
 import org.example.ticketmanagement.pojo.Result;
 import org.example.ticketmanagement.service.TicketTierService;
+import org.example.ticketmanagement.trade.core.StockAdjustmentService;
 import org.example.ticketmanagement.vo.StockStatisticsVO;
 import org.example.ticketmanagement.vo.TicketStockVO;
 import org.example.ticketmanagement.vo.TicketTierVO;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -32,6 +37,14 @@ public class TicketTierController {
     @Autowired
     private TicketTierService ticketTierService;
 
+    @Autowired
+    private StockAdjustmentService stockAdjustments;
+
+    @PostMapping("/admin/ticket-tiers/{id}/stock-adjustments")
+    @SaCheckRole(RoleConstant.ADMIN)
+    public Result<Map<String, Object>> adjustStock(@PathVariable long id, @Valid @RequestBody StockAdjustmentDTO dto) {
+        return Result.success("库存调整成功", stockAdjustments.adjust(id, dto.getDelta()));
+    }
 
     // ==================== 公共接口（无需登录） ====================
     /**
@@ -43,47 +56,39 @@ public class TicketTierController {
      * - minPrice: 最低价格
      * - maxPrice: 最高价格
      */
-    @Operation(summary = "分页查询票档列表", tags = {"票档 - 公共接口"})
+    @Operation(summary = "分页查询票档列表", tags = { "票档 - 公共接口" })
     @GetMapping("/public/ticket-tiers/page")
     @SaIgnore
-    public Result<PageResult<TicketTierVO>> getTicketTiersByPage(
-            @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(defaultValue = "10") Integer size,
-            @RequestParam(required = false) Long eventId,
-            @RequestParam(required = false) Long sessionId,
-            @RequestParam(required = false) BigDecimal minPrice,
+    public Result<PageResult<TicketTierVO>> getTicketTiersByPage(@RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer size, @RequestParam(required = false) Long eventId,
+            @RequestParam(required = false) Long sessionId, @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice) {
-
-        log.debug("分页查询票档，page: {}, size: {}, eventId: {}, sessionId: {}, minPrice: {}, maxPrice: {}",
-                page, size, eventId, sessionId, minPrice, maxPrice);
-
+        log.debug("分页查询票档，page: {}, size: {}, eventId: {}, sessionId: {}, minPrice: {}, maxPrice: {}", page, size,
+                eventId, sessionId, minPrice, maxPrice);
         // 构建查询参数
         TicketTierQueryDTO queryDTO = new TicketTierQueryDTO();
         queryDTO.setPage(page);
         queryDTO.setSize(size);
         queryDTO.setEventId(eventId);
         queryDTO.setSessionId(sessionId);
-        queryDTO.setStatus(1);  // 固定查询启用状态
+        // 固定查询启用状态
+        queryDTO.setStatus(1);
         queryDTO.setMinPrice(minPrice);
         queryDTO.setMaxPrice(maxPrice);
-
         // 调用统一的分页查询方法
         PageResult<TicketTierVO> result = ticketTierService.queryTicketTiers(queryDTO);
         return Result.success("查询成功", result);
     }
 
-
     // ==================== 用户端接口（需要登录） ====================
-
     /**
      * 根据ID查询票档详情（用户端）
      */
-    @Operation(summary = "获取票档详情", tags = {"票档-用户端"})
+    @Operation(summary = "获取票档详情", tags = { "票档-用户端" })
     @GetMapping("/user/ticket-tiers/{id}")
     @SaCheckLogin
     public Result<TicketTierVO> getTicketTierById(@PathVariable Long id) {
         log.debug("查询票档详情，ID: {}", id);
-
         TicketTierVO ticketTier = ticketTierService.getTicketTierById(id);
         if (ticketTier != null) {
             return Result.success("查询成功", ticketTier);
@@ -92,20 +97,17 @@ public class TicketTierController {
         }
     }
 
-
     /**
      * 获取票档库存信息（客户端）
      * 参数：
      * - eventId: 演出 ID
      * - sessionId: 场次 ID
      */
-    @Operation(summary = "获取票档库存信息", tags = {"票档 - 用户端"})
+    @Operation(summary = "获取票档库存信息", tags = { "票档 - 用户端" })
     @GetMapping("/user/ticket-tiers/stock")
     @SaCheckLogin
-    public Result<TicketStockVO> getTicketStock(
-            @RequestParam(required = false) Long eventId,
+    public Result<TicketStockVO> getTicketStock(@RequestParam(required = false) Long eventId,
             @RequestParam(required = false) Long sessionId) {
-
         if (sessionId != null) {
             log.debug("获取场次票档库存信息，sessionId: {}", sessionId);
             TicketStockVO stockInfo = ticketTierService.getStockInfoBySessionId(sessionId);
@@ -133,13 +135,11 @@ public class TicketTierController {
      * - eventId: 演出ID
      * - sessionId: 场次ID
      */
-    @Operation(summary = "检查是否已开票", tags = {"票档-用户端"})
+    @Operation(summary = "检查是否已开票", tags = { "票档-用户端" })
     @GetMapping("/user/ticket-tiers/on-sale")
     @SaCheckLogin
-    public Result<Boolean> checkOnSale(
-            @RequestParam(required = false) Long eventId,
+    public Result<Boolean> checkOnSale(@RequestParam(required = false) Long eventId,
             @RequestParam(required = false) Long sessionId) {
-
         if (sessionId != null) {
             log.debug("检查场次是否已开票，sessionId: {}", sessionId);
             boolean onSale = ticketTierService.isSessionOnSale(sessionId);
@@ -154,16 +154,15 @@ public class TicketTierController {
     }
 
     // ==================== 管理端接口（需要管理员权限） ====================
-
     /**
-     *新增票档
+     * 新增票档
      */
-    @Operation(summary = "新增票档", tags = {"票档-管理端"})
+    @Operation(summary = "新增票档", tags = { "票档-管理端" })
     @PostMapping("/admin/ticket-tiers")
     @SaCheckRole(RoleConstant.ADMIN)
-    public Result<Void> addTicketTier(@Valid @RequestBody TicketTierDTO ticketTierDTO) {
+    public Result<Void> addTicketTier(
+            @Validated({ Default.class, TicketTierDTO.Create.class }) @RequestBody TicketTierDTO ticketTierDTO) {
         log.info("收到新增票档请求: {}", ticketTierDTO.getTierName());
-
         boolean success = ticketTierService.addTicketTier(ticketTierDTO);
         if (success) {
             return Result.success("票档添加成功");
@@ -175,15 +174,14 @@ public class TicketTierController {
     /**
      * 根据ID删除票档
      */
-    @Operation(summary = "删除票档", tags = {"票档-管理端"})
+    @Operation(summary = "下架票档并保留历史引用", tags = { "票档-管理端" })
     @DeleteMapping("/admin/ticket-tiers/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> deleteTicketTier(@PathVariable Long id) {
         log.info("收到删除票档请求，ID: {}", id);
-
         boolean success = ticketTierService.deleteTicketTier(id);
         if (success) {
-            return Result.success("票档删除成功");
+            return Result.success("票档已下架，历史记录已保留");
         } else {
             return Result.error("票档删除失败，可能票档不存在");
         }
@@ -192,13 +190,11 @@ public class TicketTierController {
     /**
      * 更新票档信息
      */
-    @Operation(summary = "更新票档信息", tags = {"票档-管理端"})
+    @Operation(summary = "更新票档信息", tags = { "票档-管理端" })
     @PutMapping("/admin/ticket-tiers/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
-    public Result<Void> updateTicketTier(@PathVariable Long id,
-                                         @Valid @RequestBody TicketTierDTO ticketTierDTO) {
+    public Result<Void> updateTicketTier(@PathVariable Long id, @Valid @RequestBody TicketTierDTO ticketTierDTO) {
         log.info("收到更新票档请求，ID: {}", id);
-
         boolean success = ticketTierService.updateTicketTier(id, ticketTierDTO);
         if (success) {
             return Result.success("票档更新成功");
@@ -210,12 +206,11 @@ public class TicketTierController {
     /**
      * 根据ID查询票档详情（管理端）
      */
-    @Operation(summary = "查询票档详情（管理端）", tags = {"票档-管理端"})
+    @Operation(summary = "查询票档详情（管理端）", tags = { "票档-管理端" })
     @GetMapping("/admin/ticket-tiers/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<TicketTierVO> AdminGetTicketTierById(@PathVariable Long id) {
         log.debug("查询票档详情，ID: {}", id);
-
         TicketTierVO ticketTier = ticketTierService.getTicketTierById(id);
         if (ticketTier != null) {
             return Result.success("查询成功", ticketTier);
@@ -233,21 +228,15 @@ public class TicketTierController {
      * - minPrice: 最低价格
      * - maxPrice: 最高价格
      */
-    @Operation(summary = "分页查询票档列表(管理端)", tags = {"票档 - 管理端"})
+    @Operation(summary = "分页查询票档列表(管理端)", tags = { "票档 - 管理端" })
     @GetMapping("/admin/ticket-tiers/page")
     @SaCheckRole(RoleConstant.ADMIN)
-    public Result<PageResult<TicketTierVO>> getTicketTiersByPage(
-            @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(defaultValue = "10") Integer size,
-            @RequestParam(required = false) Long eventId,
-            @RequestParam(required = false) Long sessionId,
-            @RequestParam(required = false) Integer status,
-            @RequestParam(required = false) BigDecimal minPrice,
-            @RequestParam(required = false) BigDecimal maxPrice) {
-
+    public Result<PageResult<TicketTierVO>> getTicketTiersByPage(@RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer size, @RequestParam(required = false) Long eventId,
+            @RequestParam(required = false) Long sessionId, @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) BigDecimal minPrice, @RequestParam(required = false) BigDecimal maxPrice) {
         log.debug("管理端分页查询票档，page: {}, size: {}, eventId: {}, sessionId: {}, status: {}, minPrice: {}, maxPrice: {}",
                 page, size, eventId, sessionId, status, minPrice, maxPrice);
-
         // 构建查询参数
         TicketTierQueryDTO queryDTO = new TicketTierQueryDTO();
         queryDTO.setPage(page);
@@ -257,7 +246,6 @@ public class TicketTierController {
         queryDTO.setStatus(status);
         queryDTO.setMinPrice(minPrice);
         queryDTO.setMaxPrice(maxPrice);
-
         // 调用统一的分页查询方法
         PageResult<TicketTierVO> result = ticketTierService.queryTicketTiers(queryDTO);
         return Result.success("查询成功", result);
@@ -270,15 +258,12 @@ public class TicketTierController {
      * - sessionId: 场次ID
      * - tierId: 票档ID
      */
-    @Operation(summary = "获取库存统计信息", tags = {"票档-管理端"})
+    @Operation(summary = "获取库存统计信息", tags = { "票档-管理端" })
     @GetMapping("/admin/ticket-tiers/stock-statistics")
     @SaCheckRole(RoleConstant.ADMIN)
-    public Result<StockStatisticsVO> getStockStatistics(
-            @RequestParam(required = false) Long eventId,
-            @RequestParam(required = false) Long sessionId,
-            @RequestParam(required = false) Long tierId) {
+    public Result<StockStatisticsVO> getStockStatistics(@RequestParam(required = false) Long eventId,
+            @RequestParam(required = false) Long sessionId, @RequestParam(required = false) Long tierId) {
         log.debug("获取库存统计，eventId: {}, sessionId: {}, tierId: {}", eventId, sessionId, tierId);
-
         StockStatisticsVO statistics = ticketTierService.getStockStatistics(eventId, sessionId, tierId);
         return Result.success("查询成功", statistics);
     }
@@ -289,22 +274,17 @@ public class TicketTierController {
      * - eventId: 演出ID
      * - sessionId: 场次ID
      */
-    @Operation(summary = "获取售罄票档列表", tags = {"票档-管理端"})
+    @Operation(summary = "获取售罄票档列表", tags = { "票档-管理端" })
     @GetMapping("/admin/ticket-tiers/sold-out")
     @SaCheckRole(RoleConstant.ADMIN)
-    public Result<List<StockStatisticsVO.TierStockDetail>> getSoldOutTiers(
-            @RequestParam(required = false) Long eventId,
+    public Result<List<StockStatisticsVO.TierStockDetail>> getSoldOutTiers(@RequestParam(required = false) Long eventId,
             @RequestParam(required = false) Long sessionId) {
         log.debug("获取售罄票档列表，eventId: {}, sessionId: {}", eventId, sessionId);
-
         // 获取统计信息
         StockStatisticsVO statistics = ticketTierService.getStockStatistics(eventId, sessionId, null);
-
         // 筛选售罄票档
         List<StockStatisticsVO.TierStockDetail> soldOutTiers = statistics.getTierDetails().stream()
-                .filter(tier -> tier.getAvailableStock() == 0 && tier.getStatus() == 1)
-                .collect(java.util.stream.Collectors.toList());
-
+                .filter(tier -> tier.getAvailableStock() == 0 && tier.getStatus() == 1).collect(Collectors.toList());
         return Result.success("查询成功", soldOutTiers);
     }
 }

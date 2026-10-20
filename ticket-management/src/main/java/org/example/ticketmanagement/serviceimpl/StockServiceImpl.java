@@ -1,105 +1,56 @@
-// org/example/ticketmanagement/service/impl/StockServiceImpl.java
 package org.example.ticketmanagement.serviceimpl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.ticketmanagement.constant.SeckillConstant;
+import org.example.ticketmanagement.mapper.TradeStockMapper;
 import org.example.ticketmanagement.service.StockService;
-import org.example.ticketmanagement.util.LuaScriptLoader;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.example.ticketmanagement.trade.messaging.StockProjection;
 import org.springframework.stereotype.Service;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class StockServiceImpl implements StockService {
 
-    private final RedisTemplate<String, Object> redisTemplate;
-    private final LuaScriptLoader luaScriptLoader;
-
-    /**
-     * 获取库存Key
-     */
-    private String getStockKey(Long tierId) {
-        return SeckillConstant.STOCK_KEY_PREFIX + tierId;
-    }
-
-    /**
-     * 获取用户抢票记录Key
-     */
-    private String getUserSeckillKey(Long userId, Long tierId) {
-        return SeckillConstant.USER_KEY_PREFIX + userId + ":" + tierId;
-    }
+    private final TradeStockMapper stockMapper;
+    private final StockProjection projection;
 
     @Override
-    public void initStock(Long tierId, Integer totalStock) {
-        String stockKey = getStockKey(tierId);
-        // 如果库存不存在，则初始化
-        if (!redisTemplate.hasKey(stockKey)) {
-            redisTemplate.opsForValue().set(stockKey, totalStock);
-            log.info("初始化票档库存: tierId={}, stock={}", tierId, totalStock);
+    public void initStock(Long tierId, Integer ignored) {
+        refresh(tierId);
+    }
+
+    public void refresh(Long tierId) {
+        Map<String, Object> row = stockMapper.selectStock(tierId);
+        if (row == null) {
+            throw new IllegalArgumentException("票档不存在");
+        }
+        try {
+            projection.apply(tierId, ((Number) row.get("stock_version")).longValue(),
+                    ((Number) row.get("available_stock")).intValue());
+        } catch (Exception e) {
+            log.warn("Redis stock projection unavailable tier={}, MySQL remains authoritative", tierId);
         }
     }
 
+    /**
+     * Legacy mutations are intentionally rejected; reservations own all inventory changes.
+     */
     @Override
     public Long decrStock(Long tierId, Integer quantity) {
-        String stockKey = getStockKey(tierId);
-
-        try {
-            // 使用Lua脚本原子扣减库存
-            Long result = redisTemplate.execute(
-                    luaScriptLoader.getScript("decrStock.lua"),
-                    Arrays.asList(stockKey),
-                    quantity
-            );
-
-            if (result != null && result >= 0) {
-                log.debug("扣减库存成功: tierId={}, quantity={}, remaining={}", tierId, quantity, result);
-            } else {
-                log.warn("库存不足: tierId={}, quantity={}", tierId, quantity);
-            }
-
-            return result;
-        } catch (Exception e) {
-            log.error("扣减库存失败: tierId={}, quantity={}", tierId, quantity, e);
-            return -1L;
-        }
+        throw new UnsupportedOperationException("Use TradeOperations.reserve");
     }
 
     @Override
     public Long restoreStock(Long tierId, Integer quantity) {
-        String stockKey = getStockKey(tierId);
-
-        try {
-            Long result = redisTemplate.opsForValue().increment(stockKey, quantity);
-            log.debug("恢复库存成功: tierId={}, quantity={}, total={}", tierId, quantity, result);
-            return result;
-        } catch (Exception e) {
-            log.error("恢复库存失败: tierId={}, quantity={}", tierId, quantity, e);
-            return -1L;
-        }
+        throw new UnsupportedOperationException("Use transactional reservation release");
     }
 
     @Override
     public Integer getStock(Long tierId) {
-        String stockKey = getStockKey(tierId);
-
-        try {
-            Object stockObj = redisTemplate.opsForValue().get(stockKey);
-            if (stockObj instanceof Integer) {
-                return (Integer) stockObj;
-            } else if (stockObj instanceof String) {
-                return Integer.parseInt((String) stockObj);
-            }
-            return null;
-        } catch (Exception e) {
-            log.error("获取库存失败: tierId={}", tierId, e);
-            return null;
-        }
+        return stockMapper.selectAvailableStock(tierId);
     }
 
     @Override
@@ -110,38 +61,16 @@ public class StockServiceImpl implements StockService {
 
     @Override
     public boolean hasUserSeckilled(Long userId, Long tierId) {
-        String userKey = getUserSeckillKey(userId, tierId);
-
-        try {
-            Boolean exists = redisTemplate.hasKey(userKey);
-            return exists;
-        } catch (Exception e) {
-            log.error("检查用户抢票记录失败: userId={}, tierId={}", userId, tierId, e);
-            return false;
-        }
+        return stockMapper.countUserActiveOrders(userId, tierId) > 0;
     }
 
     @Override
     public void setUserSeckillRecord(Long userId, Long tierId, long expireSeconds) {
-        String userKey = getUserSeckillKey(userId, tierId);
-
-        try {
-            redisTemplate.opsForValue().set(userKey, "1", expireSeconds, TimeUnit.SECONDS);
-            log.debug("设置用户抢票记录: userId={}, tierId={}, expire={}s", userId, tierId, expireSeconds);
-        } catch (Exception e) {
-            log.error("设置用户抢票记录失败: userId={}, tierId={}", userId, tierId, e);
-        }
+        /* purchase_guard owns uniqueness */
     }
 
     @Override
     public void deleteUserSeckillRecord(Long userId, Long tierId) {
-        String userKey = getUserSeckillKey(userId, tierId);
-
-        try {
-            redisTemplate.delete(userKey);
-            log.debug("删除用户抢票记录: userId={}, tierId={}", userId, tierId);
-        } catch (Exception e) {
-            log.error("删除用户抢票记录失败: userId={}, tierId={}", userId, tierId, e);
-        }
+        /* purchase_guard is released in the business transaction */
     }
 }

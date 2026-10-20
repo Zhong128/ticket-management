@@ -1,4 +1,3 @@
-
 package org.example.ticketmanagement.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
@@ -11,8 +10,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.dto.SeckillOrderDTO;
 import org.example.ticketmanagement.pojo.Result;
 import org.example.ticketmanagement.service.SeckillService;
+import org.example.ticketmanagement.trade.core.TradeOperations;
 import org.example.ticketmanagement.vo.SeckillResultVO;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -23,28 +25,31 @@ import org.springframework.web.bind.annotation.*;
 public class SeckillController {
 
     private final SeckillService seckillService;
+    private final TradeOperations tradeOperations;
+
+    @GetMapping("/requests/{requestId}")
+    public Result<Map<String, Object>> request(@PathVariable long requestId) {
+        return Result.success("查询成功", tradeOperations.request(requestId, StpUtil.getLoginIdAsLong()));
+    }
 
     /**
      * 抢票接口
      */
-    @Operation(summary = "抢票", tags = {"抢票"})
+    @Operation(summary = "抢票", tags = { "抢票" })
     @PostMapping
     public Result<SeckillResultVO> seckill(@Valid @RequestBody SeckillOrderDTO seckillOrderDTO) {
         Long userId = StpUtil.getLoginIdAsLong();
-        log.info("用户抢票请求: userId={}, tierId={}, quantity={}",
-                userId, seckillOrderDTO.getTierId(), seckillOrderDTO.getQuantity());
-
+        log.info("用户抢票请求: userId={}, tierId={}, quantity={}", userId, seckillOrderDTO.getTierId(),
+                seckillOrderDTO.getQuantity());
         try {
             SeckillResultVO result = seckillService.seckill(userId, seckillOrderDTO);
-
             if (result.getSuccess()) {
-                return Result.success("抢票成功", result);
+                return Result.success("申请已受理", result);
             } else {
                 return Result.error(result.getMessage());
             }
         } catch (Exception e) {
-            log.error("抢票异常: userId={}, tierId={}",
-                    userId, seckillOrderDTO.getTierId(), e);
+            log.error("抢票异常: userId={}, tierId={}", userId, seckillOrderDTO.getTierId(), e);
             return Result.error("系统繁忙，请稍后重试");
         }
     }
@@ -52,14 +57,11 @@ public class SeckillController {
     /**
      * 检查当前能否抢票
      */
-    @Operation(summary = "检查当前能否抢票", tags = {"抢票"})
+    @Operation(summary = "检查当前能否抢票", tags = { "抢票" })
     @GetMapping("/check")
-    public Result<Boolean> checkSeckillQualification(
-            @RequestParam Long tierId,
-            @RequestParam Integer quantity) {
+    public Result<Boolean> checkSeckillQualification(@RequestParam Long tierId, @RequestParam Integer quantity) {
         Long userId = StpUtil.getLoginIdAsLong();
         log.debug("检查抢票资格: userId={}, tierId={}, quantity={}", userId, tierId, quantity);
-
         try {
             boolean qualified = seckillService.checkSeckillQualification(userId, tierId, quantity);
             if (!qualified) {
@@ -75,11 +77,10 @@ public class SeckillController {
     /**
      * 获取实时库存（自己测试用，实现上线可删除）
      */
-    @Operation(summary = "获取实时库存", tags = {"抢票"})
+    @Operation(summary = "获取实时库存", tags = { "抢票" })
     @GetMapping("/stock/{tierId}")
     public Result<Integer> getRealTimeStock(@PathVariable Long tierId) {
         log.debug("获取实时库存: tierId={}", tierId);
-
         try {
             Integer stock = seckillService.getRealTimeStock(tierId);
             if (stock != null) {

@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.config.AlipayProperties;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -30,32 +31,19 @@ public class AlipaySignatureUtil {
             // 获取签名和签名类型
             String sign = params.get("sign");
             String signType = params.get("sign_type");
-
             if (sign == null || signType == null) {
                 log.warn("支付宝回调缺少签名参数: sign={}, sign_type={}", sign, signType);
                 return false;
             }
-
-            // 移除sign和sign_type参数，这两个参数不参与签名
-            params.remove("sign");
-            params.remove("sign_type");
-
             // 验证签名
-            boolean verified = AlipaySignature.rsaCheckV1(
-                    params,
-                    alipayProperties.getAlipayPublicKey(),
-                    alipayProperties.getCharset(),
-                    signType
-            );
-
+            boolean verified = AlipaySignature.rsaCheckV1(new HashMap<>(params), alipayProperties.getAlipayPublicKey(),
+                    alipayProperties.getCharset(), signType);
             if (verified) {
                 log.debug("支付宝签名验证成功");
             } else {
                 log.warn("支付宝签名验证失败");
             }
-
             return verified;
-
         } catch (Exception e) {
             log.error("支付宝签名验证异常", e);
             return false;
@@ -71,5 +59,4 @@ public class AlipaySignatureUtil {
     public boolean verifyAlipayReturnSignature(Map<String, String> params) {
         return verifyAlipaySignature(params);
     }
-
 }

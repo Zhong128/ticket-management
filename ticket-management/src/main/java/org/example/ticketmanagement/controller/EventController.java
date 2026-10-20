@@ -1,6 +1,5 @@
 package org.example.ticketmanagement.controller;
 
-import cn.dev33.satoken.annotation.SaCheckDisable;
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckRole;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,17 +28,13 @@ public class EventController {
     private EventService eventService;
 
     // ==================== 公共接口（无需登录） ====================
-
     /**
      * 分页查询演出列表
      */
-    @Operation(summary = "分页查询演出列表", tags = {"演出-公共接口"})
+    @Operation(summary = "分页查询演出列表", tags = { "演出-公共接口" })
     @GetMapping("/public/events/page")
-    public Result<PageResult<EventVO>> getEventsByPage(
-            @Valid EventQueryDTO queryDTO) {
-
+    public Result<PageResult<EventVO>> getEventsByPage(@Valid EventQueryDTO queryDTO) {
         log.debug("分页查询演出列表，参数: {}", queryDTO);
-
         // 调用分页查询方法
         PageResult<EventVO> result = eventService.queryEvents(queryDTO);
         return Result.success("查询成功", result);
@@ -49,12 +44,10 @@ public class EventController {
      * 获取热门演出列表（公共接口）
      * 参数：limit - 返回数量限制，默认10
      */
-    @Operation(summary = "获取热门演出列表", tags = {"演出-公共接口"})
+    @Operation(summary = "获取热门演出列表", tags = { "演出-公共接口" })
     @GetMapping("/public/events/hot")
-    public Result<List<EventVO>> getHotEvents(
-            @RequestParam(defaultValue = "10") Integer limit) {
+    public Result<List<EventVO>> getHotEvents(@RequestParam(defaultValue = "10") Integer limit) {
         log.debug("获取热门演出，limit: {}", limit);
-
         List<EventVO> events = eventService.getHotEvents(limit);
         return Result.success("查询成功", events);
     }
@@ -63,28 +56,23 @@ public class EventController {
      * 获取即将开售的演出列表（公共接口）
      * 参数：limit - 返回数量限制，默认10
      */
-    @Operation(summary = "获取即将开售的演出列表", tags = {"演出-公共接口"})
+    @Operation(summary = "获取即将开售的演出列表", tags = { "演出-公共接口" })
     @GetMapping("/public/events/upcoming")
-    public Result<List<EventVO>> getUpcomingEvents(
-            @RequestParam(defaultValue = "10") Integer limit) {
+    public Result<List<EventVO>> getUpcomingEvents(@RequestParam(defaultValue = "10") Integer limit) {
         log.debug("获取即将开售的演出，limit: {}", limit);
-
         List<EventVO> events = eventService.getUpcomingEvents(limit);
         return Result.success("查询成功", events);
     }
 
-
     // ==================== 用户端接口（需要登录） ====================
-
     /**
      * 根据ID获取演出详情（用户端）
      */
-    @Operation(summary = "获取演出详情", tags = {"演出-用户端"})
+    @Operation(summary = "获取演出详情", tags = { "演出-用户端" })
     @GetMapping("/user/events/{id}")
     @SaCheckLogin
     public Result<EventVO> getEventById(@PathVariable Long id) {
         log.debug("查询演出详情，ID: {}", id);
-
         EventVO event = eventService.getEventById(id);
         if (event != null) {
             return Result.success("查询成功", event);
@@ -94,16 +82,14 @@ public class EventController {
     }
 
     // ==================== 管理端接口（需要管理员权限） ====================
-
     /**
      * 1. 新增演出
      */
-    @Operation(summary = "新增演出", tags = {"演出-管理端"})
+    @Operation(summary = "新增演出", tags = { "演出-管理端" })
     @PostMapping("/admin/events")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> addEvent(@Valid @RequestBody EventDTO eventDTO) {
         log.info("收到新增演出请求: {}", eventDTO.getName());
-
         boolean success = eventService.addEvent(eventDTO);
         if (success) {
             return Result.success("演出添加成功");
@@ -115,15 +101,14 @@ public class EventController {
     /**
      * 2. 根据ID删除演出
      */
-    @Operation(summary = "删除演出", tags = {"演出-管理端"})
+    @Operation(summary = "下架演出并保留历史引用", tags = { "演出-管理端" })
     @DeleteMapping("/admin/events/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<Void> deleteEvent(@PathVariable Long id) {
         log.info("收到删除演出请求，ID: {}", id);
-
         boolean success = eventService.deleteEvent(id);
         if (success) {
-            return Result.success("演出删除成功");
+            return Result.success("演出已下架，场次、票档和历史记录已保留");
         } else {
             return Result.error("演出删除失败，可能演出不存在");
         }
@@ -132,13 +117,11 @@ public class EventController {
     /**
      * 3. 更新演出信息
      */
-    @Operation(summary = "更新演出信息", tags = {"演出-管理端"})
+    @Operation(summary = "更新演出信息", tags = { "演出-管理端" })
     @PutMapping("/admin/events/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
-    public Result<Void> updateEvent(@PathVariable Long id,
-                                    @Valid @RequestBody EventDTO eventDTO) {
+    public Result<Void> updateEvent(@PathVariable Long id, @Valid @RequestBody EventDTO eventDTO) {
         log.info("收到更新演出请求，ID: {}", id);
-
         boolean success = eventService.updateEvent(id, eventDTO);
         if (success) {
             return Result.success("演出更新成功");
@@ -150,12 +133,11 @@ public class EventController {
     /**
      * 4. 根据ID获取演出详情（管理端）
      */
-    @Operation(summary = "查询演出详情（管理端）", tags = {"演出-管理端"})
+    @Operation(summary = "查询演出详情（管理端）", tags = { "演出-管理端" })
     @GetMapping("/admin/events/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<EventVO> AdminGetEventById(@PathVariable Long id) {
         log.debug("查询演出详情，ID: {}", id);
-
         EventVO event = eventService.getEventById(id);
         if (event != null) {
             return Result.success("查询成功", event);
@@ -167,12 +149,11 @@ public class EventController {
     /**
      * 5.分页查询演出列表（支持多条件筛选）
      */
-    @Operation(summary = "分页查询演出列表（管理端）", tags = {"演出-管理端"})
+    @Operation(summary = "分页查询演出列表（管理端）", tags = { "演出-管理端" })
     @GetMapping("/admin/events/query")
     @SaCheckRole(RoleConstant.ADMIN)
     public Result<PageResult<EventVO>> queryEvents(@Valid EventQueryDTO queryDTO) {
         log.info("分页查询演出列表，参数: {}", queryDTO);
-
         try {
             PageResult<EventVO> result = eventService.queryEvents(queryDTO);
             return Result.success("查询成功", result);

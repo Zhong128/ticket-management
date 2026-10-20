@@ -2,6 +2,10 @@
 
 Java 纯后端票务项目，使用 Java 21、Spring Boot、MyBatis、MySQL、Redis、Redisson、RabbitMQ、Sa-Token、支付宝 SDK 和 Spring AI。
 
+交易整改版本默认关闭交易写入和自动迁移。启用前请阅读 [迁移、接口与验证说明](../docs/transaction-hardening.md)，不要直接对现有数据卷重跑初始化 SQL。
+
+业务持久层已统一为 MyBatis Mapper，优先复用原技术栈的约定见仓库根 [AGENTS.md](../AGENTS.md)。最新构建结果与待复验项目见 [MyBatis统一验证记录](../docs/mybatis-unification-validation.md)。
+
 ## 本地开发配置
 
 新克隆项目后，在本目录执行：

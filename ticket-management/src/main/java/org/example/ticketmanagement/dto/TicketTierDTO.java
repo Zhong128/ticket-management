@@ -12,6 +12,10 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @NoArgsConstructor
 public class TicketTierDTO {
+
+    public interface Create {
+    }
+
     @NotNull(message = "演出ID不能为空")
     private Long eventId;
 
@@ -32,11 +36,11 @@ public class TicketTierDTO {
     @Digits(integer = 10, fraction = 2, message = "现价格式不正确")
     private BigDecimal currentPrice;
 
-    @NotNull(message = "总库存不能为空")
+    @NotNull(message = "总库存不能为空", groups = Create.class)
     @Min(value = 0, message = "总库存必须大于等于0")
     private Integer totalStock;
 
-    @NotNull(message = "可用库存不能为空")
+    @NotNull(message = "可用库存不能为空", groups = Create.class)
     @Min(value = 0, message = "可用库存必须大于等于0")
     @Max(value = 100000, message = "可用库存不能超过100000")
     private Integer availableStock;

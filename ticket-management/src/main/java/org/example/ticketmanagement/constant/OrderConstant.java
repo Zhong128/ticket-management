@@ -12,7 +12,7 @@ public class OrderConstant {
     public static final int ORDER_STATUS_PAID = 1;
     public static final int ORDER_STATUS_CANCELED = 2;
     public static final int ORDER_STATUS_COMPLETED = 3;
-
+    public static final int ORDER_STATUS_CANCELING = 4;
     /**
      * 订单状态描述
      */
@@ -20,8 +20,6 @@ public class OrderConstant {
     public static final String ORDER_STATUS_PAID_DESC = "已支付";
     public static final String ORDER_STATUS_CANCELED_DESC = "已取消";
     public static final String ORDER_STATUS_COMPLETED_DESC = "已完成";
-
-
     /**
      * 订单超时时间（分钟）
      */
@@ -31,13 +29,16 @@ public class OrderConstant {
      * 根据状态码获取描述
      */
     public static String getStatusDesc(Integer status) {
-        if (status == null) return "未知";
+        if (status == null) {
+            return "未知";
+        }
         return switch (status) {
-            case ORDER_STATUS_PENDING -> ORDER_STATUS_PENDING_DESC;
-            case ORDER_STATUS_PAID -> ORDER_STATUS_PAID_DESC;
-            case ORDER_STATUS_CANCELED -> ORDER_STATUS_CANCELED_DESC;
-            case ORDER_STATUS_COMPLETED -> ORDER_STATUS_COMPLETED_DESC;
-            default -> "未知";
+        case ORDER_STATUS_PENDING -> ORDER_STATUS_PENDING_DESC;
+        case ORDER_STATUS_PAID -> ORDER_STATUS_PAID_DESC;
+        case ORDER_STATUS_CANCELED -> ORDER_STATUS_CANCELED_DESC;
+        case ORDER_STATUS_COMPLETED -> ORDER_STATUS_COMPLETED_DESC;
+        case ORDER_STATUS_CANCELING -> "取消确认中";
+        default -> "未知";
         };
     }
 }

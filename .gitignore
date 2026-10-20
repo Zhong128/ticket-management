@@ -16,6 +16,7 @@ test-users*.csv
 
 # Generated application files
 **/target/
+**/.payment-compile-probe/
 **/logs/
 **/uploads/
 *.log

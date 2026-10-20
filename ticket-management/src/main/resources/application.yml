@@ -1,4 +1,8 @@
 spring:
+  flyway:
+    enabled: ${TRADE_MIGRATIONS_ENABLED:false}
+    baseline-on-migrate: false
+    clean-disabled: true
   config:
     import:
       - optional:file:./ticket-management/config/application-local.properties
@@ -160,3 +164,8 @@ alipay:
 logging:
   level:
     org.springframework.ai.chat.client.advisor: debug
+
+# Enable only after controlled migration and old-consumer shutdown.
+trade:
+  enabled: ${TRADE_ENABLED:false}
+  legacy-consumers-enabled: false

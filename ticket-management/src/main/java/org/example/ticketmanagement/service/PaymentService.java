@@ -3,7 +3,6 @@ package org.example.ticketmanagement.service;
 
 import org.example.ticketmanagement.dto.CreatePaymentDTO;
 import org.example.ticketmanagement.dto.PaymentResultDTO;
-import org.example.ticketmanagement.pojo.PaymentRecord;
 import org.example.ticketmanagement.vo.PaymentRecordVO;
 
 import java.util.Map;
@@ -14,7 +13,7 @@ import java.util.Map;
 public interface PaymentService {
 
     /**
-     * 创建支付订单（自动关联用户最新待支付订单）
+     * 兼容创建支付；仅当用户恰有一笔可支付订单时自动关联。
      * @param userId 用户ID
      * @param payType 支付方式
      * @return 支付结果（包含二维码）
@@ -65,10 +64,9 @@ public interface PaymentService {
     int processCompensation(int waitingMinutes);
 
     /**
-     * 【清理】清理过期的支付记录
+     * 历史兼容接口；永久保留支付记录，始终返回0。
      * @param daysToKeep 保留天数
      * @return 清理的记录数
      */
     int cleanExpiredPayments(int daysToKeep);
-
 }
