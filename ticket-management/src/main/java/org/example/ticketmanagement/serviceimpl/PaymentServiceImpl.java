@@ -6,6 +6,7 @@ import org.example.ticketmanagement.config.AlipayProperties;
 import org.example.ticketmanagement.dto.*;
 import org.example.ticketmanagement.service.PaymentService;
 import org.example.ticketmanagement.trade.payment.PaymentCoordinator;
+import org.example.ticketmanagement.trade.payment.PaymentNotificationAudit;
 import org.example.ticketmanagement.util.AlipaySignatureUtil;
 import org.example.ticketmanagement.vo.PaymentRecordVO;
 import org.springframework.beans.BeanUtils;
@@ -21,6 +22,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentCoordinator payments;
     private final AlipaySignatureUtil signature;
     private final AlipayProperties properties;
+    private final PaymentNotificationAudit notificationAudit;
 
     public PaymentResultDTO createPayment(Long user, CreatePaymentDTO dto) {
         // 创建或复用支付流水，再组装给前端展示的支付信息。
@@ -63,6 +65,9 @@ public class PaymentServiceImpl implements PaymentService {
             } else {
                 payments.synchronize(no);
             }
+
+            // 业务处理成功后记录有效回调；审计失败则请渠道重试。
+            notificationAudit.recordHandled(no, tradeNo, status, amount);
             return "success";
         } catch (RuntimeException e) {
             return "failure";

@@ -82,6 +82,14 @@ public interface TradePaymentMapper {
     int paid(@Param("id") long id, @Param("tradeNo") String tradeNo, @Param("now") LocalDateTime now);
 
     /**
+     * 保存首次有效回调时间及最近一次回调的最小审计摘要。
+     */
+    @Update("UPDATE payment_record SET notify_time=COALESCE(notify_time,#{now}),"
+            + "notify_data=#{summary} WHERE payment_no=#{paymentNo}")
+    int recordNotification(@Param("paymentNo") String paymentNo, @Param("summary") String summary,
+            @Param("now") LocalDateTime now);
+
+    /**
      * 将未成功支付的流水标记关闭。
      */
     @Update("UPDATE payment_record SET pay_status=4,update_time=#{now} WHERE id=#{id} AND pay_status IN "

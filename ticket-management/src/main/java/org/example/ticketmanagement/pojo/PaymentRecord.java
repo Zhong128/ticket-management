@@ -27,7 +27,7 @@ public class PaymentRecord {
     private Integer payType;         // 支付方式：1-支付宝
     private String subject;          // 支付标题
     private String body;             // 支付描述
-    private String notifyData;       // 支付宝回调原始数据
+    private String notifyData;       // 最近一次有效回调的最小摘要
     private LocalDateTime notifyTime;// 回调时间
     private LocalDateTime payTime;   // 支付完成时间
     private LocalDateTime expireTime;// 过期时间

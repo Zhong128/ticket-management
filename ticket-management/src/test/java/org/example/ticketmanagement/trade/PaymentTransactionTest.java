@@ -83,7 +83,7 @@ class PaymentTransactionTest {
         when(signature.verifyAlipaySignature(any())).thenReturn(true);
         var properties = new AlipayProperties();
         properties.setAppId("app");
-        service = new PaymentServiceImpl(payments, signature, properties);
+        service = new PaymentServiceImpl(payments, signature, properties, mock(PaymentNotificationAudit.class));
     }
 
     record Intent(long order, String payment) {

@@ -17,7 +17,7 @@ public class PaymentNotifyLog {
     private Long id;                 // 日志ID
     private String paymentNo;        // 支付流水号
     private String tradeNo;          // 支付宝交易号
-    private String notifyData;       // 回调原始数据
+    private String notifyData;       // 已验签回调的最小摘要，不保存签名等原始参数
     private String notifyStatus;     // 回调状态
     private Integer processStatus;   // 处理状态：0-待处理，1-处理成功，2-处理失败
     private String errorMsg;         // 错误信息

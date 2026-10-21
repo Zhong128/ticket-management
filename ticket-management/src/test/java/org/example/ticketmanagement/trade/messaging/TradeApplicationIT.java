@@ -276,7 +276,21 @@ class TradeApplicationIT {
         // 3. 通过真实支付接口建流水，再用测试回调完成付款。
         String paidNo = createPayment(paidToken, paidOrder);
         assertEquals("success", notifyPaid(paidNo, "ALIPAY-JOURNEY-PAID", "200.00"));
+        LocalDateTime firstNotifyTime = db.queryForObject(
+                "SELECT notify_time FROM payment_record WHERE payment_no=?", LocalDateTime.class, paidNo);
+        assertNotNull(firstNotifyTime);
+        assertEquals(1, db.queryForObject("SELECT COUNT(*) FROM payment_notify_log WHERE payment_no=?",
+                Integer.class, paidNo));
         assertEquals("success", notifyPaid(paidNo, "ALIPAY-JOURNEY-PAID", "200.00"));
+        assertEquals(firstNotifyTime, db.queryForObject(
+                "SELECT notify_time FROM payment_record WHERE payment_no=?", LocalDateTime.class, paidNo));
+        assertEquals(2, db.queryForObject("SELECT COUNT(*) FROM payment_notify_log WHERE payment_no=?",
+                Integer.class, paidNo));
+        assertEquals(1, db.queryForObject("SELECT COUNT(DISTINCT trade_no) FROM payment_notify_log WHERE payment_no=?",
+                Integer.class, paidNo));
+        assertEquals(2, db.queryForObject("SELECT COUNT(*) FROM payment_notify_log WHERE payment_no=?"
+                + " AND notify_status='TRADE_SUCCESS' AND process_status=1 AND notify_data='total_amount=200.00'",
+                Integer.class, paidNo));
         assertEquals(1, orderStatus(paidOrder));
         assertEquals(2, paymentStatus(paidNo));
         assertEquals("PAID", reservationStatus(paidOrder));
