@@ -37,3 +37,5 @@ Windows 当前环境需要指定 `jdk.net.unixdomain.tmpdir`，原因及参数�
 这段记录保留 2026-10-20 的历史结果。2026-10-21 的五分钟 JMeter 复验已另行通过，实测 13,519 次请求、0 业务失败、44.51 次/秒；详见 [Outbox 整改压测记录](performance/results-2026-10-21-outbox.md)。真实支付宝沙箱仍未验收。
 
 2026-10-21 16:24（Asia/Shanghai）再次执行全部单元与隔离集成测试并打包：**99 项测试，97 项通过、0 失败、0 异常、2 项按条件跳过，`BUILD SUCCESS`**，生成 `ticket-management/target/ticket-management-0.0.1-SNAPSHOT.jar`。本次新增真实 HTTP 的用户订单列表与详情、管理员订单详情和用户支付状态断言，`TradeApplicationIT` 的 3 项均通过。跳过项为依赖个人环境的 `TicketManagementApplicationTests.contextLoads` 和需显式启用 JMeter 的 `TradeLoadIT.sustainedReservationsUseFreshUsersAndStock`；后者已在前述五分钟复验中单独运行通过。本次日志位于被 Git 忽略的 `ticket-management/target/closure-full-regression.log`。
+
+后续支付回调审计修复后，`TradeApplicationIT` 的 3 项又在新的隔离容器中全部通过；真实支付宝沙箱通知和真实 SMTP 投递也已分别完成专项验收。当前总览及边界见[验收清单](acceptance-checklist.md)，本段历史测试数字不代表后续新增测试的总数。

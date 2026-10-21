@@ -15,3 +15,6 @@ ALIPAY_MERCHANT_PRIVATE_KEY=
 ALIPAY_PUBLIC_KEY=
 ALIPAY_NOTIFY_URL=http://localhost:8080/api/public/payments/notify
 ALIPAY_RETURN_URL=http://localhost:8080/api/public/payments/return
+# 完成受控迁移和校验前保持关闭。
+TRADE_ENABLED=false
+TRADE_MIGRATIONS_ENABLED=false

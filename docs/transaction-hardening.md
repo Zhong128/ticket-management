@@ -11,6 +11,7 @@
 | 无支付流水的订单漏关；延时队列提前消费 | `DeadlineHandler`、`TradeRecovery`、`TradeMessagingConfig` | 从预占时起固定30分钟；TTL无消费者等待队列死信转发；定时数据库恢复不依赖支付流水和MQ |
 | 支付、取消覆盖状态；渠道失败仍释放库存 | `PaymentCoordinator`、`TradeOperationsImpl`、`OrderServiceImpl` | 短事务标记取消中→事务外查/关渠道→短事务释放。UNKNOWN保持占用；所有成功付款统一校验及落账 |
 | 回调验签删掉sign；同步跳转被当作付款证据 | `AlipaySignatureUtil`、`PaymentServiceImpl`、`PaymentController` | 原参数验签，校验应用/流水/金额；跳转仅提示待确认；RSA签名及回调测试 |
+| 真实回调已处理但通知时间和旧回调日志为空 | `PaymentNotificationAudit`、`TradePaymentMapper`、`PaymentNotifyLogMapper` | 验签并处理成功后写首次 `notify_time` 和每次送达的金额摘要；隔离 HTTP 测试与真实支付宝沙箱通知均已验证，详见[沙箱验收](alipay-sandbox-acceptance.md) |
 | 取消已释放后迟到收款、第二笔收款无退款闭环 | `trade/payment/RefundService`、`RefundController` | 全额补偿退款，先保存唯一退款号再调渠道；不确定结果先查再重试；10次后人工处理 |
 | Confirm/Return只打印日志，重启丢重试 | `OutboxPublisher` | 持久化状态、租约、confirm+mandatory return，失败持续退避重发；重复投递由业务幂等收敛 |
 | 对账覆盖并发库存，后台编辑回写旧库存 | `StockProjection`、`StockAdjustmentService`、`TicketTierMapper` | Redis只投影带版本DB库存；普通编辑不写库存；下架且无未结预占后才可调整容量；删除票档改为下架保留历史 |
