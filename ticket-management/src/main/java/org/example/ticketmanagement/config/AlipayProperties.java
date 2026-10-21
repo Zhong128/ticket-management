@@ -12,8 +12,8 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "alipay")
 public class AlipayProperties {
     private String appId;               // 应用ID
-    private String merchantPrivateKey;  // 商户私钥
-    private String alipayPublicKey;     // 支付宝公钥
+    private String merchantPrivateKey;  // 应用私钥，用于请求签名
+    private String alipayPublicKey;     // 支付宝公钥，用于响应和回调验签
     private String gatewayUrl;          // 支付宝网关
     private String notifyUrl;           // 异步通知地址
     private String returnUrl;           // 同步返回地址

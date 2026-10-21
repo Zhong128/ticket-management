@@ -139,21 +139,18 @@ sa-token:
 alipay:
   # 沙箱环境APPID（从支付宝沙箱后台获取）
   app-id: ${ALIPAY_APP_ID:}
-  # 商户私钥（你的应用私钥）
+  # 应用私钥：本地请求签名；配对的应用公钥只需上传支付宝平台
   merchant-private-key: ${ALIPAY_MERCHANT_PRIVATE_KEY:}
   # 支付宝公钥（从沙箱后台获取）
   alipay-public-key: ${ALIPAY_PUBLIC_KEY:}
   # 支付宝网关（沙箱环境）
   gateway-url: https://openapi-sandbox.dl.alipaydev.com/gateway.do
-  # 异步通知地址：使用 natapp 生成的公网地址，代码中动态传入，不需要在后台填
+  # 支付异步通知地址：沙箱联调时使用能访问隔离应用的公网地址，正式环境使用 HTTPS
   notify-url: ${ALIPAY_NOTIFY_URL:http://localhost:8080/api/public/payments/notify}
 
-  # 同步返回地址：用户支付成功后跳转的页面
-  # 如果你有前端页面，填写前端的地址
-  # 如果没有，可以先填 natapp 地址测试
+  # 支付同步回跳地址：纯后端项目使用 /api/public/payments/return
+  # 回跳仅供展示，付款结果以异步通知和渠道查单为准
   return-url: ${ALIPAY_RETURN_URL:http://localhost:8080/api/public/payments/return}
-  # 或者填你的前端本地地址
-  # return-url: http://localhost:5173/payment/success
   # 签名类型
   sign-type: RSA2
   # 字符集
