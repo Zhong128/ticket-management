@@ -24,7 +24,12 @@ class OutboxPublisherTest {
     private void due() {
         when(db.findDueEvents(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(Map.of("event_id",
                 "id-7", "event_type", "CREATE_ORDER", "payload", "{\"reservationId\":7}", "attempts", 9)));
-        when(db.claimEvent(anyString(), any(), any(), anyString(), any(), any())).thenReturn(1);
+        claimed();
+    }
+
+    private void claimed() {
+        when(db.claimEvents(anyString(), any(), any(), anyList(), any(), any())).thenReturn(1);
+        when(db.findClaimedEventIds(anyString(), anyList())).thenAnswer(inv -> inv.getArgument(1));
     }
 
     @Test
@@ -38,7 +43,7 @@ class OutboxPublisherTest {
             return null;
         }).when(rabbit).send(anyString(), anyString(), any(Message.class), any(CorrelationData.class));
         new OutboxPublisher(db, new ObjectMapper(), rabbit, clock).publishDue();
-        verify(db).markPublished(eq(LocalDateTime.now(clock)), eq("id-7"), anyString());
+        verify(db).markPublishedEvents(eq(LocalDateTime.now(clock)), anyString(), eq(List.of("id-7")));
     }
 
     @Test
@@ -51,14 +56,14 @@ class OutboxPublisherTest {
             return null;
         }).when(rabbit).send(anyString(), anyString(), any(Message.class), any(CorrelationData.class));
         new OutboxPublisher(db, new ObjectMapper(), rabbit, clock).publishDue();
-        verify(db, never()).markPublished(any(), anyString(), anyString());
+        verify(db, never()).markPublishedEvents(any(), anyString(), anyList());
         verify(db).rescheduleEvent(any(), anyString(), any(), eq("id-7"), anyString());
     }
 
     @Test
     void anotherPublishersLeasePreventsDuplicateSend() {
         due();
-        when(db.claimEvent(anyString(), any(), any(), anyString(), any(), any())).thenReturn(0);
+        when(db.claimEvents(anyString(), any(), any(), anyList(), any(), any())).thenReturn(0);
         new OutboxPublisher(db, new ObjectMapper(), rabbit, clock).publishDue();
         verifyNoInteractions(rabbit);
     }
@@ -76,6 +81,56 @@ class OutboxPublisherTest {
             return null;
         }).when(rabbit).send(anyString(), anyString(), any(Message.class), any(CorrelationData.class));
         new OutboxPublisher(db, new ObjectMapper(), rabbit, clock).publishDue();
-        verify(db).markPublished(any(), eq("deadline-7"), anyString());
+        verify(db).markPublishedEvents(any(), anyString(), eq(List.of("deadline-7")));
+    }
+
+    @Test
+    void publishesNextBatchWithoutWaitingForAnotherScheduledRun() {
+        List<Map<String, Object>> firstBatch = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            firstBatch.add(Map.of("event_id", "event-" + i, "event_type", "CREATE_ORDER",
+                    "payload", "{\"reservationId\":7}", "attempts", 0));
+        }
+        Map<String, Object> lastEvent = Map.of("event_id", "event-100", "event_type", "CREATE_ORDER",
+                "payload", "{\"reservationId\":7}", "attempts", 0);
+        when(db.findDueEvents(any(), any())).thenReturn(firstBatch, List.of(lastEvent));
+        claimed();
+        doAnswer(inv -> {
+            inv.<CorrelationData>getArgument(3).getFuture().complete(new CorrelationData.Confirm(true, null));
+            return null;
+        }).when(rabbit).send(anyString(), anyString(), any(Message.class), any(CorrelationData.class));
+
+        new OutboxPublisher(db, new ObjectMapper(), rabbit, clock).publishDue();
+
+        verify(db, times(2)).findDueEvents(any(), any());
+        verify(rabbit, times(101)).send(anyString(), anyString(), any(Message.class), any(CorrelationData.class));
+        verify(db, times(2)).claimEvents(anyString(), any(), any(), anyList(), any(), any());
+        verify(db, times(2)).markPublishedEvents(any(), anyString(), anyList());
+    }
+
+    @Test
+    void sendsWholeBatchBeforeWaitingForPublisherConfirms() {
+        List<Map<String, Object>> events = List.of(
+                Map.of("event_id", "first", "event_type", "CREATE_ORDER",
+                        "payload", "{\"reservationId\":7}", "attempts", 0),
+                Map.of("event_id", "second", "event_type", "CREATE_ORDER",
+                        "payload", "{\"reservationId\":8}", "attempts", 0));
+        when(db.findDueEvents(any(), any())).thenReturn(events);
+        claimed();
+        List<CorrelationData> sent = new ArrayList<>();
+        doAnswer(inv -> {
+            sent.add(inv.getArgument(3));
+            if (sent.size() == 2) {
+                for (CorrelationData correlation : sent) {
+                    correlation.getFuture().complete(new CorrelationData.Confirm(true, null));
+                }
+            }
+            return null;
+        }).when(rabbit).send(anyString(), anyString(), any(Message.class), any(CorrelationData.class));
+
+        new OutboxPublisher(db, new ObjectMapper(), rabbit, clock).publishDue();
+
+        verify(db).markPublishedEvents(any(), anyString(), eq(List.of("first", "second")));
+        verify(db, never()).rescheduleEvent(any(), anyString(), any(), anyString(), anyString());
     }
 }

@@ -124,8 +124,8 @@ class TradeInfrastructureIT {
                 + "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
         var dataSource = new DriverManagerDataSource(url, "root", MYSQL.getPassword());
         var result = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();
-        assertTrue(result.migrationsExecuted >= 3,
-                "Fresh database must run legacy, durable trade, and backfill migrations");
+        assertTrue(result.migrationsExecuted >= 4,
+                "Fresh database must run legacy, durable trade, backfill, and Outbox index migrations");
         db = new JdbcTemplate(dataSource);
         var manager = new DataSourceTransactionManager(dataSource);
         transactions = new TransactionTemplate(manager);
@@ -269,6 +269,33 @@ class TradeInfrastructureIT {
         assertTrue(db.queryForObject("SELECT next_attempt_at FROM message_outbox", LocalDateTime.class)
                 .isAfter(LocalDateTime.now(clock)));
         assertNull(db.queryForObject("SELECT lease_token FROM message_outbox", String.class));
+    }
+
+    @Test
+    void batchPublishingMarksOnlyBrokerConfirmedEvents() {
+        transactions.executeWithoutResult(status -> {
+            for (int i = 0; i < 120; i++) {
+                outbox.enqueue("CREATE_ORDER", "batch-order-" + i, Map.of("reservationId", 42));
+            }
+            outbox.enqueue("UNROUTABLE_IT", "batch-unroutable", Map.of("probe", true));
+        });
+
+        new OutboxPublisher(outboxMapper, mapper, rabbit, clock).publishDue();
+
+        assertEquals(120, db.queryForObject(
+                "SELECT COUNT(*) FROM message_outbox WHERE publish_status='PUBLISHED'", Integer.class));
+        assertEquals(1, db.queryForObject(
+                "SELECT COUNT(*) FROM message_outbox WHERE publish_status='NEW' AND attempts=1", Integer.class));
+        assertEquals(0, db.queryForObject(
+                "SELECT COUNT(*) FROM message_outbox WHERE publish_status='IN_FLIGHT'", Integer.class));
+    }
+
+    @Test
+    void outboxLeaseTokenHasIndexForBatchCompletion() {
+        Integer indexes = db.queryForObject("SELECT COUNT(*) FROM information_schema.STATISTICS "
+                + "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='message_outbox' "
+                + "AND INDEX_NAME='idx_outbox_lease_token'", Integer.class);
+        assertEquals(1, indexes);
     }
 
     @Test

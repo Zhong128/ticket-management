@@ -24,8 +24,6 @@ public class SaTokenConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new SaInterceptor(handler -> {
 
-                    System.out.println("========== 请求路径: " + SaHolder.getRequest().getRequestPath() + " ==========");
-
                     //放行所有 OPTIONS 请求
                     if (SaHolder.getRequest().getMethod().equals("OPTIONS")) {
                         return;

@@ -31,8 +31,8 @@
 
 1. 停止旧实例和消费者，备份数据库及旧队列。先在备份副本执行 `transaction-preflight.sql`，核对库存、重复有效订单、重复支付和金额异常。重复历史记录保留，不自动删除或猜测资金归属；重复有效订单对应的用户/票档会阻止新购买。
 2. 将 `SPRING_DATASOURCE_URL`、`SPRING_DATASOURCE_USERNAME`、`SPRING_DATASOURCE_PASSWORD` 指向副本，先构建项目。Windows 从模块目录运行 `./scripts/trade-migrate.ps1 baseline-existing`（仅已有旧表且没有Flyway历史的库执行一次），随后 `migrate`、`validate`。空白新库只执行 `migrate`。已有Flyway V1历史也不重复baseline。
-3. V1仅供空库建原表；V2增量加表/列/索引；V3回填截止时间、预占和唯一成功付款引用，不调整原库存/金额、不删除流水。MySQL DDL不保证整体回滚，失败须检查Flyway记录及实际DDL，禁止盲目重跑初始化SQL。
-4. 在副本验证后再对目标库安排同样维护步骤。启用 `TRADE_ENABLED=true`，保持自动迁移关闭。应用校验V3历史及必要列，缺失则拒绝启用。
+3. V1仅供空库建原表；V2增量加表/列/索引；V3回填截止时间、预占和唯一成功付款引用；V4为 Outbox 租约令牌建立索引，缩小批量发布完成时的锁定范围。迁移不调整原库存/金额、不删除流水。MySQL DDL不保证整体回滚，失败须检查Flyway记录及实际DDL，禁止盲目重跑初始化SQL。
+4. 在副本验证后再对目标库安排同样维护步骤。启用 `TRADE_ENABLED=true`，保持自动迁移关闭。应用校验V4历史及必要列，缺失则拒绝启用。
 5. v2使用 `trade.events.v2`、`trade.work.v2`、`trade.deadline.wait.v2`、`trade.deadline.ready.v2`。旧队列保留，不能直接重投没有数据库预占的旧创建消息；先人工对照订单/流水。需要桥接时仅显式启用 `trade.legacy-consumers-enabled`，不能并行运行旧版服务写同一库存。
 
 非法JSON/事件结构会经 `trade.failures.v2` 转入 `trade.work.failed.v2` 或 `trade.deadline.failed.v2`，持久保留待检查，不无限重入。已有预览版v2队列若缺少DLX参数，须安排受控迁移或策略配置；不能清空队列来规避参数冲突。
@@ -53,10 +53,12 @@
 
 报告见模块 `target/surefire-reports`。性能压测是独立验收：参考 `performance/README.md`；功能单测通过不能作为吞吐量证据。
 
+管理员建演出至付款、取消、超时释放和迟到付款退款的隔离 HTTP 验收，见 [完整售票流程隔离验收](full-sale-isolated-acceptance.md)。
+
 本机Windows的JDK21遇到8.3短路径临时目录导致 `Selector.open()` 报 `Unable to establish loopback connection`。验收时通过测试JVM参数 `-DargLine=-Djdk.net.unixdomain.tmpdir=C:\Users\LIANXIANG\IdeaProjects\ticketManagement\ticket-management\target` 指定存在的工作目录解决；这是本机环境设置，不应改成跳过Redis验收。
 
 ## 运维检查
 
-检查 `message_outbox` 长期NEW/过期租约、`order_info.order_status=4`、过期未释放预占、退款 `MANUAL_REQUIRED`、邮件 `payment_compensation.task_status=3`。Outbox重发可重复投递；订单、释放、退款均依赖数据库幂等。Redis不可用不应影响库存正确性，恢复后定时按版本重建投影。
+检查 `message_outbox` 长期NEW/过期租约、`order_info.order_status=4`、过期未释放预占、退款 `MANUAL_REQUIRED`、邮件 `payment_compensation.task_status=3`。Outbox 发布器每批最多领取100条，先发送整批消息，再按各自的 Broker 确认批量标记成功；失败事件仍按原租约与退避机制重试。邮件任务每批最多50条，一次调度最多连续处理10批；发送仍逐条持有租约，失败按原规则重试或转人工。抢票事务默认同时最多6个，可用 `TRADE_RESERVATION_MAX_CONCURRENT` 调整；生产连接池上限为10，调整时要给建单、Outbox、通知等后台任务保留连接。Outbox重发可重复投递；订单、释放、退款均依赖数据库幂等。Redis不可用不应影响库存正确性，恢复后定时按版本重建投影。
 
 原Git历史中已有旧凭据，本次只沿用基线后的环境变量/本地忽略配置，没有重写历史。对外分享仓库前应更换曾提交的凭据。

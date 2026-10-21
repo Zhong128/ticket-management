@@ -43,30 +43,58 @@ public interface TradeOutboxMapper {
     List<Map<String, Object>> findDueEvents(@Param("now") LocalDateTime now, @Param("leaseNow") LocalDateTime leaseNow);
 
     /**
-     * 按状态及时间条件领取事件发布租约。
+     * 按状态及时间条件批量领取发布租约，令牌仅属于本批次。
      */
     @Update("""
-            UPDATE message_outbox
+            <script>
+            UPDATE message_outbox FORCE INDEX (PRIMARY)
             SET publish_status='IN_FLIGHT',lease_token=#{token},
                 lease_until=#{leaseUntil},updated_at=#{now}
-            WHERE event_id=#{eventId}
-              AND ((publish_status='NEW' AND next_attempt_at<=#{dueAt})
-                OR (publish_status='IN_FLIGHT' AND lease_until<=#{leaseNow}))
+            WHERE event_id IN
+            <foreach collection="ids" item="id" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+              AND ((publish_status='NEW' AND next_attempt_at&lt;=#{dueAt})
+                OR (publish_status='IN_FLIGHT' AND lease_until&lt;=#{leaseNow}))
+            </script>
             """)
-    int claimEvent(@Param("token") String token, @Param("leaseUntil") LocalDateTime leaseUntil,
-            @Param("now") LocalDateTime now, @Param("eventId") String eventId, @Param("dueAt") LocalDateTime dueAt,
-            @Param("leaseNow") LocalDateTime leaseNow);
+    int claimEvents(@Param("token") String token, @Param("leaseUntil") LocalDateTime leaseUntil,
+            @Param("now") LocalDateTime now, @Param("ids") List<String> ids,
+            @Param("dueAt") LocalDateTime dueAt, @Param("leaseNow") LocalDateTime leaseNow);
 
     /**
-     * 收到发布确认后凭租约令牌标记成功。
+     * 查询本批次实际领取到的事件，避免并发实例重复发布。
+     */
+    @Select("""
+            <script>
+            SELECT event_id
+            FROM message_outbox
+            WHERE lease_token=#{token}
+              AND event_id IN
+            <foreach collection="ids" item="id" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+            </script>
+            """)
+    List<String> findClaimedEventIds(@Param("token") String token, @Param("ids") List<String> ids);
+
+    /**
+     * 收到各自的发布确认后，凭本批次租约令牌标记成功。
      */
     @Update("""
-            UPDATE message_outbox
+            <script>
+            UPDATE message_outbox FORCE INDEX (idx_outbox_lease_token)
             SET publish_status='PUBLISHED',lease_token=NULL,
                 lease_until=NULL,last_error=NULL,updated_at=#{now}
-            WHERE event_id=#{eventId} AND lease_token=#{token}
+            WHERE lease_token=#{token}
+              AND event_id IN
+            <foreach collection="ids" item="id" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+            </script>
             """)
-    int markPublished(@Param("now") LocalDateTime now, @Param("eventId") String eventId, @Param("token") String token);
+    int markPublishedEvents(@Param("now") LocalDateTime now, @Param("token") String token,
+            @Param("ids") List<String> ids);
 
     /**
      * 发布失败后记录错误并安排下次重试。

@@ -56,8 +56,8 @@ public interface TradeSchemaMapper {
     List<Map<String, Object>> checkCompensationColumns();
 
     /**
-     * 确认交易数据库迁移版本已通过校验。
+     * 确认包含 Outbox 租约索引的迁移版本已通过校验。
      */
-    @Select("SELECT COUNT(*) FROM flyway_schema_history WHERE version='3' AND success=1")
+    @Select("SELECT COUNT(*) FROM flyway_schema_history WHERE version='4' AND success=1")
     int countVerifiedSchemaVersion();
 }

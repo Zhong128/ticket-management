@@ -281,7 +281,6 @@ public class AuthServiceImpl implements AuthService {
 
         // 3. 获取token值
         String token = StpUtil.getTokenValue();
-        System.out.println("生成的 token: " + token);
 
         // 4. 返回登录信息
         LoginInfo loginInfo = new LoginInfo(user.getId(), user.getUsername(), user.getEmail(), token);

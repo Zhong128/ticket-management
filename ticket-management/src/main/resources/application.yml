@@ -169,3 +169,5 @@ logging:
 trade:
   enabled: ${TRADE_ENABLED:false}
   legacy-consumers-enabled: false
+  reservation:
+    max-concurrent: ${TRADE_RESERVATION_MAX_CONCURRENT:6}

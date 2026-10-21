@@ -14,6 +14,29 @@ import static org.mockito.Mockito.*;
 class NotificationTasksTest {
 
     @Test
+    void processesNextEmailBatchWithoutWaitingForAnotherScheduledRun() {
+        TradeTaskMapper db = mock(TradeTaskMapper.class);
+        EmailService email = mock(EmailService.class);
+        List<Map<String, Object>> firstBatch = new ArrayList<>();
+        for (int i = 0; i < 50; i++) {
+            firstBatch.add(Map.of("id", (long) i, "order_id", 70L,
+                    "task_type", "EMAIL_ORDER", "retry_count", 0));
+        }
+        Map<String, Object> lastTask = Map.of("id", 50L, "order_id", 70L,
+                "task_type", "EMAIL_ORDER", "retry_count", 0);
+        when(db.findDueEmailTasks(any(), any())).thenReturn(firstBatch, List.of(lastTask));
+        when(db.claimEmailTask(anyString(), any(), any(), any(), anyLong(), any(), any())).thenReturn(1);
+        when(db.findOrderWithEmail(any())).thenReturn(Map.of("email", "buyer@example.invalid",
+                "order_status", 0, "order_no", "TEST-1", "quantity", 1, "total_amount", 100));
+        when(email.sendSimpleEmail(anyString(), anyString(), anyString())).thenReturn(true);
+
+        new NotificationTasks(db, email, new ObjectMapper(), Clock.systemUTC()).processDue();
+
+        verify(db, times(2)).findDueEmailTasks(any(), any());
+        verify(db, times(51)).completeEmailTask(any(), anyLong(), anyString());
+    }
+
+    @Test
     void thirdFailureIsPersistedForManualAttention() {
         TradeTaskMapper db = mock(TradeTaskMapper.class);
         EmailService email = mock(EmailService.class);

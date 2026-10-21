@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.mapper.UserMapper;
 import org.example.ticketmanagement.pojo.Result;
 import org.example.ticketmanagement.pojo.User;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.File;
@@ -19,6 +20,7 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping("/api/public/test")
+@ConditionalOnProperty(name = "test-data.enabled", havingValue = "true")
 @Tag(name = "并发测试用户生成器", description = "并发测试")
 @RequiredArgsConstructor
 public class TestDataController {
@@ -61,7 +63,7 @@ public class TestDataController {
                 // 4. 退出登录（清除 session）
                 StpUtil.logout(user.getId());
 
-                log.debug("已生成用户: id={}, token={}", user.getId(), token.substring(0, 20) + "...");
+                log.debug("已生成测试用户: id={}", user.getId());
             }
 
             log.info("成功生成 {} 个测试用户", count);

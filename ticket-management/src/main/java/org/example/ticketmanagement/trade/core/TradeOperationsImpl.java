@@ -2,6 +2,7 @@ package org.example.ticketmanagement.trade.core;
 
 import org.example.ticketmanagement.mapper.TradeCoreMapper;
 import org.example.ticketmanagement.trade.messaging.OutboxStore;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -15,6 +16,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 /**
  * MySQL owns acceptance, inventory and all terminal transitions; Redis is a projection.
@@ -27,14 +31,26 @@ public class TradeOperationsImpl implements TradeOperations {
     private final OutboxStore outbox;
     private final Clock clock;
     private final boolean enabled;
+    private final Semaphore reservationSlots;
 
     public TradeOperationsImpl(TradeCoreMapper mapper, PlatformTransactionManager manager, OutboxStore outbox,
-            Clock clock, @Value("${trade.enabled:false}") boolean enabled) {
+            Clock clock, boolean enabled) {
+        this(mapper, manager, outbox, clock, enabled, 6);
+    }
+
+    @Autowired
+    public TradeOperationsImpl(TradeCoreMapper mapper, PlatformTransactionManager manager, OutboxStore outbox,
+            Clock clock, @Value("${trade.enabled:false}") boolean enabled,
+            @Value("${trade.reservation.max-concurrent:6}") int maxConcurrent) {
+        if (maxConcurrent < 1) {
+            throw new IllegalArgumentException("抢票事务并发数必须大于零");
+        }
         this.mapper = mapper;
         this.tx = new TransactionTemplate(manager);
         this.outbox = outbox;
         this.clock = clock;
         this.enabled = enabled;
+        this.reservationSlots = new Semaphore(maxConcurrent, true);
     }
 
     @Override
@@ -49,7 +65,8 @@ public class TradeOperationsImpl implements TradeOperations {
             throw new IllegalArgumentException("requestKey不能为空且最多64字符");
         }
 
-        return tx.execute(s -> {
+        // 控制抢票事务占用的连接数，给落单和 Outbox 发布留处理空间。
+        return withReservationSlot(() -> tx.execute(s -> {
             LocalDateTime now = now();
 
             // 2. 锁定用户与票档，重复请求直接返回原预占。
@@ -96,7 +113,26 @@ public class TradeOperationsImpl implements TradeOperations {
             stockChanged(tierId);
 
             return response(one(mapper.findReservation(id)));
-        });
+        }));
+    }
+
+    private Map<String, Object> withReservationSlot(Supplier<Map<String, Object>> action) {
+        boolean acquired;
+        try {
+            acquired = reservationSlots.tryAcquire(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("抢票请求已中断", e);
+        }
+        if (!acquired) {
+            throw new IllegalStateException("抢票请求繁忙，请稍后重试");
+        }
+
+        try {
+            return action.get();
+        } finally {
+            reservationSlots.release();
+        }
     }
 
     @Override

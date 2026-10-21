@@ -1,6 +1,6 @@
 # 本轮构建与验证记录
 
-> 本文件保留此前交易整改版本的验证记录。业务持久层随后已统一为MyBatis，最新结果及Docker环境阻塞见 [MyBatis统一验证记录](mybatis-unification-validation.md)。此前真实IT通过不能替代重构后的重新验收。
+> 本文件保留此前交易整改版本的验证记录。业务持久层随后已统一为 MyBatis；当前隔离 HTTP 售票闭环见 [完整售票流程隔离验收](full-sale-isolated-acceptance.md)，持续压测见 [2026-10-21 复验记录](performance/results-2026-10-21-outbox.md)。下文“尚未执行”仅描述 2026-10-19 当时的状态。
 
 日期：2026-10-19；分支：`codex/transaction-hardening`；基线：`8e52a22`。本文件保留交易整改早期的验证过程，当前代码与最新结果以仓库现状及后续验证记录为准。
 
