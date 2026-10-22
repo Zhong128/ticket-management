@@ -5,7 +5,7 @@ import org.example.ticketmanagement.dto.CreatePaymentDTO;
 import org.example.ticketmanagement.mapper.TradePaymentMapper;
 import org.example.ticketmanagement.mapper.TradeRefundMapper;
 import org.example.ticketmanagement.serviceimpl.PaymentServiceImpl;
-import org.example.ticketmanagement.trade.core.TradeOperations;
+import org.example.ticketmanagement.service.ReservationService;
 import org.example.ticketmanagement.trade.messaging.OutboxStore;
 import org.example.ticketmanagement.trade.payment.*;
 import org.example.ticketmanagement.util.AlipaySignatureUtil;
@@ -47,7 +47,7 @@ class PaymentTransactionTest {
     PaymentCoordinator payments;
     RefundService refunds;
     PaymentServiceImpl service;
-    TradeOperations core;
+    ReservationService core;
     Clock clock = Clock.fixed(Instant.parse("2026-10-19T00:00:00Z"), ZoneOffset.UTC);
 
     @BeforeEach
@@ -55,19 +55,7 @@ class PaymentTransactionTest {
         fixture = new TradeReservationTest();
         fixture.setup();
         db = fixture.db;
-        db.execute("DROP TABLE payment_record");
-        db.execute("CREATE TABLE payment_record(id BIGINT AUTO_INCREMENT PRIMARY KEY,order_id BIGINT,order_no"
-                + " VARCHAR(32),user_id BIGINT,payment_no VARCHAR(64) UNIQUE,trade_no VARCHAR(64)"
-                + " UNIQUE,total_amount DECIMAL(10,2),pay_status INT,pay_type INT,subject"
-                + " VARCHAR(256),body VARCHAR(512),notify_data TEXT,notify_time TIMESTAMP,pay_time"
-                + " TIMESTAMP,expire_time TIMESTAMP,create_time TIMESTAMP,update_time TIMESTAMP)");
-        db.execute("CREATE TABLE refund_record(id BIGINT AUTO_INCREMENT PRIMARY KEY,refund_no VARCHAR(64)"
-                + " UNIQUE,payment_id BIGINT UNIQUE,payment_no VARCHAR(64),order_id BIGINT,user_id"
-                + " BIGINT,amount DECIMAL(10,2),reason VARCHAR(64),status VARCHAR(32),attempts"
-                + " INT,next_attempt_at TIMESTAMP,lease_token VARCHAR(36),lease_until"
-                + " TIMESTAMP,last_error VARCHAR(500),trade_no VARCHAR(64),response_data"
-                + " TEXT,created_at TIMESTAMP,updated_at TIMESTAMP)");
-        core = (TradeOperations) fixture.core;
+        core = (ReservationService) fixture.core;
         gateway = mock(PaymentGateway.class);
         when(gateway.create(any())).thenAnswer(i -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());

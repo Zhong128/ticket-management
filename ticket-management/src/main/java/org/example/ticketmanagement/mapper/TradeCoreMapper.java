@@ -31,43 +31,11 @@ public interface TradeCoreMapper {
     Map<String, Object> lockPurchaseGuard(@Param("userId") long userId, @Param("tierId") long tierId);
 
     /**
-     * 按幂等键查找用户已有的库存预占。
-     */
-    @Select("SELECT * FROM stock_reservation WHERE user_id=#{userId} AND request_key=#{requestKey}")
-    Map<String, Object> findReservationByRequest(@Param("userId") long userId, @Param("requestKey") String requestKey);
-
-    /**
      * 统计该用户在票档下尚未结束的订单。
      */
     @Select("SELECT COUNT(*) FROM order_info WHERE user_id=#{userId} AND tier_id=#{tierId} AND "
             + "order_status IN (0,1,3,4)")
     long countActiveOrders(@Param("userId") long userId, @Param("tierId") long tierId);
-
-    /**
-     * 锁定票档并读取演出、场次的售卖状态。
-     */
-    @Select("SELECT t.*,e.status AS event_status,e.sale_start_time,e.sale_end_time,s.status AS "
-            + "session_status FROM ticket_tier t JOIN event e ON e.id=t.event_id JOIN event_session s ON "
-            + "s.id=t.session_id WHERE t.id=#{tierId} FOR UPDATE")
-    Map<String, Object> lockSaleTier(@Param("tierId") long tierId);
-
-    /**
-     * 库存足够时扣减可售库存并递增版本号。
-     */
-    @Update("UPDATE ticket_tier SET available_stock=available_stock-#{quantity},"
-            + "stock_version=stock_version+1 WHERE id=#{tierId} AND available_stock>=#{quantity}")
-    int deductAvailableStock(@Param("quantity") int quantity, @Param("tierId") long tierId);
-
-    /**
-     * 插入库存预占并回填预占主键。
-     */
-    @Insert("INSERT INTO stock_reservation(user_id,tier_id,event_id,session_id,request_key,order_no,"
-            + "status,quantity,unit_price,total_amount,expires_at,create_time,update_time,attempts) "
-            + "VALUES(#{user_id},#{tier_id},#{event_id},#{session_id},#{request_key},#{order_no},"
-            + "'RESERVED',#{quantity},#{unit_price},#{total_amount},#{expires_at},#{create_time},"
-            + "#{update_time},0)")
-    @Options(useGeneratedKeys = true, keyProperty = "id")
-    int insertReservation(Map<String, Object> reservation);
 
     /**
      * 把本次预占关联到用户购买占位。
@@ -76,24 +44,6 @@ public interface TradeCoreMapper {
             + "AND tier_id=#{tierId}")
     int attachPurchaseGuard(@Param("id") long id, @Param("now") LocalDateTime now, @Param("userId") long userId,
             @Param("tierId") long tierId);
-
-    /**
-     * 按主键查询库存预占。
-     */
-    @Select("SELECT * FROM stock_reservation WHERE id=#{id}")
-    Map<String, Object> findReservation(@Param("id") long id);
-
-    /**
-     * 查询属于指定用户的库存预占。
-     */
-    @Select("SELECT * FROM stock_reservation WHERE id=#{id} AND user_id=#{userId}")
-    Map<String, Object> findOwnedReservation(@Param("id") long id, @Param("userId") long userId);
-
-    /**
-     * 锁定库存预占，用于订单创建或释放。
-     */
-    @Select("SELECT * FROM stock_reservation WHERE id=#{id} FOR UPDATE")
-    Map<String, Object> lockReservation(@Param("id") long id);
 
     /**
      * 根据预占数据创建待支付订单并回填主键。

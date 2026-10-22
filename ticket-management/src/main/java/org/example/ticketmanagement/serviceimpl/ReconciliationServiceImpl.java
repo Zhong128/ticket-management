@@ -36,6 +36,7 @@ public class ReconciliationServiceImpl implements ReconciliationService {
 
     @Override
     public boolean reconcileStockByTierId(Long tierId) {
+        stock.retireOldEpochs(tierId);
         // prepare缺失时受控重建；正常情况下只检查现有代次和数量。
         int actual = stock.getStock(tierId);
         int expected = stocks.selectAvailableStock(tierId) - admissions.pendingQuantity(tierId);

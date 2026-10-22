@@ -10,7 +10,7 @@ class TradeCoreContractTest {
 
     @Test
     void durableReservationExposesStateMachineInsteadOfRedisOnlyAcceptance() throws Exception {
-        Class<?> operations = Class.forName("org.example.ticketmanagement.trade.core.TradeOperations");
+        Class<?> operations = Class.forName("org.example.ticketmanagement.service.ReservationService");
         assertTrue(operations.isInterface());
         assertEquals(Map.class,
                 operations.getMethod("reserve", long.class, long.class, int.class, String.class).getReturnType());

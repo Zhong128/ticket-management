@@ -5,7 +5,7 @@ import com.rabbitmq.client.Channel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.serviceimpl.MessageRecoveryService;
-import org.example.ticketmanagement.trade.core.TradeOperations;
+import org.example.ticketmanagement.service.ReservationService;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -19,7 +19,7 @@ import java.io.IOException;
 @ConditionalOnProperty(name = "trade.enabled", havingValue = "true")
 public class SeckillDeadLetterConsumer {
     private final MessageRecoveryService recovery;
-    private final TradeOperations orders;
+    private final ReservationService orders;
     private final ObjectMapper json;
 
     /** 先保留人工排查证据；只有可识别申请才交给统一状态机处理。 */

@@ -3,6 +3,10 @@ package org.example.ticketmanagement.trade;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
 import org.example.ticketmanagement.serviceimpl.MessageRecoveryService;
+import org.example.ticketmanagement.consumer.SeckillOrderConsumer;
+import org.example.ticketmanagement.exception.StockVersionConflictException;
+import org.example.ticketmanagement.service.OrderService;
+import org.example.ticketmanagement.service.ReservationService;
 import org.example.ticketmanagement.util.TradeMessageSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.Message;
@@ -57,5 +61,19 @@ class TradeMessageSupportTest {
                 });
         verify(channel).basicReject(7, false);
         verifyNoInteractions(recovery);
+    }
+
+    @Test
+    void versionCompetitionIsDurablyDeferredWithoutCountingBusinessFailure() throws Exception {
+        RuntimeException conflict = new StockVersionConflictException();
+        ReservationService reservations = mock(ReservationService.class);
+        OrderService orders = mock(OrderService.class);
+        when(orders.createOrder(1L)).thenThrow(conflict);
+        var consumer = new SeckillOrderConsumer(reservations, orders, support);
+        consumer.handleSeckillOrder(message("{\"eventType\":\"CREATE_ORDER\",\"payload\":{\"reservationId\":1}}"), channel);
+        verify(reservations, never()).creationFailed(anyLong(), anyString());
+        var sequence = inOrder(recovery, channel);
+        sequence.verify(recovery).retry(eq("original-event"), eq("CREATE_ORDER"), any());
+        sequence.verify(channel).basicAck(7, false);
     }
 }

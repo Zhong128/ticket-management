@@ -28,6 +28,7 @@ public class LuaScriptLoader {
         loadScript("releaseReservation.lua", Long.class);
         loadScript("rebuildStockBatch.lua", Long.class);
         loadScript("activateStockEpoch.lua", Long.class);
+        loadScript("retireStockEpochs.lua", Long.class);
         loadScript("applyStockProjection.lua", Long.class);
         log.info("Lua脚本加载完成");
     }

@@ -234,7 +234,39 @@ public class StockServiceImpl implements StockService {
             throw new StockCacheNotReadyException();
         }
         refresh(tierId);
+        try {
+            retireOldEpochs(tierId);
+        } catch (RuntimeException unavailable) {
+            log.warn("旧代次数据待下轮退役 tierId={}", tierId, unavailable);
+        }
         return epoch;
+    }
+
+    /** 新代次已开放后有界退役，独立游标使进程退出后仍能继续清理。 */
+    public void retireOldEpochs(long tierId) {
+        requireEnabled();
+        Object active = redis.opsForHash().get(metaKey(tierId), "epoch");
+        if (active == null) {
+            return;
+        }
+        long epoch = Long.parseLong(active.toString());
+        String cursorKey = "seckill:{" + tierId + "}:retired-through";
+        String previous = redis.opsForValue().get(cursorKey);
+        long before = previous == null ? 0 : Long.parseLong(previous);
+        long through = Math.min(epoch - 1, before + 100);
+        if (through <= before) {
+            return;
+        }
+
+        List<String> names = new ArrayList<>(List.of(metaKey(tierId), cursorKey));
+        for (long old = before + 1; old <= through; old++) {
+            names.addAll(keys(tierId, old).subList(1, 6));
+        }
+        Long result = redis.execute(scripts.<Long>getScript("retireStockEpochs.lua"), names,
+                Long.toString(epoch), Long.toString(before), Long.toString(through));
+        if (result == null || result < 0) {
+            throw new IllegalStateException("退役代次参数或缓存状态异常");
+        }
     }
 
     private Map<String, Object> cacheRecord(StockReservation row) {
@@ -305,26 +337,6 @@ public class StockServiceImpl implements StockService {
     public boolean hasUserSeckilled(Long userId, Long tierId) {
         long epoch = prepare(tierId);
         return redis.opsForHash().hasKey(keys(tierId, epoch).get(2), userId.toString());
-    }
-
-    @Override
-    public Long decrStock(Long tierId, Integer quantity) {
-        throw new UnsupportedOperationException("必须使用包含用户及请求键的预扣协议");
-    }
-
-    @Override
-    public Long restoreStock(Long tierId, Integer quantity) {
-        throw new UnsupportedOperationException("必须按预扣token幂等释放");
-    }
-
-    @Override
-    public void setUserSeckillRecord(Long userId, Long tierId, long expireSeconds) {
-        throw new UnsupportedOperationException("限购与预扣由同一Lua原子建立");
-    }
-
-    @Override
-    public void deleteUserSeckillRecord(Long userId, Long tierId) {
-        throw new UnsupportedOperationException("不能绕过申请终态解除限购");
     }
 
     private void requireEnabled() {

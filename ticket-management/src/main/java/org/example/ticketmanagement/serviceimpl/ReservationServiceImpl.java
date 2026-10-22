@@ -1,17 +1,19 @@
 package org.example.ticketmanagement.serviceimpl;
 
 import lombok.RequiredArgsConstructor;
+import org.example.ticketmanagement.exception.StockVersionConflictException;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.example.ticketmanagement.dto.RedisReservation;
 import org.example.ticketmanagement.mapper.SeckillAdmissionMapper;
 import org.example.ticketmanagement.mapper.TradeCoreMapper;
 import org.example.ticketmanagement.pojo.SeckillAdmission;
 import org.example.ticketmanagement.pojo.StockReservation;
-import org.example.ticketmanagement.trade.core.TradeOperations;
+import org.example.ticketmanagement.service.ReservationService;
 import org.example.ticketmanagement.trade.messaging.OutboxStore;
 import org.example.ticketmanagement.util.OrderNoGenerator;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -28,12 +30,11 @@ import static org.example.ticketmanagement.util.ReservationValues.time;
 
 /**
  * 申请与订单的短事务规则；Redis网络调用由抢票和库存Service在事务外编排。
- * TradeOperations是迁移期间的调用接口，阶段5清理时统一迁移接口引用。
+ * 通过原有Service分层向支付、消费者和调度提供统一状态变更。
  */
 @Service
-@Primary
 @RequiredArgsConstructor
-public class ReservationServiceImpl implements TradeOperations {
+public class ReservationServiceImpl implements ReservationService {
 
     private final TradeCoreMapper mapper;
     private final SeckillAdmissionMapper admissions;
@@ -43,6 +44,9 @@ public class ReservationServiceImpl implements TradeOperations {
     private final OrderNoGenerator orderNumbers;
     private final ObjectProvider<SeckillServiceImpl> seckill;
     private final Clock clock;
+
+    @Autowired(required = false)
+    private MeterRegistry metrics;
 
     @Value("${trade.enabled:false}")
     private boolean enabled;
@@ -162,7 +166,7 @@ public class ReservationServiceImpl implements TradeOperations {
         for (int attempt = 0; attempt < 3; attempt++) {
             try {
                 return transactions.execute(status -> createInTransaction(id));
-            } catch (OptimisticConflict conflict) {
+            } catch (StockVersionConflictException conflict) {
                 if (attempt == 2) {
                     throw conflict;
                 }
@@ -203,7 +207,10 @@ public class ReservationServiceImpl implements TradeOperations {
                 return null;
             }
             if (admissions.deduct(row.getTierId(), row.getQuantity(), number(sale, "stock_version")) != 1) {
-                throw new OptimisticConflict();
+                if (metrics != null) {
+                    metrics.counter("seckill.stock.optimistic.conflicts").increment();
+                }
+                throw new StockVersionConflictException();
             }
             admissions.held(id);
             stockChanged(row.getTierId());
@@ -422,9 +429,4 @@ public class ReservationServiceImpl implements TradeOperations {
         }
     }
 
-    private static final class OptimisticConflict extends IllegalStateException {
-        private OptimisticConflict() {
-            super("库存版本冲突，请重试建单");
-        }
-    }
 }

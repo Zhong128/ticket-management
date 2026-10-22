@@ -4,8 +4,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.mapper.TradeRecoveryMapper;
 import org.example.ticketmanagement.service.OrderService;
-import org.example.ticketmanagement.trade.core.TradeOperations;
+import org.example.ticketmanagement.service.ReservationService;
 import org.example.ticketmanagement.exception.StockCacheNotReadyException;
+import org.example.ticketmanagement.exception.StockVersionConflictException;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -21,7 +22,7 @@ import static org.example.ticketmanagement.util.ReservationValues.time;
 @RequiredArgsConstructor
 public class OrderRecoveryService {
     private final TradeRecoveryMapper mapper;
-    private final TradeOperations reservations;
+    private final ReservationService reservations;
     private final OrderService orders;
     private final Clock clock;
     private long reservationCursor;
@@ -47,7 +48,7 @@ public class OrderRecoveryService {
                     } else {
                         try {
                             reservations.createOrder(id);
-                        } catch (StockCacheNotReadyException paused) {
+                        } catch (StockCacheNotReadyException | StockVersionConflictException paused) {
                             throw paused;
                         } catch (RuntimeException failed) {
                             reservations.creationFailed(id, failed.getMessage());

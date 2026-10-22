@@ -3,7 +3,7 @@ package org.example.ticketmanagement.trade.messaging;
 import lombok.RequiredArgsConstructor;
 import org.example.ticketmanagement.mapper.TradeRecoveryMapper;
 import org.example.ticketmanagement.service.OrderService;
-import org.example.ticketmanagement.trade.core.TradeOperations;
+import org.example.ticketmanagement.service.ReservationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,7 +16,7 @@ import java.util.*;
 public class DeadlineHandler {
 
     private final TradeRecoveryMapper db;
-    private final TradeOperations core;
+    private final ReservationService core;
     private final OrderService orders;
     private final OutboxStore outbox;
     private final Clock clock;

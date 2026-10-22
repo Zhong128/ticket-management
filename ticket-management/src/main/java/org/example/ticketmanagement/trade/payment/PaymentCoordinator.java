@@ -3,7 +3,7 @@ package org.example.ticketmanagement.trade.payment;
 import lombok.RequiredArgsConstructor;
 import org.example.ticketmanagement.dto.CreatePaymentDTO;
 import org.example.ticketmanagement.pojo.PaymentRecord;
-import org.example.ticketmanagement.trade.core.TradeOperations;
+import org.example.ticketmanagement.service.ReservationService;
 import org.example.ticketmanagement.trade.messaging.OutboxStore;
 import org.example.ticketmanagement.util.PaymentNoGenerator;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,7 +21,7 @@ public class PaymentCoordinator implements TradePaymentPort {
 
     private final PaymentRepository repository;
     private final PaymentGateway gateway;
-    private final TradeOperations trade;
+    private final ReservationService trade;
     private final OutboxStore outbox;
     private final RefundService refunds;
     private final TransactionTemplate transactions;

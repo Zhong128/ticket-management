@@ -1,18 +1,30 @@
 package org.example.ticketmanagement.trade.messaging;
 
+import java.util.concurrent.TimeUnit;
+import java.util.HashMap;
+import java.nio.file.Path;
 import com.alipay.api.AlipayClient;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.mockito.AdditionalAnswers;
 import org.example.ticketmanagement.TicketManagementApplication;
 import org.example.ticketmanagement.constant.SeckillConstant;
 import org.example.ticketmanagement.controller.TestDataController;
 import org.example.ticketmanagement.service.EmailService;
-import org.example.ticketmanagement.trade.core.TradeOperations;
+import org.example.ticketmanagement.service.ReservationService;
 import org.example.ticketmanagement.trade.payment.PaymentGateway;
 import org.example.ticketmanagement.trade.payment.RefundService;
 import org.example.ticketmanagement.dto.RedisReservation;
 import org.example.ticketmanagement.serviceimpl.ReservationServiceImpl;
 import org.example.ticketmanagement.serviceimpl.StockServiceImpl;
 import org.example.ticketmanagement.serviceimpl.OrderRecoveryService;
+import org.example.ticketmanagement.serviceimpl.OrderServiceImpl;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.connection.ChannelProxy;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.core.MessageProperties;
+import com.rabbitmq.client.Channel;
+import java.io.IOException;
 import org.example.ticketmanagement.util.LuaScriptLoader;
 import org.example.ticketmanagement.pojo.StockReservation;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -124,6 +136,9 @@ class TradeApplicationIT {
     @MockitoSpyBean
     OutboxStore durableEvents;
 
+    @MockitoSpyBean
+    OrderServiceImpl orderBusiness;
+
     @Autowired
     ApplicationContext context;
 
@@ -150,10 +165,9 @@ class TradeApplicationIT {
 
     @Test
     void completeContextMigratesBeforeStartupAndServesPublicHttp() {
-        assertNotNull(context.getBean(TradeOperations.class));
+        assertNotNull(context.getBean(ReservationService.class));
         assertNotNull(context.getBean(OutboxPublisher.class));
         assertNotNull(context.getBean(SeckillOrderConsumer.class));
-        assertTrue(context.getBeansOfType(TradeEventConsumer.class).isEmpty());
         assertTrue(context.getBeansOfType(TestDataController.class).isEmpty());
         assertEquals(1, context.getBeansOfType(Clock.class).size());
         assertEquals(5, db.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1", Integer.class));
@@ -245,6 +259,12 @@ class TradeApplicationIT {
             long rebuilt = stockService.rebuild(4201);
             assertTrue(rebuilt > original.epoch());
             assertEquals(3, stockService.getStock(4201L));
+            assertFalse(redis.hasKey(StockServiceImpl.keys(4201, original.epoch()).get(1)),
+                    "新代次生效后应退役旧配额，不能反复重建后永久累积");
+            assertFalse(redis.hasKey(StockServiceImpl.keys(4201, original.epoch()).get(4)),
+                    "退役token不能永久复制保留");
+            assertEquals(-1L, redis.getExpire(StockServiceImpl.keys(4201, rebuilt).get(2)),
+                    "活跃代次限购占位不能靠TTL释放");
             stockService.release(original);
             assertEquals(3, stockService.getStock(4201L), "旧代次不能释放新配额");
             assertThrows(IllegalStateException.class, () -> stockService.reserve(4201, 4201, 1, "second"));
@@ -312,6 +332,151 @@ class TradeApplicationIT {
             assertEquals(0, stock(4501));
             assertEquals(3, db.queryForObject("SELECT COUNT(*) FROM order_info WHERE tier_id=4501", Integer.class));
         } finally {
+            listeners.start();
+        }
+    }
+
+    @Test
+    void twoJvmApplicationsShareQuotaAndIdempotencyWithoutOverselling() throws Exception {
+        seedProtocolSale(5101, 6);
+        var stockService = context.getBean(StockServiceImpl.class);
+        stockService.prepare(5101);
+        Map<String, String> endpoints = new HashMap<>();
+        for (String name : List.of("spring.datasource.url", "spring.datasource.username", "spring.datasource.password",
+                "spring.rabbitmq.host", "spring.rabbitmq.port", "spring.rabbitmq.username", "spring.rabbitmq.password",
+                "spring.data.redis.host", "spring.data.redis.port", "redisson.config")) {
+            endpoints.put(name, environment.getRequiredProperty(name));
+        }
+        try (var second = new IsolatedSecondApplication(endpoints, Path.of("target", "dual-application"))) {
+            var other = new TestRestTemplate();
+            List<String> tokens = new ArrayList<>();
+            for (int i = 0; i < 18; i++) {
+                long user = 510100 + i;
+                seedAccount(user, "USER");
+                tokens.add(loginUser(user));
+            }
+
+            // 两个独立JVM同时接收相同请求；每个买家的两次调用复用同一个请求键。
+            try (var workers = Executors.newFixedThreadPool(12)) {
+                List<Future<JsonNode>> calls = new ArrayList<>();
+                CountDownLatch start = new CountDownLatch(1);
+                for (int i = 0; i < tokens.size(); i++) {
+                    String token = tokens.get(i);
+                    for (int instance = 0; instance < 2; instance++) {
+                        int target = instance;
+                        calls.add(workers.submit(() -> {
+                            start.await();
+                            HttpHeaders headers = new HttpHeaders();
+                            headers.setContentType(MediaType.APPLICATION_JSON);
+                            headers.set("ticket-token", token);
+                            var body = new HttpEntity<>(Map.of("tierId", 5101, "quantity", 2,
+                                    "requestKey", "two-jvm"), headers);
+                            return target == 0 ? http.postForObject("/api/user/seckill", body, JsonNode.class)
+                                    : other.postForObject("http://127.0.0.1:" + second.port + "/api/user/seckill", body, JsonNode.class);
+                        }));
+                    }
+                }
+                start.countDown();
+                int successfulResponses = 0;
+                for (Future<JsonNode> call : calls) {
+                    JsonNode response = call.get(30, TimeUnit.SECONDS);
+                    assertNotNull(response);
+                    if (response.path("code").asInt() == 1) {
+                        successfulResponses++;
+                    }
+                }
+                assertTrue(successfulResponses >= 3);
+            }
+            awaitUntil(() -> db.queryForObject("SELECT COUNT(*) FROM order_info WHERE tier_id=5101", Integer.class) == 3);
+            assertEquals(3, db.queryForObject("SELECT COUNT(*) FROM stock_reservation WHERE tier_id=5101", Integer.class));
+            assertEquals(3, db.queryForObject("SELECT COUNT(DISTINCT user_id) FROM stock_reservation WHERE tier_id=5101", Integer.class));
+            assertEquals(0, stock(5101));
+            assertEquals(0, stockService.getStock(5101L));
+            assertEquals(6, db.queryForObject("SELECT SUM(quantity) FROM stock_reservation WHERE tier_id=5101 AND inventory_state='HELD'", Integer.class));
+        }
+    }
+
+    @Test
+    void brokerPauseRetainsAcceptedApplicationAndResumesDelivery() throws Exception {
+        seedProtocolSale(5201, 2);
+        context.getBean(StockServiceImpl.class).prepare(5201);
+        seedAccount(5201, "USER");
+        String token = loginUser(5201);
+        long requestId;
+        BROKER.getDockerClient().pauseContainerCmd(BROKER.getContainerId()).exec();
+        try {
+            JsonNode accepted = post("/api/user/seckill",
+                    Map.of("tierId", 5201, "quantity", 1, "requestKey", "broker-paused"), token);
+            assertSuccess(accepted);
+            requestId = accepted.path("data").path("requestId").asLong();
+            Thread.sleep(6500);
+            assertEquals(1, db.queryForObject("SELECT COUNT(*) FROM stock_reservation WHERE id=?", Integer.class, requestId));
+            assertTrue(db.queryForObject("SELECT COUNT(*) FROM message_outbox WHERE business_key=? AND publish_status<>'PUBLISHED'",
+                    Integer.class, "create-order:" + requestId + ":0") > 0);
+        } finally {
+            BROKER.getDockerClient().unpauseContainerCmd(BROKER.getContainerId()).exec();
+        }
+        long deadline = System.nanoTime() + Duration.ofSeconds(60).toNanos();
+        while (System.nanoTime() < deadline && db.queryForObject(
+                "SELECT COUNT(*) FROM order_info WHERE tier_id=5201", Integer.class) == 0) {
+            Thread.sleep(200);
+        }
+        assertEquals(1, db.queryForObject("SELECT COUNT(*) FROM order_info WHERE tier_id=5201", Integer.class));
+        assertEquals(1, stock(5201));
+        assertEquals(1, context.getBean(StockServiceImpl.class).getStock(5201L));
+    }
+
+    @Test
+    void committedOrderSurvivesLostAckAndRealBrokerRedelivery() throws Exception {
+        seedProtocolSale(5301, 2);
+        context.getBean(StockServiceImpl.class).prepare(5301);
+        var listeners = context.getBean(RabbitListenerEndpointRegistry.class);
+        listeners.stop();
+        var connection = context.getBean(ConnectionFactory.class).createConnection();
+        Channel channel = connection.createChannel(false);
+        try {
+            long requestId = ((Number) context.getBean(ReservationService.class)
+                    .reserve(5301, 5301, 1, "lost-ack").get("requestId")).longValue();
+            var consumer = context.getBean(SeckillOrderConsumer.class);
+            boolean processed = false;
+            long deadline = System.nanoTime() + Duration.ofSeconds(30).toNanos();
+            while (!processed && System.nanoTime() < deadline) {
+                var delivery = channel.basicGet("trade.order.v3", false);
+                if (delivery == null) {
+                    Thread.sleep(100);
+                    continue;
+                }
+                MessageProperties properties = new MessageProperties();
+                properties.setMessageId(delivery.getProps().getMessageId());
+                properties.setDeliveryTag(delivery.getEnvelope().getDeliveryTag());
+                Message message = new Message(delivery.getBody(), properties);
+                long deliveredId = new ObjectMapper().readTree(delivery.getBody())
+                        .path("payload").path("reservationId").asLong();
+                if (deliveredId != requestId) {
+                    consumer.handleSeckillOrder(message, channel);
+                    continue;
+                }
+
+                // 真实业务提交后模拟ACK连接故障；消息仍由真实Broker持有。
+                Channel lostAck = mock(Channel.class, AdditionalAnswers.delegatesTo(channel));
+                doThrow(new IOException("isolated lost acknowledgement")).when(lostAck).basicAck(anyLong(), anyBoolean());
+                assertThrows(IOException.class, () -> consumer.handleSeckillOrder(message, lostAck));
+                assertEquals(1, db.queryForObject("SELECT COUNT(*) FROM order_info WHERE tier_id=5301", Integer.class));
+                Channel physical = channel instanceof ChannelProxy proxy ? proxy.getTargetChannel() : channel;
+                physical.abort();
+                processed = true;
+            }
+            assertTrue(processed, "未取得本次真实Broker消息");
+            listeners.start();
+            verify(orderBusiness, timeout(10000).atLeast(2)).createOrder(requestId);
+            assertEquals(1, db.queryForObject("SELECT COUNT(*) FROM order_info WHERE tier_id=5301", Integer.class));
+            assertEquals(1, stock(5301));
+            assertEquals(1L, db.queryForObject("SELECT stock_version FROM ticket_tier WHERE id=5301", Long.class));
+        } finally {
+            if (channel.isOpen()) {
+                channel.close();
+            }
+            connection.close();
             listeners.start();
         }
     }

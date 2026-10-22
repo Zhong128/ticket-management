@@ -3,6 +3,8 @@ package org.example.ticketmanagement.util;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.example.ticketmanagement.constant.SeckillConstant;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
@@ -18,12 +20,22 @@ public class RedissonLockUtil {
 
     private final RedissonClient redissonClient;
 
+    @Autowired(required = false)
+    private MeterRegistry metrics;
+
     /** 不指定固定租期，watchdog续期；中断保留标记，业务异常原样传播。 */
     public <T> T executeWithWatchdog(String lockKey, long waitMillis, Supplier<T> supplier) {
         RLock lock = getLock(lockKey);
         boolean acquired = false;
+        long started = System.nanoTime();
         try {
             acquired = lock.tryLock(waitMillis, TimeUnit.MILLISECONDS);
+            if (metrics != null) {
+                metrics.timer("seckill.lock.wait").record(System.nanoTime() - started, TimeUnit.NANOSECONDS);
+                if (!acquired) {
+                    metrics.counter("seckill.lock.busy").increment();
+                }
+            }
             if (!acquired) {
                 throw new IllegalStateException("抢票请求繁忙，请使用原请求键稍后重试");
             }

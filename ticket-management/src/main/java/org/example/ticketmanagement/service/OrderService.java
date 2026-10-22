@@ -3,7 +3,6 @@ package org.example.ticketmanagement.service;
 
 import org.example.ticketmanagement.dto.OrderQueryDTO;
 import org.example.ticketmanagement.dto.OrderUpdateDTO;
-import org.example.ticketmanagement.dto.SeckillMessageDTO;
 import org.example.ticketmanagement.pojo.OrderInfo;
 import org.example.ticketmanagement.pojo.PageResult;
 import org.example.ticketmanagement.vo.OrderInfoVO;
@@ -17,7 +16,7 @@ public interface OrderService {
     /**
      * 创建订单（抢票时调用）
      */
-    Long createOrder(SeckillMessageDTO seckillMessage);
+    Long createOrder(Long reservationId);
 
     /**
      * 根据订单号查询订单

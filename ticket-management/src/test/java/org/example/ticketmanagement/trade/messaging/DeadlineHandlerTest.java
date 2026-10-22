@@ -2,7 +2,7 @@ package org.example.ticketmanagement.trade.messaging;
 
 import org.example.ticketmanagement.mapper.TradeRecoveryMapper;
 import org.example.ticketmanagement.service.OrderService;
-import org.example.ticketmanagement.trade.core.TradeOperations;
+import org.example.ticketmanagement.service.ReservationService;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Timestamp;
@@ -17,7 +17,7 @@ class DeadlineHandlerTest {
     @Test
     void earlyDeadlineDurablyReschedulesWithoutForgettingOrder() {
         TradeRecoveryMapper db = mock(TradeRecoveryMapper.class);
-        TradeOperations core = mock(TradeOperations.class);
+        ReservationService core = mock(ReservationService.class);
         OrderService orders = mock(OrderService.class);
         OutboxStore outbox = mock(OutboxStore.class);
         LocalDateTime now = LocalDateTime.of(2026, 10, 19, 0, 0);
@@ -32,7 +32,7 @@ class DeadlineHandlerTest {
     @Test
     void expiredUnorderedReservationIsReleasedThroughCore() {
         TradeRecoveryMapper db = mock(TradeRecoveryMapper.class);
-        TradeOperations core = mock(TradeOperations.class);
+        ReservationService core = mock(ReservationService.class);
         OrderService orders = mock(OrderService.class);
         OutboxStore outbox = mock(OutboxStore.class);
         LocalDateTime now = LocalDateTime.of(2026, 10, 19, 0, 0);

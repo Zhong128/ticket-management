@@ -44,17 +44,6 @@ public interface TradeRecoveryMapper {
             @Param("now") LocalDateTime now);
 
     /**
-     * 查找需要重新创建订单或处理超时的预占。
-     */
-    @Select("""
-            SELECT id,order_id,status,expires_at
-            FROM stock_reservation
-            WHERE status IN('RESERVED','ORDER_CREATED')
-            ORDER BY id
-            """)
-    List<Map<String, Object>> findRecoverableReservations();
-
-    /**
      * 查找过期或取消中、仍需关单的订单。
      */
     @Select("""
@@ -79,35 +68,4 @@ public interface TradeRecoveryMapper {
             """)
     int completeResolvedCloseTasks(@Param("now") LocalDateTime now);
 
-    /**
-     * 按订单号查找关联的库存预占。
-     */
-    @Select("""
-            SELECT id
-            FROM stock_reservation
-            WHERE order_no=#{orderNo}
-            """)
-    List<Long> findReservationIdsByOrderNo(@Param("orderNo") String orderNo);
-
-    /**
-     * 检查旧消息对应的订单是否已存在。
-     */
-    @Select("""
-            SELECT COUNT(*)
-            FROM order_info
-            WHERE order_no=#{orderNo}
-            """)
-    int countOrdersByOrderNo(@Param("orderNo") String orderNo);
-
-    /**
-     * 查询旧消息对应的过期待支付订单。
-     */
-    @Select("""
-            SELECT id
-            FROM order_info
-            WHERE order_no=#{orderNo}
-              AND order_status IN(0,4)
-              AND COALESCE(expire_time,DATE_ADD(create_time,INTERVAL 30 MINUTE))<=#{now}
-            """)
-    List<Long> findExpiredLegacyOrders(@Param("orderNo") String orderNo, @Param("now") LocalDateTime now);
 }

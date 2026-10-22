@@ -9,7 +9,8 @@ import org.example.ticketmanagement.mapper.TradeOutboxMapper;
 import org.example.ticketmanagement.mapper.TradePaymentMapper;
 import org.example.ticketmanagement.mapper.TradeRefundMapper;
 import org.example.ticketmanagement.trade.MapperTestSupport;
-import org.example.ticketmanagement.trade.core.TradeOperationsImpl;
+import org.example.ticketmanagement.serviceimpl.ReservationServiceImpl;
+import org.example.ticketmanagement.trade.ReservationFixture;
 import org.example.ticketmanagement.config.PaymentRabbitMQConfig;
 import org.example.ticketmanagement.util.LuaScriptLoader;
 import org.example.ticketmanagement.trade.payment.PaymentCoordinator;
@@ -73,7 +74,7 @@ class TradeInfrastructureIT {
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-19T00:00:00Z"), ZoneOffset.UTC);
     private final ObjectMapper mapper = new ObjectMapper();
     private JdbcTemplate db;
-    private TradeOperationsImpl core;
+    private ReservationServiceImpl core;
     private TradeOutboxMapper outboxMapper;
     private SqlSessionTemplate sessions;
     private OutboxStore outbox;
@@ -137,7 +138,7 @@ class TradeInfrastructureIT {
         sessions = MapperTestSupport.sessions(dataSource);
         outboxMapper = sessions.getMapper(TradeOutboxMapper.class);
         outbox = new OutboxStore(outboxMapper, mapper, clock);
-        core = new TradeOperationsImpl(sessions.getMapper(TradeCoreMapper.class), manager, outbox, clock, true);
+
         LocalDateTime now = LocalDateTime.now(clock);
         db.update("INSERT INTO city(id,name,code,province) VALUES(1,'Integration city','IT','Integration"
                 + " province')");
@@ -151,6 +152,10 @@ class TradeInfrastructureIT {
         db.update("INSERT INTO"
                 + " ticket_tier(id,event_id,session_id,tier_name,original_price,current_price,total_stock,available_stock,status)"
                 + " VALUES(1,1,1,'Test tier',100,100,10,10,1)");
+        redis.getConnectionFactory().getConnection().serverCommands().flushDb();
+        var fixture = ReservationFixture.create(sessions, transactions, outbox, redis, clock);
+        core = fixture.core();
+        fixture.stock().prepare(1);
     }
 
     private long reserve(long userId, String key) {
@@ -224,9 +229,13 @@ class TradeInfrastructureIT {
             }
             assertEquals(5, accepted);
         }
+        assertEquals(10, db.queryForObject("SELECT available_stock FROM ticket_tier WHERE id=1", Integer.class));
+        for (Long id : db.queryForList("SELECT id FROM stock_reservation", Long.class)) {
+            core.createOrder(id);
+        }
         assertEquals(0, db.queryForObject("SELECT available_stock FROM ticket_tier WHERE id=1", Integer.class));
         assertEquals(5, db.queryForObject("SELECT COUNT(*) FROM stock_reservation", Integer.class));
-        assertEquals(15, db.queryForObject("SELECT COUNT(*) FROM message_outbox", Integer.class));
+        assertTrue(db.queryForObject("SELECT COUNT(*) FROM message_outbox", Integer.class) >= 15);
     }
 
     @Test

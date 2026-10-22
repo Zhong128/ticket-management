@@ -10,7 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.dto.SeckillOrderDTO;
 import org.example.ticketmanagement.pojo.Result;
 import org.example.ticketmanagement.service.SeckillService;
-import org.example.ticketmanagement.trade.core.TradeOperations;
+import org.example.ticketmanagement.service.ReservationService;
 import org.example.ticketmanagement.serviceimpl.ReservationServiceImpl;
 import org.example.ticketmanagement.vo.SeckillResultVO;
 import org.springframework.web.bind.annotation.*;
@@ -26,7 +26,7 @@ import java.util.Map;
 public class SeckillController {
 
     private final SeckillService seckillService;
-    private final TradeOperations tradeOperations;
+    private final ReservationService tradeOperations;
     private final ReservationServiceImpl reservations;
 
     @GetMapping("/requests/by-key")

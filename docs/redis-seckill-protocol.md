@@ -11,7 +11,7 @@
 5. 支付仍由 `PaymentServiceImpl → PaymentCoordinator` 协调；取得代次屏障后再锁订单/流水，保持统一入账、回调审计和退款。外部渠道网络请求不放在这些数据库短事务中。
 6. `PaymentTimeoutConsumer` 和 `PaymentCompensationSchedule → OrderRecoveryService` 共用关单规则；`StockReconciliationSchedule` 每5秒处理最多100个孤立预扣，按分钟对账。
 
-`TradeOperations` 暂时连接现有支付调用和旧回归，实际Spring Bean为ReservationServiceImpl；旧TradeOperationsImpl、TradeEventConsumer、TradeRecovery不再注册运行Bean，阶段5迁移旧测试后删除。TradeMessagingConfig的职责已全部迁回原配置并删除。
+`ReservationService` 位于原service包，唯一实现为ReservationServiceImpl。旧交易、统一消费、恢复及消息适配入口已经删除；职责和保留类见[清理清单](trade-cleanup.md)。
 
 ## Lua与Redis数据
 

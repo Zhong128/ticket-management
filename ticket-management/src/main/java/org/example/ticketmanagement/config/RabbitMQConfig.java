@@ -1,7 +1,6 @@
 package org.example.ticketmanagement.config;
 
 import lombok.extern.slf4j.Slf4j;
-import org.example.ticketmanagement.constant.SeckillConstant;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
@@ -63,87 +62,10 @@ public class RabbitMQConfig {
         return scheduler;
     }
 
-    // ==================== 抢票队列 ====================
-    /**
-     * 抢票订单交换机（直连交换机）
-     */
-    @Bean
-    public DirectExchange seckillOrderExchange() {
-        return new DirectExchange(SeckillConstant.SECKILL_ORDER_EXCHANGE, true, false);
-    }
-
-    /**
-     * 抢票订单队列
-     * - 持久化
-     * - 死信交换机：用于处理超时未支付的订单
-     */
-    @Bean
-    public Queue seckillOrderQueue() {
-        return QueueBuilder.durable(SeckillConstant.SECKILL_ORDER_QUEUE).withArgument(// 死信交换机
-                "x-dead-letter-exchange", "seckill.order.dead.exchange").withArgument(// 死信路由键
-                        "x-dead-letter-routing-key", "seckill.order.dead.routing.key")
-                .withArgument(// 消息TTL（支付超时时间）
-                        "x-message-ttl", SeckillConstant.PAY_TIMEOUT_MINUTES * 60 * 1000)
-                .build();
-    }
-
-    /**
-     * 绑定抢票订单队列到交换机
-     */
-    @Bean
-    public Binding seckillOrderBinding() {
-        return BindingBuilder.bind(seckillOrderQueue()).to(seckillOrderExchange())
-                .with(SeckillConstant.SECKILL_ORDER_ROUTING_KEY);
-    }
-
-    // ==================== 死信队列（处理超时订单） ====================
-    /**
-     * 死信交换机
-     */
-    @Bean
-    public DirectExchange seckillOrderDeadExchange() {
-        return new DirectExchange("seckill.order.dead.exchange", true, false);
-    }
-
-    /**
-     * 死信队列（用于处理超时未支付的订单）
-     */
-    @Bean
-    public Queue seckillOrderDeadQueue() {
-        return QueueBuilder.durable("seckill.order.dead.queue").build();
-    }
-
-    /**
-     * 死信监控
-     */
+    /** 管理当前版本拓扑，不清空已有队列。 */
     @Bean
     public RabbitAdmin rabbitAdmin(RabbitTemplate rabbitTemplate) {
         return new RabbitAdmin(rabbitTemplate);
-    }
-
-    /**
-     * 绑定死信队列到死信交换机
-     */
-    @Bean
-    public Binding seckillOrderDeadBinding() {
-        return BindingBuilder.bind(seckillOrderDeadQueue()).to(seckillOrderDeadExchange())
-                .with("seckill.order.dead.routing.key");
-    }
-
-    // 保留基础的库存回退队列（用于其他场景，如支付失败等）
-    @Bean
-    public DirectExchange stockReturnExchange() {
-        return new DirectExchange("stock.return.exchange", true, false);
-    }
-
-    @Bean
-    public Queue stockReturnQueue() {
-        return QueueBuilder.durable("stock.return.queue").build();
-    }
-
-    @Bean
-    public Binding stockReturnBinding() {
-        return BindingBuilder.bind(stockReturnQueue()).to(stockReturnExchange()).with("stock.return.routing.key");
     }
 
     // ==================== RabbitMQ模板配置 ====================

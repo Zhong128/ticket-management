@@ -6,11 +6,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.constant.OrderConstant;
 import org.example.ticketmanagement.dto.OrderQueryDTO;
 import org.example.ticketmanagement.dto.OrderUpdateDTO;
-import org.example.ticketmanagement.dto.SeckillMessageDTO;
 import org.example.ticketmanagement.mapper.*;
 import org.example.ticketmanagement.pojo.*;
 import org.example.ticketmanagement.service.OrderService;
-import org.example.ticketmanagement.trade.core.TradeOperations;
+import org.example.ticketmanagement.service.ReservationService;
 import org.example.ticketmanagement.trade.payment.TradePaymentPort;
 import org.example.ticketmanagement.vo.OrderInfoVO;
 import org.springframework.beans.factory.ObjectProvider;
@@ -35,7 +34,7 @@ public class OrderServiceImpl implements OrderService {
     private final EventMapper eventMapper;
     private final EventSessionMapper eventSessionMapper;
     private final UserMapper userMapper;
-    private final TradeOperations tradeOperations;
+    private final ReservationService reservationService;
     private final ObjectProvider<TradePaymentPort> paymentPort;
     private final TradeOrderQueryMapper tradeOrderQueryMapper;
     private final Clock clock;
@@ -45,14 +44,10 @@ public class OrderServiceImpl implements OrderService {
 
     // ==================== 基础订单操作 ====================
     @Override
-    public Long createOrder(SeckillMessageDTO message) {
+    public Long createOrder(Long reservationId) {
         checkTradeEnabled();
-        // Legacy messages cannot introduce a second inventory deduction.
-        var ids = tradeOrderQueryMapper.selectReservationIds(message.getOrderNo(), message.getUserId());
-        if (ids.isEmpty()) {
-            throw new IllegalArgumentException("缺少持久化库存预占，拒绝旧消息直接落单");
-        }
-        return tradeOperations.createOrder(ids.getFirst());
+        // 建单只使用已可靠受理的快照，不再接受旧消息中的价格和数量。
+        return reservationService.createOrder(reservationId);
     }
 
     @Override
@@ -68,7 +63,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private boolean cancel(Long orderId, Long userId) {
-        if (!tradeOperations.beginCancel(orderId, userId)) {
+        if (!reservationService.beginCancel(orderId, userId)) {
             return false;
         }
         TradePaymentPort port = paymentPort.getIfAvailable();
@@ -77,7 +72,7 @@ public class OrderServiceImpl implements OrderService {
             return false;
         }
         TradePaymentPort.CloseDecision decision = port.closeForOrder(orderId);
-        return decision == TradePaymentPort.CloseDecision.CLOSED && tradeOperations.finishCancel(orderId);
+        return decision == TradePaymentPort.CloseDecision.CLOSED && reservationService.finishCancel(orderId);
     }
 
     // ==================== 客户端订单接口 ====================

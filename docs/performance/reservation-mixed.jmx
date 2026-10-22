@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Redis admission and order completion load">
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments"><collectionProp name="Arguments.arguments"/></elementProp>
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
+    </TestPlan>
+    <hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Unique buyers">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController"><boolProp name="LoopController.continue_forever">false</boolProp><stringProp name="LoopController.loops">-1</stringProp></elementProp>
+        <stringProp name="ThreadGroup.num_threads">${__P(threads,100)}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">10</stringProp>
+        <boolProp name="ThreadGroup.scheduler">true</boolProp>
+        <stringProp name="ThreadGroup.duration">${__P(duration,300)}</stringProp>
+        <stringProp name="ThreadGroup.delay">0</stringProp>
+      </ThreadGroup>
+      <hashTree>
+        <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="Authenticated buyer and stable request key">
+          <stringProp name="filename">${__P(users,test-users.csv)}</stringProp><stringProp name="fileEncoding">UTF-8</stringProp>
+          <stringProp name="variableNames">token,tierId,requestKey,userIndex,quantity</stringProp><boolProp name="ignoreFirstLine">true</boolProp><stringProp name="delimiter">,</stringProp>
+          <boolProp name="quotedData">false</boolProp><boolProp name="recycle">false</boolProp><boolProp name="stopThread">true</boolProp><stringProp name="shareMode">shareMode.all</stringProp>
+        </CSVDataSet><hashTree/>
+        <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="JSON and authentication">
+          <collectionProp name="HeaderManager.headers">
+            <elementProp name="" elementType="Header"><stringProp name="Header.name">Content-Type</stringProp><stringProp name="Header.value">application/json</stringProp></elementProp>
+            <elementProp name="" elementType="Header"><stringProp name="Header.name">ticket-token</stringProp><stringProp name="Header.value">${token}</stringProp></elementProp>
+          </collectionProp>
+        </HeaderManager><hashTree/>
+        <ConstantThroughputTimer guiclass="TestBeanGUI" testclass="ConstantThroughputTimer" testname="Target requests per minute across all threads">
+          <stringProp name="throughput">${__P(target_per_minute,6000)}</stringProp><intProp name="calcMode">4</intProp>
+        </ConstantThroughputTimer><hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="reserve">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"><elementProp name="" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{"tierId":${tierId},"quantity":${quantity},"requestKey":"${requestKey}"}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp></collectionProp></elementProp>
+          <stringProp name="HTTPSampler.domain">${__P(host,localhost)}</stringProp><stringProp name="HTTPSampler.port">${__groovy(vars.get('userIndex').toInteger()%2==0 ? props.get('port') : props.get('port2'))}</stringProp><stringProp name="HTTPSampler.protocol">${__P(protocol,http)}</stringProp>
+          <stringProp name="HTTPSampler.path">/api/user/seckill</stringProp><stringProp name="HTTPSampler.method">POST</stringProp><boolProp name="HTTPSampler.postBodyRaw">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp><stringProp name="HTTPSampler.connect_timeout">3000</stringProp><stringProp name="HTTPSampler.response_timeout">10000</stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <JSR223Assertion guiclass="TestBeanGUI" testclass="JSR223Assertion" testname="Assert business acceptance, not only HTTP 200">
+            <stringProp name="scriptLanguage">groovy</stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="script"><![CDATA[
+def result = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString())
+vars.put('requestId', result.data?.requestId?.toString() ?: '')
+vars.put('orderId', '')
+if (result.code == 1 && result.data?.requestId) {
+  prev.setResponseMessage('ACCEPTED')
+} else if (props.get('mode') == 'soldout' && result.msg?.contains('库存不足')) {
+  prev.setResponseMessage('SOLD_OUT')
+} else {
+  prev.setResponseMessage('REJECTED')
+  AssertionResult.setFailure(true)
+  AssertionResult.setFailureMessage('Reservation not accepted: ' + result.msg)
+}
+]]></stringProp>
+          </JSR223Assertion><hashTree/>
+        </hashTree>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Mixed order query">
+          <stringProp name="IfController.condition">${__groovy(props.get('mode') == 'mixed' &amp;&amp; !vars.get('requestId').isEmpty())}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp><boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="query">
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"/></elementProp>
+            <stringProp name="HTTPSampler.domain">${__P(host,127.0.0.1)}</stringProp><stringProp name="HTTPSampler.port">${__P(port,8080)}</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp><stringProp name="HTTPSampler.path">/api/user/seckill/requests/${requestId}</stringProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp><stringProp name="HTTPSampler.response_timeout">10000</stringProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="Allow async order creation"><stringProp name="ConstantTimer.delay">1000</stringProp></ConstantTimer><hashTree/>
+            <JSR223Assertion guiclass="TestBeanGUI" testclass="JSR223Assertion" testname="Query result">
+              <stringProp name="scriptLanguage">groovy</stringProp><stringProp name="cacheKey">true</stringProp>
+              <stringProp name="script"><![CDATA[
+def result = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString())
+if (result.code != 1) {
+  AssertionResult.setFailure(true)
+}
+vars.put('orderId', result.data?.orderId?.toString() ?: '')
+]]></stringProp>
+            </JSR223Assertion><hashTree/>
+          </hashTree>
+          <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Cancel a subset of created orders">
+            <stringProp name="IfController.condition">${__groovy(!vars.get('orderId').isEmpty() &amp;&amp; vars.get('userIndex').toInteger()%3==0)}</stringProp>
+            <boolProp name="IfController.evaluateAll">false</boolProp><boolProp name="IfController.useExpression">true</boolProp>
+          </IfController>
+          <hashTree>
+            <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="cancel">
+              <elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"/></elementProp>
+              <stringProp name="HTTPSampler.domain">${__P(host,127.0.0.1)}</stringProp><stringProp name="HTTPSampler.port">${__P(port,8080)}</stringProp>
+              <stringProp name="HTTPSampler.protocol">http</stringProp><stringProp name="HTTPSampler.path">/api/user/orders/${orderId}/cancel</stringProp>
+              <stringProp name="HTTPSampler.method">PUT</stringProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp><stringProp name="HTTPSampler.response_timeout">10000</stringProp>
+            </HTTPSamplerProxy>
+            <hashTree>
+              <JSR223Assertion guiclass="TestBeanGUI" testclass="JSR223Assertion" testname="Cancellation result">
+                <stringProp name="scriptLanguage">groovy</stringProp><stringProp name="cacheKey">true</stringProp>
+                <stringProp name="script"><![CDATA[
+if (new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString()).code != 1) {
+  AssertionResult.setFailure(true)
+}
+]]></stringProp>
+              </JSR223Assertion><hashTree/>
+            </hashTree>
+          </hashTree>
+          <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Pay a subset through the isolated gateway">
+            <stringProp name="IfController.condition">${__groovy(!vars.get('orderId').isEmpty() &amp;&amp; vars.get('userIndex').toInteger()%3==1)}</stringProp>
+            <boolProp name="IfController.evaluateAll">false</boolProp><boolProp name="IfController.useExpression">true</boolProp>
+          </IfController>
+          <hashTree>
+            <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="create-payment">
+              <elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"><elementProp name="" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{"orderId":${orderId},"payType":1}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp></collectionProp></elementProp>
+              <stringProp name="HTTPSampler.domain">${__P(host,127.0.0.1)}</stringProp><stringProp name="HTTPSampler.port">${__P(port,8080)}</stringProp>
+              <stringProp name="HTTPSampler.protocol">http</stringProp><stringProp name="HTTPSampler.path">/api/user/payments/create</stringProp>
+              <stringProp name="HTTPSampler.method">POST</stringProp><boolProp name="HTTPSampler.postBodyRaw">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp><stringProp name="HTTPSampler.response_timeout">10000</stringProp>
+            </HTTPSamplerProxy>
+            <hashTree>
+              <JSR223Assertion guiclass="TestBeanGUI" testclass="JSR223Assertion" testname="Payment intent result">
+                <stringProp name="scriptLanguage">groovy</stringProp><stringProp name="cacheKey">true</stringProp>
+                <stringProp name="script"><![CDATA[
+def result = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString())
+vars.put('paymentNo', result.data?.paymentNo?.toString() ?: '')
+if (result.code != 1 || vars.get('paymentNo').isEmpty()) { AssertionResult.setFailure(true) }
+]]></stringProp>
+              </JSR223Assertion><hashTree/>
+            </hashTree>
+            <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="confirm-payment">
+              <elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"/></elementProp>
+              <stringProp name="HTTPSampler.domain">${__P(host,127.0.0.1)}</stringProp><stringProp name="HTTPSampler.port">${__P(port,8080)}</stringProp>
+              <stringProp name="HTTPSampler.protocol">http</stringProp><stringProp name="HTTPSampler.path">/api/user/payments/status/${paymentNo}</stringProp>
+              <stringProp name="HTTPSampler.method">GET</stringProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp><stringProp name="HTTPSampler.response_timeout">10000</stringProp>
+            </HTTPSamplerProxy>
+            <hashTree>
+              <JSR223Assertion guiclass="TestBeanGUI" testclass="JSR223Assertion" testname="Payment settlement result">
+                <stringProp name="scriptLanguage">groovy</stringProp><stringProp name="cacheKey">true</stringProp>
+                <stringProp name="script"><![CDATA[
+def result = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString())
+if (result.code != 1 || result.data?.payStatus != 2) { AssertionResult.setFailure(true) }
+]]></stringProp>
+              </JSR223Assertion><hashTree/>
+            </hashTree>
+          </hashTree>
+        </hashTree>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

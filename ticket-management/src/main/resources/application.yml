@@ -170,6 +170,7 @@ trade:
 # Redis预扣协议；消费者和恢复任务均有界运行，不以配置值宣称实测性能。
 seckill:
   lock:
+    enabled: ${SECKILL_LOCK_ENABLED:true}
     segments: ${SECKILL_LOCK_SEGMENTS:20}
     wait-millis: ${SECKILL_LOCK_WAIT_MILLIS:200}
   consumer:

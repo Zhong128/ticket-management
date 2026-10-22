@@ -12,6 +12,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -103,6 +104,32 @@ class LuaStockProtocolIT {
         redis.execute(scripts.getScript("releaseReservation.lua"), keys, "1", "token");
         assertEquals(0L, redis.execute(scripts.<Long>getScript("confirmReservation.lua"), keys, "1", "token"));
         assertEquals("5", redis.opsForValue().get(keys.get(1)));
+    }
+
+    @Test
+    void retirementRejectsActiveKeysAndIsSafeToRepeat() {
+        reserve("1", "old", "1", "old-token");
+        redis.opsForHash().put(keys.getFirst(), "epoch", "2");
+        String cursor = "test:{1}:retired-through";
+        redis.delete(cursor);
+        String activeQuota = "test:{1}:quota:2";
+        String activeUsers = "test:{1}:users:2";
+        redis.opsForValue().set(activeQuota, "4");
+        redis.opsForHash().put(activeUsers, "1", "active-token");
+        List<String> retiring = new ArrayList<>(List.of(keys.getFirst(), cursor));
+        retiring.addAll(keys.subList(1, 6));
+
+        // 即使调用方误传活跃配额，也应先拒绝而不是部分删除。
+        retiring.set(2, activeQuota);
+        assertEquals(-1L, redis.execute(scripts.<Long>getScript("retireStockEpochs.lua"), retiring, "2", "0", "1"));
+        assertTrue(redis.hasKey(keys.get(1)));
+        assertEquals("4", redis.opsForValue().get(activeQuota));
+        retiring.set(2, keys.get(1));
+        assertEquals(1L, redis.execute(scripts.<Long>getScript("retireStockEpochs.lua"), retiring, "2", "0", "1"));
+        assertFalse(redis.hasKey(keys.get(4)));
+        assertEquals(0L, redis.execute(scripts.<Long>getScript("retireStockEpochs.lua"), retiring, "2", "0", "1"));
+        assertEquals("active-token", redis.opsForHash().get(activeUsers, "1"));
+        assertEquals(-1L, redis.getExpire(activeUsers));
     }
 
     @Test

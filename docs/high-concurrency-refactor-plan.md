@@ -47,6 +47,7 @@ AlipayConfig / AlipayProperties 保留环境变量及绝对截止时间。AsyncC
 | releaseReservation.lua | 按 token、代次、状态一次性释放 |
 | rebuildStockBatch.lua | 未开放代次的分批重建 |
 | activateStockEpoch.lua | 核验完成标记并开放代次 |
+| retireStockEpochs.lua | READY新代次下按游标有界退役旧键，保护活跃占位 |
 | applyStockProjection.lua | 仅更新展示投影，保留版本顺序保护 |
 
 原 decrStock.lua 迁移并通过回归后删除；StockProjection 的内嵌脚本外置。脚本使用同票档 hash tag，中文说明 KEYS / ARGV / 返回码与约束；先校验再写入，活跃占位不依赖 TTL 消失。加载器自动关闭资源并明确返回类型，Java 转为具名结果。执行未知时按 token 查询，不假定未扣减。

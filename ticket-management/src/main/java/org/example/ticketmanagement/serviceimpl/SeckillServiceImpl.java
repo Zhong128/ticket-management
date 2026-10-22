@@ -40,6 +40,9 @@ public class SeckillServiceImpl implements SeckillService {
     @Value("${seckill.lock.segments:20}")
     private int segments;
 
+    @Value("${seckill.lock.enabled:true}")
+    private boolean lockingEnabled = true;
+
     @Override
     public SeckillResultVO seckill(Long userId, SeckillOrderDTO dto) {
         if (dto.getQuantity() == null) {
@@ -83,6 +86,10 @@ public class SeckillServiceImpl implements SeckillService {
         if (userId <= 0 || tierId <= 0 || quantity < 1 || quantity > 5
                 || key == null || key.isBlank() || key.length() > 64) {
             throw new IllegalArgumentException("抢票参数不合法");
+        }
+        // 对照测试可关闭分段锁，Lua及数据库约束始终保留。
+        if (!lockingEnabled) {
+            return acceptUnderLock(userId, tierId, quantity, key);
         }
         return locks.executeWithSegmentLock(userId, tierId, segments, () -> acceptUnderLock(userId, tierId, quantity, key));
     }
