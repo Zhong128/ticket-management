@@ -23,7 +23,6 @@ import java.util.function.Supplier;
 /**
  * MySQL owns acceptance, inventory and all terminal transitions; Redis is a projection.
  */
-@Service
 public class TradeOperationsImpl implements TradeOperations {
 
     private final TradeCoreMapper mapper;

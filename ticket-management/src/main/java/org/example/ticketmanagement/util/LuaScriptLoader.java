@@ -8,9 +8,11 @@ import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 
 @Slf4j
 @Component
@@ -21,14 +23,19 @@ public class LuaScriptLoader {
     @PostConstruct
     public void init() {
         // 预加载Lua脚本
-        loadScript("decrStock.lua", Long.class);
+        loadScript("reserveStock.lua", List.class);
+        loadScript("confirmReservation.lua", Long.class);
+        loadScript("releaseReservation.lua", Long.class);
+        loadScript("rebuildStockBatch.lua", Long.class);
+        loadScript("activateStockEpoch.lua", Long.class);
+        loadScript("applyStockProjection.lua", Long.class);
         log.info("Lua脚本加载完成");
     }
 
     private <T> void loadScript(String scriptName, Class<T> resultType) {
-        try {
-            ClassPathResource resource = new ClassPathResource("lua/" + scriptName);
-            String scriptContent = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        ClassPathResource resource = new ClassPathResource("lua/" + scriptName);
+        try (InputStream input = resource.getInputStream()) {
+            String scriptContent = new String(input.readAllBytes(), StandardCharsets.UTF_8);
 
             DefaultRedisScript<T> script = new DefaultRedisScript<>();
             script.setScriptText(scriptContent);

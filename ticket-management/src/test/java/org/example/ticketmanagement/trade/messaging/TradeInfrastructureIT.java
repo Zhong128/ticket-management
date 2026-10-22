@@ -10,6 +10,8 @@ import org.example.ticketmanagement.mapper.TradePaymentMapper;
 import org.example.ticketmanagement.mapper.TradeRefundMapper;
 import org.example.ticketmanagement.trade.MapperTestSupport;
 import org.example.ticketmanagement.trade.core.TradeOperationsImpl;
+import org.example.ticketmanagement.config.PaymentRabbitMQConfig;
+import org.example.ticketmanagement.util.LuaScriptLoader;
 import org.example.ticketmanagement.trade.payment.PaymentCoordinator;
 import org.example.ticketmanagement.trade.payment.PaymentGateway;
 import org.example.ticketmanagement.trade.payment.PaymentRepository;
@@ -86,7 +88,10 @@ class TradeInfrastructureIT {
         // confirms.
         rabbit = new RabbitMQConfig().rabbitTemplate(rabbitConnection);
         RabbitAdmin admin = new RabbitAdmin(rabbitConnection);
-        Declarables topology = new TradeMessagingConfig().tradeTopology();
+        var declarations = new ArrayList<Declarable>();
+        declarations.addAll(new RabbitMQConfig().seckillTopology().getDeclarables());
+        declarations.addAll(new PaymentRabbitMQConfig().paymentTopology().getDeclarables());
+        Declarables topology = new Declarables(declarations);
         for (Exchange exchange : topology.getDeclarablesByType(Exchange.class)) {
             admin.declareExchange(exchange);
         }
@@ -249,7 +254,7 @@ class TradeInfrastructureIT {
         String eventId = db.queryForObject("SELECT event_id FROM message_outbox", String.class);
         new OutboxPublisher(outboxMapper, mapper, rabbit, clock).publishDue();
         assertEquals("PUBLISHED", db.queryForObject("SELECT publish_status FROM message_outbox", String.class));
-        Message delivered = receiveMatching("trade.work.v2", eventId, Duration.ofSeconds(5));
+        Message delivered = receiveMatching("trade.order.v3", eventId, Duration.ofSeconds(5));
         assertNotNull(delivered);
         assertEquals("CREATE_ORDER", delivered.getMessageProperties().getHeader("eventType"));
         var envelope = mapper.readTree(delivered.getBody());
@@ -309,8 +314,8 @@ class TradeInfrastructureIT {
         String id = db.queryForObject("SELECT event_id FROM message_outbox WHERE event_type='ORDER_DEADLINE'",
                 String.class);
         new OutboxPublisher(outboxMapper, mapper, rabbit, clock).publishDue();
-        assertNull(rabbit.receive("trade.deadline.ready.v2"), "There must be no immediate deadline delivery");
-        Message expired = receiveMatching("trade.deadline.ready.v2", id, Duration.ofSeconds(10));
+        assertNull(rabbit.receive("trade.deadline.ready.v3"), "There must be no immediate deadline delivery");
+        Message expired = receiveMatching("trade.deadline.ready.v3", id, Duration.ofSeconds(10));
         assertNotNull(expired, "The unconsumed TTL queue must dead-letter to the processing queue");
         assertEquals("ORDER_DEADLINE", mapper.readTree(expired.getBody()).path("eventType").asText());
         assertNotNull(expired.getMessageProperties().getHeader("x-death"));
@@ -322,7 +327,9 @@ class TradeInfrastructureIT {
     void redisProjectionRejectsOutOfOrderAndLargeVersionsWithoutPrecisionLoss() {
         long tier = 900000 + Math.floorMod(UUID.randomUUID().getMostSignificantBits(), 100000);
         String key = SeckillConstant.STOCK_KEY_PREFIX + tier;
-        StockProjection projection = new StockProjection(redis);
+        LuaScriptLoader scripts = new LuaScriptLoader();
+        scripts.init();
+        StockProjection projection = new StockProjection(redis, scripts);
         projection.apply(tier, 2, 8);
         projection.apply(tier, 1, 9);
         assertEquals("8", redis.opsForValue().get(key));

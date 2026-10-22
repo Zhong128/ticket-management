@@ -12,6 +12,14 @@ import java.util.Map;
 @Mapper
 public interface TradeRecoveryMapper {
 
+    /** 游标扫描待建单及已到期申请，活跃未到期订单不占用扫描批次。 */
+    @Select("""
+            SELECT id,order_id,status,expires_at FROM stock_reservation
+            WHERE id>#{after} AND (status='RESERVED' OR (status='ORDER_CREATED' AND expires_at<=#{now}))
+            ORDER BY id LIMIT 100
+            """)
+    List<Map<String, Object>> findDueReservations(@Param("after") long after, @Param("now") LocalDateTime now);
+
     /**
      * 查询预占的截止时间及当前状态。
      */

@@ -11,6 +11,7 @@ import org.example.ticketmanagement.dto.SeckillOrderDTO;
 import org.example.ticketmanagement.pojo.Result;
 import org.example.ticketmanagement.service.SeckillService;
 import org.example.ticketmanagement.trade.core.TradeOperations;
+import org.example.ticketmanagement.serviceimpl.ReservationServiceImpl;
 import org.example.ticketmanagement.vo.SeckillResultVO;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,6 +27,20 @@ public class SeckillController {
 
     private final SeckillService seckillService;
     private final TradeOperations tradeOperations;
+    private final ReservationServiceImpl reservations;
+
+    @GetMapping("/requests/by-key")
+    public Result<Map<String, Object>> requestByKey(@RequestParam String requestKey) {
+        try {
+            return Result.success("查询成功", reservations.requestByKey(StpUtil.getLoginIdAsLong(), requestKey));
+        } catch (IllegalArgumentException invalid) {
+            return Result.error(invalid.getMessage());
+        } catch (RuntimeException unavailable) {
+            log.warn("申请结果查询暂不可用", unavailable);
+            return new Result<>(0, "查询暂不可用，请使用原requestKey稍后重试",
+                    Map.of("requestKey", requestKey, "requestStatus", "UNKNOWN"));
+        }
+    }
 
     @GetMapping("/requests/{requestId}")
     public Result<Map<String, Object>> request(@PathVariable long requestId) {
@@ -46,7 +61,7 @@ public class SeckillController {
             if (result.getSuccess()) {
                 return Result.success("申请已受理", result);
             } else {
-                return Result.error(result.getMessage());
+                return new Result<>(0, result.getMessage(), result);
             }
         } catch (Exception e) {
             log.error("抢票异常: userId={}, tierId={}", userId, seckillOrderDTO.getTierId(), e);

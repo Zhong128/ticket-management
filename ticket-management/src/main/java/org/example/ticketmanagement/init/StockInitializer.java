@@ -20,7 +20,7 @@ public class StockInitializer implements CommandLineRunner {
         try {
             reconciliation.reconcileAllStock();
         } catch (Exception e) {
-            log.warn("Stock initialization deferred; DB reservations remain available", e);
+            log.warn("库存初始化未完成，对应票档保持暂停，等待受控恢复", e);
         }
     }
 }

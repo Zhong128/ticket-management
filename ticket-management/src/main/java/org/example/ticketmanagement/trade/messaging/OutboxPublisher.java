@@ -2,9 +2,10 @@ package org.example.ticketmanagement.trade.messaging;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.mapper.TradeOutboxMapper;
+import org.example.ticketmanagement.util.RabbitMQUtil;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -18,18 +19,29 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 @ConditionalOnProperty(name = "trade.enabled", havingValue = "true")
 public class OutboxPublisher {
 
-    public static final String EXCHANGE = "trade.events.v2";
+    public static final String EXCHANGE = "trade.events.v3";
     private static final int MAX_BATCHES_PER_RUN = 10;
     private static final long CONFIRM_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(5);
 
     private final TradeOutboxMapper db;
     private final ObjectMapper mapper;
-    private final RabbitTemplate rabbit;
+    private final RabbitMQUtil transport;
     private final Clock clock;
+
+    @Autowired
+    public OutboxPublisher(TradeOutboxMapper db, ObjectMapper mapper, RabbitMQUtil transport, Clock clock) {
+        this.db = db;
+        this.mapper = mapper;
+        this.transport = transport;
+        this.clock = clock;
+    }
+
+    public OutboxPublisher(TradeOutboxMapper db, ObjectMapper mapper, RabbitTemplate rabbit, Clock clock) {
+        this(db, mapper, new RabbitMQUtil(rabbit), clock);
+    }
 
     @Scheduled(fixedDelay = 250)
     public void publishDue() {
@@ -119,9 +131,7 @@ public class OutboxPublisher {
             props.setExpiration(Long.toString(remaining));
         }
         Message message = new Message(mapper.writeValueAsBytes(Map.of("eventType", type, "payload", payload)), props);
-        CorrelationData correlation = new CorrelationData(id);
-        rabbit.send(EXCHANGE, route, message, correlation);
-        return correlation;
+        return transport.sendReliableEvent(EXCHANGE, route, message, id);
     }
 
     private void confirm(CorrelationData correlation, long deadline) throws Exception {

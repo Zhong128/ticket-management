@@ -33,12 +33,13 @@ public class TradeSchemaGuard implements ApplicationRunner {
             mapper.checkOrderColumns();
             mapper.checkStockColumns();
             mapper.checkCompensationColumns();
+            mapper.checkAdmissionColumns();
             if (mapper.countVerifiedSchemaVersion() != 1) {
-                throw new IllegalStateException("Missing verified schema version 4");
+                throw new IllegalStateException("Missing verified schema version 5");
             }
         } catch (Exception exception) {
             throw new IllegalStateException(
-                    "Trade activation refused: apply and verify migrations V1-V4 on a database copy first", exception);
+                    "Trade activation refused: apply and verify migrations V1-V5 on a database copy first", exception);
         }
     }
 }

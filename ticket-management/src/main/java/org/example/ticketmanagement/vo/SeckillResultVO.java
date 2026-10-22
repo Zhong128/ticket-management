@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 public class SeckillResultVO {
 
     private Long requestId;
+    private String requestKey;
     private String requestStatus;
     private LocalDateTime expireTime;
     // 是否抢票成功

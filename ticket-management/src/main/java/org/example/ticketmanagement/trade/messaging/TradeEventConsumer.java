@@ -15,7 +15,6 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 
 @Slf4j
-@Component
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "trade.enabled", havingValue = "true")
 public class TradeEventConsumer {

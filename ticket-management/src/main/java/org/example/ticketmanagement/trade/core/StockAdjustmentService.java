@@ -1,6 +1,9 @@
 package org.example.ticketmanagement.trade.core;
 
 import org.example.ticketmanagement.mapper.TradeStockMapper;
+import org.example.ticketmanagement.mapper.SeckillAdmissionMapper;
+import org.example.ticketmanagement.exception.StockCacheNotReadyException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.example.ticketmanagement.trade.messaging.OutboxStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -21,6 +24,9 @@ public class StockAdjustmentService {
     private final TransactionTemplate tx;
     private final OutboxStore outbox;
     private final boolean enabled;
+
+    @Autowired
+    private SeckillAdmissionMapper admissions;
     private final Clock clock;
 
     public StockAdjustmentService(TradeStockMapper stockMapper, PlatformTransactionManager manager, OutboxStore outbox,
@@ -42,6 +48,13 @@ public class StockAdjustmentService {
         }
 
         return tx.execute(s -> {
+            // 实际运行时与缓存重建共享屏障，避免调整容量穿过重建快照。
+            if (admissions != null) {
+                var epoch = admissions.shareEpoch(tierId);
+                if (epoch == null || !"READY".equals(epoch.getCacheStatus())) {
+                    throw new StockCacheNotReadyException();
+                }
+            }
             // 2. 锁定票档，并确认没有未完成的预占或关单。
             var tier = stockMapper.lockTier(tierId);
             if (tier == null) {
@@ -67,6 +80,7 @@ public class StockAdjustmentService {
             long version = ((Number) tier.get("stock_version")).longValue() + 1;
             outbox.enqueue("STOCK_CHANGED", "stock:" + tierId + ":" + version,
                     Map.of("tierId", tierId, "version", version, "stock", (int) available));
+            outbox.enqueue("CACHE_REBUILD", "capacity:" + tierId + ":" + version, Map.of("tierId", tierId));
             return Map.of("tierId", tierId, "totalStock", (int) total, "stock", (int) available, "version", version);
         });
     }

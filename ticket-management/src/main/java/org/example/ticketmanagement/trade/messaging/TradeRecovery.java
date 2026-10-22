@@ -14,7 +14,6 @@ import java.time.*;
 import java.util.*;
 
 @Slf4j
-@Component
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "trade.enabled", havingValue = "true")
 public class TradeRecovery {

@@ -9,6 +9,18 @@ import org.example.ticketmanagement.service.EmailService;
 import org.example.ticketmanagement.trade.core.TradeOperations;
 import org.example.ticketmanagement.trade.payment.PaymentGateway;
 import org.example.ticketmanagement.trade.payment.RefundService;
+import org.example.ticketmanagement.dto.RedisReservation;
+import org.example.ticketmanagement.serviceimpl.ReservationServiceImpl;
+import org.example.ticketmanagement.serviceimpl.StockServiceImpl;
+import org.example.ticketmanagement.serviceimpl.OrderRecoveryService;
+import org.example.ticketmanagement.util.LuaScriptLoader;
+import org.example.ticketmanagement.pojo.StockReservation;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.TransactionSystemException;
+import org.springframework.test.util.AopTestUtils;
+import org.springframework.amqp.rabbit.listener.RabbitListenerEndpointRegistry;
+import org.example.ticketmanagement.consumer.SeckillOrderConsumer;
 import org.example.ticketmanagement.util.AlipaySignatureUtil;
 import org.junit.jupiter.api.*;
 import org.mockito.ArgumentMatchers;
@@ -39,6 +51,12 @@ import org.testcontainers.utility.DockerImageName;
 import java.math.BigDecimal;
 import java.time.*;
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -100,6 +118,12 @@ class TradeApplicationIT {
     @MockitoBean
     AlipaySignatureUtil signature;
 
+    @MockitoSpyBean
+    TransactionTemplate transactions;
+
+    @MockitoSpyBean
+    OutboxStore durableEvents;
+
     @Autowired
     ApplicationContext context;
 
@@ -119,7 +143,7 @@ class TradeApplicationIT {
     RefundService refunds;
 
     @Autowired
-    TradeRecovery recovery;
+    OrderRecoveryService recovery;
 
     @Autowired
     StringRedisTemplate redis;
@@ -128,10 +152,11 @@ class TradeApplicationIT {
     void completeContextMigratesBeforeStartupAndServesPublicHttp() {
         assertNotNull(context.getBean(TradeOperations.class));
         assertNotNull(context.getBean(OutboxPublisher.class));
-        assertNotNull(context.getBean(TradeEventConsumer.class));
+        assertNotNull(context.getBean(SeckillOrderConsumer.class));
+        assertTrue(context.getBeansOfType(TradeEventConsumer.class).isEmpty());
         assertTrue(context.getBeansOfType(TestDataController.class).isEmpty());
         assertEquals(1, context.getBeansOfType(Clock.class).size());
-        assertEquals(4, db.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1", Integer.class));
+        assertEquals(5, db.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1", Integer.class));
         assertEquals("", environment.getProperty("spring.config.import"));
         assertEquals("isolated-it-dummy-key", environment.getProperty("spring.ai.openai.api-key"));
         assertTrue(environment.getProperty("spring.datasource.url", "").contains("trade_application_it"));
@@ -144,6 +169,249 @@ class TradeApplicationIT {
         verifyNoInteractions(gateway, alipayClient);
         verify(ai, never()).call(ArgumentMatchers.any(Prompt.class));
         verify(ai, never()).stream(ArgumentMatchers.any(Prompt.class));
+    }
+
+    @Test
+    void acceptedRedisReservationDoesNotDeductMysqlBeforeOrderConsumerRuns() {
+        var listeners = context.getBean(RabbitListenerEndpointRegistry.class);
+        LocalDateTime now = LocalDateTime.now();
+        db.update("INSERT INTO city(id,name,code,province) VALUES(4301,'Quota city','QUOTA','Test')");
+        db.update("INSERT INTO event_category(id,name) VALUES(4301,'Quota category')");
+        db.update("""
+                INSERT INTO event(id,name,category_id,city_id,venue,status,sale_start_time,sale_end_time,
+                    event_start_time,event_end_time)
+                VALUES(4301,'Quota sale',4301,4301,'Test',1,?,?,?,?)
+                """, now.minusDays(1), now.plusDays(1), now.plusDays(2), now.plusDays(3));
+        db.update("""
+                INSERT INTO event_session(id,event_id,session_name,session_time,status)
+                VALUES(4301,4301,'Quota session',?,1)
+                """, now.plusDays(2));
+        db.update("""
+                INSERT INTO ticket_tier(id,event_id,session_id,tier_name,original_price,current_price,
+                    total_stock,available_stock,status)
+                VALUES(4301,4301,4301,'Quota tier',100,100,10,10,1)
+                """);
+        seedAccount(4301, "USER");
+        String token = loginUser(4301);
+
+        // 暂停真实消费者，只观察可靠受理阶段，不能用异步时序碰巧通过。
+        listeners.stop();
+        try {
+            JsonNode accepted = post("/api/user/seckill",
+                    Map.of("tierId", 4301, "quantity", 2, "requestKey", "quota-only"), token);
+            assertSuccess(accepted);
+            assertEquals(10, stock(4301), "入口不能扣 MySQL 票档库存");
+            assertEquals("PENDING", db.queryForObject(
+                    "SELECT inventory_state FROM stock_reservation WHERE id=?", String.class,
+                    accepted.path("data").path("requestId").asLong()));
+            String epoch = redis.<String, String>opsForHash().get("seckill:{4301}:meta", "epoch");
+            assertEquals("8", redis.opsForValue().get("seckill:{4301}:quota:" + epoch));
+            JsonNode replay = post("/api/user/seckill",
+                    Map.of("tierId", 4301, "quantity", 2, "requestKey", "quota-only"), token);
+            assertEquals(accepted.path("data").path("requestId"), replay.path("data").path("requestId"));
+            assertEquals("8", redis.opsForValue().get("seckill:{4301}:quota:" + epoch));
+        } finally {
+            listeners.start();
+        }
+    }
+
+    @Test
+    void rejectedOrphanCannotBeAcceptedByALateThread() {
+        seedProtocolSale(4101, 3);
+        StockServiceImpl stockService = context.getBean(StockServiceImpl.class);
+        ReservationServiceImpl application = context.getBean(ReservationServiceImpl.class);
+        RedisReservation orphan = stockService.reserve(4101, 4101, 2, "orphan");
+        assertEquals(1, stockService.getStock(4101L));
+        assertEquals("REJECTED", application.sealRejected(orphan).getAdmissionStatus());
+        stockService.release(orphan);
+        assertThrows(IllegalStateException.class, () -> application.accept(orphan));
+        stockService.release(orphan);
+        assertEquals(3, stockService.getStock(4101L));
+        assertEquals(0, db.queryForObject("SELECT COUNT(*) FROM stock_reservation WHERE tier_id=4101", Integer.class));
+    }
+
+    @Test
+    void rebuildSubtractsPendingAndOldReleaseCannotAddQuota() {
+        seedProtocolSale(4201, 5);
+        StockServiceImpl stockService = context.getBean(StockServiceImpl.class);
+        ReservationServiceImpl application = context.getBean(ReservationServiceImpl.class);
+        var listeners = context.getBean(RabbitListenerEndpointRegistry.class);
+        listeners.stop();
+        try {
+            RedisReservation original = stockService.reserve(4201, 4201, 2, "pending-rebuild");
+            var accepted = application.accept(original);
+            stockService.confirm(original);
+            assertEquals(5, stock(4201));
+            long rebuilt = stockService.rebuild(4201);
+            assertTrue(rebuilt > original.epoch());
+            assertEquals(3, stockService.getStock(4201L));
+            stockService.release(original);
+            assertEquals(3, stockService.getStock(4201L), "旧代次不能释放新配额");
+            assertThrows(IllegalStateException.class, () -> stockService.reserve(4201, 4201, 1, "second"));
+            assertEquals(rebuilt, application.find(accepted.getId()).getStockEpoch());
+        } finally {
+            listeners.start();
+        }
+    }
+
+    private void seedProtocolSale(long id, int stock) {
+        LocalDateTime now = LocalDateTime.now();
+        db.update("INSERT INTO city(id,name,code,province) VALUES(?,'Protocol city',?,'Test')", id, "P" + id);
+        db.update("INSERT INTO event_category(id,name) VALUES(?,'Protocol category')", id);
+        db.update("""
+                INSERT INTO event(id,name,category_id,city_id,venue,status,sale_start_time,sale_end_time,
+                    event_start_time,event_end_time) VALUES(?,'Protocol sale',?,?,'Test',1,?,?,?,?)
+                """, id, id, id, now.minusDays(1), now.plusDays(1), now.plusDays(2), now.plusDays(3));
+        db.update("INSERT INTO event_session(id,event_id,session_name,session_time,status) VALUES(?,?,'Protocol',?,1)",
+                id, id, now.plusDays(2));
+        db.update("""
+                INSERT INTO ticket_tier(id,event_id,session_id,tier_name,original_price,current_price,
+                    total_stock,available_stock,status) VALUES(?,?,?,'Protocol tier',100,100,?,?,1)
+                """, id, id, id, stock, stock);
+    }
+
+    @Test
+    void realRedisAdmissionAndAsyncMysqlCreationCannotOversell() throws Exception {
+        seedProtocolSale(4501, 3);
+        var stockService = context.getBean(StockServiceImpl.class);
+        stockService.prepare(4501);
+        var applications = context.getBean(ReservationServiceImpl.class);
+        var listeners = context.getBean(RabbitListenerEndpointRegistry.class);
+        listeners.stop();
+        List<Long> accepted = new ArrayList<>();
+        try {
+            CountDownLatch start = new CountDownLatch(1);
+            try (var pool = Executors.newFixedThreadPool(12)) {
+                List<Future<Long>> attempts = new ArrayList<>();
+                for (long buyer = 1; buyer <= 24; buyer++) {
+                    long user = 450100 + buyer;
+                    attempts.add(pool.submit(() -> {
+                        start.await();
+                        try {
+                            return ((Number) applications.reserve(user, 4501, 1, "competition").get("requestId")).longValue();
+                        } catch (IllegalStateException soldOutOrBusy) {
+                            return null;
+                        }
+                    }));
+                }
+                start.countDown();
+                for (Future<Long> attempt : attempts) {
+                    Long id = attempt.get();
+                    if (id != null) {
+                        accepted.add(id);
+                    }
+                }
+            }
+            assertEquals(3, accepted.size());
+            assertEquals(3, stock(4501));
+            assertEquals(0, stockService.getStock(4501L));
+            for (Long id : accepted) {
+                Long order = applications.createOrder(id);
+                assertEquals(order, applications.createOrder(id));
+            }
+            assertEquals(0, stock(4501));
+            assertEquals(3, db.queryForObject("SELECT COUNT(*) FROM order_info WHERE tier_id=4501", Integer.class));
+        } finally {
+            listeners.start();
+        }
+    }
+
+    @Test
+    void historicalPaidOrderRemainsAnActiveRedisPurchaseGuard() {
+        seedProtocolSale(4401, 10);
+        db.update("UPDATE ticket_tier SET available_stock=8 WHERE id=4401");
+        db.update("""
+                INSERT INTO order_info(order_no,user_id,event_id,session_id,tier_id,quantity,total_amount,
+                    order_status,create_time,update_time)
+                VALUES('historical-protocol-order',4401,4401,4401,4401,2,200,1,NOW(),NOW())
+                """);
+        var stockService = context.getBean(StockServiceImpl.class);
+        stockService.prepare(4401);
+        assertEquals(8, stockService.getStock(4401L));
+        assertThrows(IllegalStateException.class, () -> stockService.reserve(4401, 4401, 1, "repeat"));
+    }
+
+    @Test
+    void anotherTierWithTheSameRequestKeyReleasesItsExtraRedisHold() {
+        seedProtocolSale(4701, 5);
+        seedProtocolSale(4702, 5);
+        var applications = context.getBean(ReservationServiceImpl.class);
+        var stockService = context.getBean(StockServiceImpl.class);
+        applications.reserve(4701, 4701, 1, "cross-tier-key");
+        assertThrows(IllegalArgumentException.class,
+                () -> applications.reserve(4701, 4702, 1, "cross-tier-key"));
+        assertEquals(5, stockService.getStock(4702L), "拒绝不同参数不能遗留额外预扣");
+    }
+
+    @Test
+    void lostCommitResponseResolvesTheSameDurableApplication() {
+        seedProtocolSale(4801, 5);
+        var stockService = context.getBean(StockServiceImpl.class);
+        stockService.prepare(4801);
+        var applications = context.getBean(ReservationServiceImpl.class);
+        AtomicBoolean lost = new AtomicBoolean();
+        doAnswer(invocation -> {
+            Object committed = invocation.callRealMethod();
+            if (committed instanceof StockReservation && lost.compareAndSet(false, true)) {
+                throw new TransactionSystemException("injected response lost after real commit");
+            }
+            return committed;
+        }).when(transactions).execute(ArgumentMatchers.any());
+        Map<String, Object> accepted = applications.reserve(4801, 4801, 2, "lost-response");
+        Map<String, Object> replay = applications.reserve(4801, 4801, 2, "lost-response");
+        assertTrue(lost.get());
+        assertEquals(accepted.get("requestId"), replay.get("requestId"));
+        assertEquals(1, db.queryForObject("SELECT COUNT(*) FROM stock_reservation WHERE tier_id=4801", Integer.class));
+        assertEquals(3, stockService.getStock(4801L));
+    }
+
+    @Test
+    void outboxFailureRollsBackAcceptanceBeforeRedisRelease() {
+        seedProtocolSale(4901, 5);
+        var applications = context.getBean(ReservationServiceImpl.class);
+        var stockService = context.getBean(StockServiceImpl.class);
+        stockService.prepare(4901);
+        doAnswer(invocation -> {
+            invocation.callRealMethod();
+            throw new IllegalStateException("injected failure after writing outbox");
+        }).when(AopTestUtils.<OutboxStore>getUltimateTargetObject(durableEvents))
+                .enqueue(eq("CREATE_ORDER"), anyString(), ArgumentMatchers.any());
+        assertThrows(IllegalStateException.class,
+                () -> applications.reserve(4901, 4901, 2, "outbox-rollback"));
+        assertEquals(5, stock(4901));
+        assertEquals(5, stockService.getStock(4901L));
+        assertEquals(0, db.queryForObject("SELECT COUNT(*) FROM stock_reservation WHERE tier_id=4901", Integer.class));
+        assertEquals("REJECTED", db.queryForObject(
+                "SELECT admission_status FROM seckill_admission WHERE user_id=4901", String.class));
+    }
+
+    @Test
+    void interruptedRebuildRejectsOldThreadsAndCannotOverwriteANewerEpoch() {
+        seedProtocolSale(5001, 5);
+        var stockService = context.getBean(StockServiceImpl.class);
+        var applications = context.getBean(ReservationServiceImpl.class);
+        RedisReservation original = stockService.reserve(5001, 5001, 2, "interrupted-rebuild");
+        var accepted = applications.accept(original);
+        stockService.confirm(original);
+
+        // 模拟重建者持久化PAUSED后退出，只留下半成品Redis代次。
+        db.update("""
+                UPDATE seckill_stock_epoch SET epoch=epoch+1,cache_status='PAUSED',build_token='interrupted',
+                    updated_at=DATE_SUB(NOW(),INTERVAL 61 SECOND) WHERE tier_id=5001
+                """);
+        long incompleteEpoch = original.epoch() + 1;
+        redis.opsForHash().putAll(StockServiceImpl.metaKey(5001), Map.of(
+                "epoch", Long.toString(incompleteEpoch), "ready", "0", "expected", "1", "loaded", "0"));
+        long rebuilt = stockService.prepare(5001);
+        assertTrue(rebuilt > incompleteEpoch);
+        assertEquals(3, stockService.getStock(5001L));
+        assertThrows(IllegalStateException.class, () -> applications.accept(original));
+
+        Long staleWrite = redis.execute(context.getBean(LuaScriptLoader.class).<Long>getScript("rebuildStockBatch.lua"),
+                StockServiceImpl.keys(5001, incompleteEpoch), Long.toString(incompleteEpoch), "5", "0", "late-init", "[]", "1");
+        assertEquals(-1L, staleWrite);
+        assertEquals(Long.toString(rebuilt), redis.<String, String>opsForHash().get(StockServiceImpl.metaKey(5001), "epoch"));
+        assertEquals(accepted.getId(), applications.findAdmission(5001, "interrupted-rebuild").getReservationId());
     }
 
     @Test

@@ -166,5 +166,16 @@ logging:
 trade:
   enabled: ${TRADE_ENABLED:false}
   legacy-consumers-enabled: false
-  reservation:
-    max-concurrent: ${TRADE_RESERVATION_MAX_CONCURRENT:6}
+
+# Redis预扣协议；消费者和恢复任务均有界运行，不以配置值宣称实测性能。
+seckill:
+  lock:
+    segments: ${SECKILL_LOCK_SEGMENTS:20}
+    wait-millis: ${SECKILL_LOCK_WAIT_MILLIS:200}
+  consumer:
+    concurrent: ${SECKILL_CONSUMER_CONCURRENT:3}
+    max-concurrent: ${SECKILL_CONSUMER_MAX_CONCURRENT:10}
+    prefetch: ${SECKILL_CONSUMER_PREFETCH:10}
+  recovery:
+    provisional-delay-millis: ${SECKILL_PROVISIONAL_DELAY_MILLIS:5000}
+    order-delay-millis: ${SECKILL_ORDER_RECOVERY_DELAY_MILLIS:60000}

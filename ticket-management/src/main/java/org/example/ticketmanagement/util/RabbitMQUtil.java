@@ -1,136 +1,20 @@
-
 package org.example.ticketmanagement.util;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.example.ticketmanagement.constant.SeckillConstant;
-import org.example.ticketmanagement.dto.SeckillMessageDTO;
-import org.springframework.amqp.core.MessageDeliveryMode;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
-import java.util.UUID;
-
-@Slf4j
+/** 关键消息统一由Outbox调用，返回关联确认对象，不把本地send返回当作投递成功。 */
 @Component
 @RequiredArgsConstructor
 public class RabbitMQUtil {
-
     private final RabbitTemplate rabbitTemplate;
 
-    /**
-     * 发送抢票订单消息
-     */
-    public void sendSeckillOrderMessage(SeckillMessageDTO message) {
-        try {
-            String correlationId = UUID.randomUUID().toString();
-
-            rabbitTemplate.convertAndSend(
-                    SeckillConstant.SECKILL_ORDER_EXCHANGE,
-                    SeckillConstant.SECKILL_ORDER_ROUTING_KEY,
-                    message,
-                    msg -> {
-                        // 添加订单号到消息头，方便死信消费者处理
-                        msg.getMessageProperties().setHeader("orderNo", message.getOrderNo());
-                        msg.getMessageProperties().setCorrelationId(correlationId);
-                        // 设置消息持久化
-                        msg.getMessageProperties().setDeliveryMode(MessageDeliveryMode.PERSISTENT);
-                        return msg;
-                    }
-            );
-
-            log.debug("抢票订单消息发送成功: {}, correlationId: {}", message.getOrderNo(), correlationId);
-        } catch (Exception e) {
-            log.error("抢票订单消息发送失败: {}", message.getOrderNo(), e);
-            throw new RuntimeException("消息发送失败", e);
-        }
-    }
-
-
-    /**
-     * 发送TTL延迟消息（基于队列TTL设置）
-     */
-    public void sendTtlDelayedMessage(String queueName, Object message, int ttl) {
-        try {
-            rabbitTemplate.convertAndSend(
-                    "",
-                    queueName,
-                    message,
-                    msg -> {
-                        msg.getMessageProperties().setExpiration(String.valueOf(ttl));
-                        return msg;
-                    }
-            );
-
-            log.debug("TTL延迟消息发送成功: {}, queue: {}, ttl: {}ms", message, queueName, ttl);
-        } catch (Exception e) {
-            log.error("TTL延迟消息发送失败: {}", message, e);
-            throw new RuntimeException("TTL延迟消息发送失败", e);
-        }
-    }
-
-    /**
-     * 通用消息发送方法（带消息头）
-     */
-    public void convertAndSend(String exchange, String routingKey, Object message) {
-        try {
-            String correlationId = UUID.randomUUID().toString();
-
-            rabbitTemplate.convertAndSend(
-                    exchange,
-                    routingKey,
-                    message,
-                    msg -> {
-                        msg.getMessageProperties().setCorrelationId(correlationId);
-                        msg.getMessageProperties().setDeliveryMode(MessageDeliveryMode.PERSISTENT);
-                        msg.getMessageProperties().setHeader("timestamp", System.currentTimeMillis());
-                        return msg;
-                    }
-            );
-
-            log.debug("消息发送成功: exchange={}, routingKey={}, correlationId={}",
-                    exchange, routingKey, correlationId);
-
-        } catch (Exception e) {
-            log.error("消息发送失败: exchange={}, routingKey={}", exchange, routingKey, e);
-            throw new RuntimeException("消息发送失败", e);
-        }
-    }
-
-    /**
-     * 通用消息发送方法（带自定义消息头）
-     */
-    public void convertAndSend(String exchange, String routingKey, Object message, Map<String, Object> headers) {
-        try {
-            String correlationId = UUID.randomUUID().toString();
-
-            rabbitTemplate.convertAndSend(
-                    exchange,
-                    routingKey,
-                    message,
-                    msg -> {
-                        msg.getMessageProperties().setCorrelationId(correlationId);
-                        msg.getMessageProperties().setDeliveryMode(MessageDeliveryMode.PERSISTENT);
-                        msg.getMessageProperties().setHeader("timestamp", System.currentTimeMillis());
-
-                        // 添加自定义消息头
-                        if (headers != null) {
-                            headers.forEach((key, value) ->
-                                    msg.getMessageProperties().setHeader(key, value)
-                            );
-                        }
-
-                        return msg;
-                    }
-            );
-
-            log.debug("消息发送成功: exchange={}, routingKey={}, correlationId={}",
-                    exchange, routingKey, correlationId);
-
-        } catch (Exception e) {
-            log.error("消息发送失败: exchange={}, routingKey={}", exchange, routingKey, e);
-            throw new RuntimeException("消息发送失败", e);
-        }
+    public CorrelationData sendReliableEvent(String exchange, String route, Message message, String eventId) {
+        CorrelationData correlation = new CorrelationData(eventId);
+        rabbitTemplate.send(exchange, route, message, correlation);
+        return correlation;
     }
 }

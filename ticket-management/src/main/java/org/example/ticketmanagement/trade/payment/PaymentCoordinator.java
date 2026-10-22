@@ -5,6 +5,7 @@ import org.example.ticketmanagement.dto.CreatePaymentDTO;
 import org.example.ticketmanagement.pojo.PaymentRecord;
 import org.example.ticketmanagement.trade.core.TradeOperations;
 import org.example.ticketmanagement.trade.messaging.OutboxStore;
+import org.example.ticketmanagement.util.PaymentNoGenerator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -82,7 +83,7 @@ public class PaymentCoordinator implements TradePaymentPort {
 
             // 4. 新建支付流水；事务提交后再调用渠道生成支付页面。
             var p = new PaymentRecord();
-            p.setPaymentNo("PAY" + UUID.randomUUID().toString().replace("-", ""));
+            p.setPaymentNo(PaymentNoGenerator.generatePaymentNo());
             p.setOrderId(orderId);
             p.setOrderNo((String) o.get("order_no"));
             p.setUserId(user);
@@ -117,6 +118,7 @@ public class PaymentCoordinator implements TradePaymentPort {
 
         // 2. 按订单、支付流水的固定顺序加锁。
         return Boolean.TRUE.equals(transactions.execute(s -> {
+            trade.lockOrderEpoch(initial.getOrderId());
             repository.lockOrder(initial.getOrderId());
             var p = repository.lock(no);
             if (p.getTotalAmount().compareTo(amount) != 0

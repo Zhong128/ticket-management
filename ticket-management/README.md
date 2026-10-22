@@ -2,6 +2,8 @@
 
 Java 纯后端票务项目，使用 Java 21、Spring Boot、MyBatis、MySQL、Redis、Redisson、RabbitMQ、Sa-Token、支付宝 SDK 和 Spring AI。
 
+当前分支已接入V5 Redis预扣协议，原数据库未迁移；启动与协议切换先读[当前说明](../docs/redis-seckill-protocol.md)。新版真实渠道和性能复验仍待后续阶段，历史记录不代表本轮已通过。
+
 先看仓库根目录的[项目总览](../README.md)、[代码导读](../docs/project-walkthrough.md)和[验收清单](../docs/acceptance-checklist.md)。本页只负责如何安全地配置、迁移、启动和验证。
 
 交易整改版本默认关闭交易写入和自动迁移。启用前请阅读 [迁移、接口与验证说明](../docs/transaction-hardening.md)，不要直接对现有数据卷重跑初始化 SQL。
@@ -39,7 +41,7 @@ Copy-Item .env.example .env
 
 填写 `.env` 中的本地凭据。连接已有数据卷时，数据库与 RabbitMQ 密码必须使用已有值；改变环境变量不会重置数据卷内的密码。
 
-**全新隔离数据目录**可按以下顺序准备。先确认 `docker-data/mysql/data` 没有原有数据；不要为了执行本说明删除现有目录。Compose 会在新的 MySQL 数据目录初始化旧版表，因此这里需要先标记 V1 基线，再执行 V2～V4：
+**全新隔离数据目录**可按以下顺序准备。先确认 `docker-data/mysql/data` 没有原有数据；不要为了执行本说明删除现有目录。Compose会在新目录初始化旧表，因此只对这类新隔离库标记V1基线，再执行V2～V5：
 
 ```powershell
 docker compose config --quiet

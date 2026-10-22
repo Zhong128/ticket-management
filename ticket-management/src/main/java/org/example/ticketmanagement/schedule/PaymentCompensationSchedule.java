@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.service.PaymentService;
 import org.example.ticketmanagement.trade.payment.RefundService;
+import org.example.ticketmanagement.serviceimpl.OrderRecoveryService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.*;
 import org.springframework.stereotype.Component;
@@ -17,6 +18,17 @@ public class PaymentCompensationSchedule {
 
     private final PaymentService paymentService;
     private final RefundService refunds;
+    private final OrderRecoveryService orders;
+
+    /** 消息缺失时按绝对期限补建单与关单，不增加额外宽限时间。 */
+    @Scheduled(fixedDelayString = "${seckill.recovery.order-delay-millis:60000}")
+    public void processTimeoutOrders() {
+        try {
+            orders.recover();
+        } catch (RuntimeException unavailable) {
+            log.error("订单兜底恢复失败", unavailable);
+        }
+    }
 
     @Scheduled(fixedDelay = 60000)
     public void processPaymentCompensation() {

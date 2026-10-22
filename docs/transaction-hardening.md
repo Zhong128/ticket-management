@@ -1,20 +1,22 @@
 # 交易可靠性整改使用说明
 
+2026-10-22本分支已接入V5 Redis预扣协议：入口受理、异步扣库和缓存代次规则以[当前协议](redis-seckill-protocol.md)为准；下面保留旧问题的修复背景，旧测试记录不能当作新版外部渠道或性能成绩。
+
 基线提交 `8e52a22`，开发分支 `codex/transaction-hardening`。保留 Java 21、Spring Boot、MyBatis、MySQL、Redis、RabbitMQ。所有业务数据访问统一使用 MyBatis Mapper：SQL放具名Mapper方法，事务、锁序和状态规则由Service编排，使用同一DataSource与Spring事务管理器。没有引入其他业务持久层或分布式服务。
 
 ## 解决的问题与代码入口
 
 | 原问题 | 修改位置 | 现在的处理 / 验证 |
 |---|---|---|
-| Redis 扣减、数据库订单、MQ 之间存在丢单及多次回补窗口 | `trade/core/TradeOperationsImpl`、`TradeCoreMapper`、`OutboxStore`、`TradeOutboxMapper` | 同一 MySQL 事务写预占、扣库存、限购占位、Outbox；落单不再扣库存。并发、回滚、重复取消测试 |
+| Redis、MySQL和MQ之间存在丢单及重复回补窗口 | `SeckillServiceImpl`、`StockServiceImpl`、`ReservationServiceImpl`、`OutboxStore` | Redis预扣后短事务可靠受理，异步扣库建单；按token、库存阶段和代次恢复 |
 | 同用户并发请求及重试可能重复购票 | `purchase_guard`、`stock_reservation`、`SeckillController` | 用户/票档行锁 + 请求键唯一约束；重复键返回原申请，参数不一致拒绝 |
-| 无支付流水的订单漏关；延时队列提前消费 | `DeadlineHandler`、`TradeRecovery`、`TradeMessagingConfig` | 从预占时起固定30分钟；TTL无消费者等待队列死信转发；定时数据库恢复不依赖支付流水和MQ |
-| 支付、取消覆盖状态；渠道失败仍释放库存 | `PaymentCoordinator`、`TradeOperationsImpl`、`OrderServiceImpl` | 短事务标记取消中→事务外查/关渠道→短事务释放。UNKNOWN保持占用；所有成功付款统一校验及落账 |
+| 无支付流水订单漏关；延时队列提前消费 | `DeadlineHandler`、`OrderRecoveryService`、原consumer/schedule/config | 首次预扣起固定30分钟；无消费者等待队列死信转发，数据库扫描不依赖支付流水或MQ |
+| 支付与取消竞争；渠道失败仍释放库存 | `PaymentCoordinator`、`ReservationServiceImpl`、`OrderServiceImpl` | 代次屏障、订单锁及短事务确认，UNKNOWN保持占用；付款统一校验入账 |
 | 回调验签删掉sign；同步跳转被当作付款证据 | `AlipaySignatureUtil`、`PaymentServiceImpl`、`PaymentController` | 原参数验签，校验应用/流水/金额；跳转仅提示待确认；RSA签名及回调测试 |
 | 真实回调已处理但通知时间和旧回调日志为空 | `PaymentNotificationAudit`、`TradePaymentMapper`、`PaymentNotifyLogMapper` | 验签并处理成功后写首次 `notify_time` 和每次送达的金额摘要；隔离 HTTP 测试与真实支付宝沙箱通知均已验证，详见[沙箱验收](alipay-sandbox-acceptance.md) |
 | 取消已释放后迟到收款、第二笔收款无退款闭环 | `trade/payment/RefundService`、`RefundController` | 全额补偿退款，先保存唯一退款号再调渠道；不确定结果先查再重试；10次后人工处理 |
 | Confirm/Return只打印日志，重启丢重试 | `OutboxPublisher` | 持久化状态、租约、confirm+mandatory return，失败持续退避重发；重复投递由业务幂等收敛 |
-| 对账覆盖并发库存，后台编辑回写旧库存 | `StockProjection`、`StockAdjustmentService`、`TicketTierMapper` | Redis只投影带版本DB库存；普通编辑不写库存；下架且无未结预占后才可调整容量；删除票档改为下架保留历史 |
+| 对账覆盖并发库存，后台编辑回写旧库存 | `StockServiceImpl`、`ReconciliationServiceImpl`、`StockAdjustmentService` | 展示投影与配额分离，恢复时扣除PENDING；普通编辑不写库存，下架无未完成申请后才能调整 |
 | 邮件失败丢失、清理误删成功支付 | `NotificationTasks`、`PaymentRecordMapper` | 持久邮件任务三次重试后人工处理；保留支付流水。邮件是至少一次发送，进程在发送后崩溃可能重复邮件 |
 
 ## 接口变化
@@ -32,9 +34,9 @@
 
 1. 停止旧实例和消费者，备份数据库及旧队列。先在备份副本执行 `transaction-preflight.sql`，核对库存、重复有效订单、重复支付和金额异常。重复历史记录保留，不自动删除或猜测资金归属；重复有效订单对应的用户/票档会阻止新购买。
 2. 将 `SPRING_DATASOURCE_URL`、`SPRING_DATASOURCE_USERNAME`、`SPRING_DATASOURCE_PASSWORD` 指向副本，先构建项目。Windows 从模块目录运行 `./scripts/trade-migrate.ps1 baseline-existing`（仅已有旧表且没有Flyway历史的库执行一次），随后 `migrate`、`validate`。空白新库只执行 `migrate`。已有Flyway V1历史也不重复baseline。
-3. V1仅供空库建原表；V2增量加表/列/索引；V3回填截止时间、预占和唯一成功付款引用；V4为 Outbox 租约令牌建立索引，缩小批量发布完成时的锁定范围。迁移不调整原库存/金额、不删除流水。MySQL DDL不保证整体回滚，失败须检查Flyway记录及实际DDL，禁止盲目重跑初始化SQL。
-4. 在副本验证后再对目标库安排同样维护步骤。启用 `TRADE_ENABLED=true`，保持自动迁移关闭。应用校验V4历史及必要列，缺失则拒绝启用。
-5. v2使用 `trade.events.v2`、`trade.work.v2`、`trade.deadline.wait.v2`、`trade.deadline.ready.v2`。旧队列保留，不能直接重投没有数据库预占的旧创建消息；先人工对照订单/流水。需要桥接时仅显式启用 `trade.legacy-consumers-enabled`，不能并行运行旧版服务写同一库存。
+3. V1仅供空库建原表；V2增量加交易结构；V3回填历史状态；V4增加Outbox索引；V5增加Redis受理日志、库存阶段和代次屏障，保留资金和历史数据。MySQL DDL不能整体回滚，失败须检查Flyway记录与实际DDL，禁止盲目重跑初始化SQL。本轮只在新测试容器执行V5，没有迁移原库。
+4. 副本验证后再安排目标库维护。启用 `TRADE_ENABLED=true`，保持自动迁移关闭。应用要求V5历史及必要列；数据库未迁移不能直接启动交易。
+5. 当前使用`trade.events.v3`与具名工作/等待/失败队列，详见当前协议。旧V2队列保留并核对处理；不能通过启用legacy-consumers-enabled桥接旧消息，不并行运行两种库存协议。
 
 非法JSON/事件结构会经 `trade.failures.v2` 转入 `trade.work.failed.v2` 或 `trade.deadline.failed.v2`，持久保留待检查，不无限重入。已有预览版v2队列若缺少DLX参数，须安排受控迁移或策略配置；不能清空队列来规避参数冲突。
 
@@ -60,6 +62,6 @@
 
 ## 运维检查
 
-检查 `message_outbox` 长期NEW/过期租约、`order_info.order_status=4`、过期未释放预占、退款 `MANUAL_REQUIRED`、邮件 `payment_compensation.task_status=3`。Outbox 发布器每批最多领取100条，先发送整批消息，再按各自的 Broker 确认批量标记成功；失败事件仍按原租约与退避机制重试。邮件任务每批最多50条，一次调度最多连续处理10批；发送仍逐条持有租约，失败按原规则重试或转人工。抢票事务默认同时最多6个，可用 `TRADE_RESERVATION_MAX_CONCURRENT` 调整；生产连接池上限为10，调整时要给建单、Outbox、通知等后台任务保留连接。Outbox重发可重复投递；订单、释放、退款均依赖数据库幂等。Redis不可用不应影响库存正确性，恢复后定时按版本重建投影。
+检查Outbox积压/过期租约、CANCELING订单、PENDING超期申请、孤立Redis预扣、PAUSED代次和退款/通知/消费人工任务。Outbox仍批量100条、邮件任务批量50条并有租约。入口6并发限制已移除，分段锁默认20段/等待200ms，消费并发3～10/预取10。Redis不可用暂停新抢票，恢复须按数据库与PENDING重建；展示投影不能覆盖配额。真实性能与连接池容量需新版实测，不能复用旧版44.51次/秒。
 
 原Git历史中已有旧凭据，本次只沿用基线后的环境变量/本地忽略配置，没有重写历史。对外分享仓库前应更换曾提交的凭据。

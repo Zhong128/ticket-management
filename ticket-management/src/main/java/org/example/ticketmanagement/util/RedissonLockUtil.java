@@ -18,6 +18,26 @@ public class RedissonLockUtil {
 
     private final RedissonClient redissonClient;
 
+    /** 不指定固定租期，watchdog续期；中断保留标记，业务异常原样传播。 */
+    public <T> T executeWithWatchdog(String lockKey, long waitMillis, Supplier<T> supplier) {
+        RLock lock = getLock(lockKey);
+        boolean acquired = false;
+        try {
+            acquired = lock.tryLock(waitMillis, TimeUnit.MILLISECONDS);
+            if (!acquired) {
+                throw new IllegalStateException("抢票请求繁忙，请使用原请求键稍后重试");
+            }
+            return supplier.get();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("抢票请求已中断", exception);
+        } finally {
+            if (acquired && lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
+        }
+    }
+
     /**
      * 获取锁对象
      */

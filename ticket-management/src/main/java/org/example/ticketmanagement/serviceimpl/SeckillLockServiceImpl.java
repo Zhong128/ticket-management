@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.service.SeckillLockService;
 import org.example.ticketmanagement.util.RedissonLockUtil;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -16,6 +17,9 @@ import java.util.function.Supplier;
 public class SeckillLockServiceImpl implements SeckillLockService {
 
     private final RedissonLockUtil redissonLockUtil;
+
+    @Value("${seckill.lock.wait-millis:200}")
+    private long waitMillis;
 
 
     /**
@@ -80,10 +84,13 @@ public class SeckillLockServiceImpl implements SeckillLockService {
      * 执行带分段锁的操作（推荐方案：基于用户 ID 分段，缩短持有时间）
      */
     public <T> T executeWithSegmentLock(Long userId, Long tierId, int segmentCount, Supplier<T> supplier) {
+        if (segmentCount < 1) {
+            throw new IllegalArgumentException("分段数必须大于零");
+        }
         String lockKey = getSegmentLockKey(userId, tierId, segmentCount);
         log.debug("使用分段锁：userId={}, tierId={}, segmentCount={}, lockKey={}", 
                  userId, tierId, segmentCount, lockKey);
-        return redissonLockUtil.executeWithLock(lockKey, 2, 2, supplier); // 等待 2 秒，持有 1.5 秒
+        return redissonLockUtil.executeWithWatchdog(lockKey, waitMillis, supplier);
     }
 
     @Override
