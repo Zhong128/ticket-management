@@ -13,6 +13,7 @@
 | 按步骤复现售票与异常分支、核对当前验收范围 | [验收清单](docs/acceptance-checklist.md) |
 | 阅读交易设计、迁移、状态与接口变化 | [交易整改说明](docs/transaction-hardening.md)、[核心接口](docs/transaction-core-api.md) |
 | 查看隔离 HTTP、支付宝沙箱、SMTP 与持续压测证据 | [隔离售票](docs/full-sale-isolated-acceptance.md)、[支付宝](docs/alipay-sandbox-acceptance.md)、[邮件](docs/smtp-acceptance.md)、[压测](docs/performance/README.md) |
+| 跟进 Redis/Lua 抢票协同重构（分阶段实施，尚未切换业务架构） | [执行计划](docs/high-concurrency-refactor-plan.md)、[重构前基线](docs/high-concurrency-refactor-baseline.md) |
 
 ## 核心链路
 
