@@ -4,6 +4,7 @@ import com.rabbitmq.client.Channel;
 import lombok.RequiredArgsConstructor;
 import org.example.ticketmanagement.exception.StockCacheNotReadyException;
 import org.example.ticketmanagement.exception.StockVersionConflictException;
+import org.example.ticketmanagement.exception.OrderCreationDeferredException;
 import org.example.ticketmanagement.service.ReservationService;
 import org.example.ticketmanagement.service.OrderService;
 import org.example.ticketmanagement.util.TradeMessageSupport;
@@ -30,7 +31,7 @@ public class SeckillOrderConsumer {
             long id = event.payload().path("reservationId").asLong();
             try {
                 orderService.createOrder(id);
-            } catch (StockCacheNotReadyException | StockVersionConflictException paused) {
+            } catch (StockCacheNotReadyException | StockVersionConflictException | OrderCreationDeferredException paused) {
                 throw paused;
             } catch (RuntimeException failed) {
                 orders.creationFailed(id, failed.getMessage());

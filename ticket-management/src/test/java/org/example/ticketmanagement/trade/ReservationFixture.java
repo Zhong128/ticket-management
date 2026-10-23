@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.ticketmanagement.mapper.*;
 import org.example.ticketmanagement.service.SeckillLockService;
 import org.example.ticketmanagement.serviceimpl.ReservationServiceImpl;
+import org.example.ticketmanagement.serviceimpl.OrderCreationCoordinator;
 import org.example.ticketmanagement.serviceimpl.SeckillServiceImpl;
 import org.example.ticketmanagement.serviceimpl.StockServiceImpl;
 import org.example.ticketmanagement.trade.messaging.OutboxStore;
@@ -35,9 +36,12 @@ public record ReservationFixture(ReservationServiceImpl core, StockServiceImpl s
                 redis, scripts, new ObjectMapper(), transactions, clock);
         ReflectionTestUtils.setField(stock, "enabled", true);
         ObjectProvider<SeckillServiceImpl> provider = mock(ObjectProvider.class);
+        // 此fixture验证数据库状态机；真实建单锁由Redis、HTTP及双实例测试覆盖。
+        OrderCreationCoordinator coordinator = mock(OrderCreationCoordinator.class);
+        when(coordinator.execute(anyLong(), any())).thenAnswer(call -> ((Supplier) call.getArgument(1)).get());
         ReservationServiceImpl core = new ReservationServiceImpl(sessions.getMapper(TradeCoreMapper.class),
                 sessions.getMapper(SeckillAdmissionMapper.class), transactions, outbox, stock,
-                new OrderNoGenerator(), provider, clock);
+                new OrderNoGenerator(), provider, clock, coordinator);
         ReflectionTestUtils.setField(core, "enabled", true);
 
         SeckillLockService locks = mock(SeckillLockService.class);

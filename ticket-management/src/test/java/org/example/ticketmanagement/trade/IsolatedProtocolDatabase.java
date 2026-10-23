@@ -1,6 +1,9 @@
 package org.example.ticketmanagement.trade;
 
 import org.flywaydb.core.Flyway;
+import org.redisson.Redisson;
+import org.redisson.api.RedissonClient;
+import org.redisson.config.Config;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -40,5 +43,15 @@ final class IsolatedProtocolDatabase {
         // 每个fixture单独Redis逻辑库，避免旧token污染下一个用例。
         redis.getConnectionFactory().getConnection().serverCommands().flushDb();
         return dataSource;
+    }
+
+    /** 独立客户端模拟两个应用节点，仍只连接本测试的临时Redis。 */
+    static RedissonClient newRedissonClient() {
+        Config config = new Config();
+        config.setThreads(2).setNettyThreads(2).setLockWatchdogTimeout(1000);
+        config.useSingleServer().setAddress("redis://" + REDIS.getHost() + ":" + REDIS.getMappedPort(6379))
+                .setConnectionMinimumIdleSize(1).setConnectionPoolSize(4)
+                .setSubscriptionConnectionMinimumIdleSize(1).setSubscriptionConnectionPoolSize(2);
+        return Redisson.create(config);
     }
 }

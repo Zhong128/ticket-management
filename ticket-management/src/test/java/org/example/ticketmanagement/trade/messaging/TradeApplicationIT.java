@@ -1,5 +1,10 @@
 package org.example.ticketmanagement.trade.messaging;
 
+import org.example.ticketmanagement.exception.OrderCreationDeferredException;
+import org.example.ticketmanagement.serviceimpl.OrderCreationCoordinator;
+import org.example.ticketmanagement.util.RedissonLockUtil;
+import org.springframework.test.util.ReflectionTestUtils;
+
 import java.util.concurrent.TimeUnit;
 import java.util.HashMap;
 import java.nio.file.Path;
@@ -331,6 +336,60 @@ class TradeApplicationIT {
             }
             assertEquals(0, stock(4501));
             assertEquals(3, db.queryForObject("SELECT COUNT(*) FROM order_info WHERE tier_id=4501", Integer.class));
+        } finally {
+            listeners.start();
+        }
+    }
+
+    @Test
+    void busyOrderTierDefersBeforeDeductionAndCanResumeWithoutBusinessFailure() throws Exception {
+        seedProtocolSale(6201, 4);
+        var listeners = context.getBean(RabbitListenerEndpointRegistry.class);
+        var applications = context.getBean(ReservationServiceImpl.class);
+        var coordinator = context.getBean(OrderCreationCoordinator.class);
+        var locks = context.getBean(RedissonLockUtil.class);
+        var stockService = context.getBean(StockServiceImpl.class);
+        stockService.prepare(6201);
+        listeners.stop();
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        try (var workers = Executors.newSingleThreadExecutor()) {
+            long id = ((Number) applications.reserve(620101, 6201, 1, "order-busy").get("requestId")).longValue();
+            var holder = workers.submit(() -> coordinator.execute(6201, () -> {
+                entered.countDown();
+                try {
+                    if (!release.await(5, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException("测试释放信号超时");
+                    }
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(interrupted);
+                }
+                return 1;
+            }));
+            try {
+                assertTrue(entered.await(5, TimeUnit.SECONDS));
+                ReflectionTestUtils.setField(coordinator, "waitMillis", 20L);
+                assertThrows(OrderCreationDeferredException.class,
+                        () -> applications.createOrder(id));
+                assertEquals(4, stock(6201));
+                assertEquals("PENDING", db.queryForObject(
+                        "SELECT inventory_state FROM stock_reservation WHERE id=?", String.class, id));
+                assertEquals(0, db.queryForObject(
+                        "SELECT attempts FROM stock_reservation WHERE id=?", Integer.class, id));
+                release.countDown();
+                holder.get(5, TimeUnit.SECONDS);
+
+                // 释放协调锁后复用原申请，不能重复扣库存或重建订单。
+                Long order = applications.createOrder(id);
+                assertEquals(order, applications.createOrder(id));
+                assertEquals(3, stock(6201));
+                assertEquals(3, stockService.getStock(6201L));
+                assertFalse(locks.getLock("order:tier:6201").isLocked());
+            } finally {
+                release.countDown();
+                ReflectionTestUtils.setField(coordinator, "waitMillis", 2000L);
+            }
         } finally {
             listeners.start();
         }

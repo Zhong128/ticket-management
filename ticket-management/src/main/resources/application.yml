@@ -177,6 +177,9 @@ seckill:
     concurrent: ${SECKILL_CONSUMER_CONCURRENT:3}
     max-concurrent: ${SECKILL_CONSUMER_MAX_CONCURRENT:10}
     prefetch: ${SECKILL_CONSUMER_PREFETCH:10}
+  order:
+    coordination-enabled: ${SECKILL_ORDER_COORDINATION_ENABLED:true}
+    lock-wait-millis: ${SECKILL_ORDER_LOCK_WAIT_MILLIS:2000}
   recovery:
     provisional-delay-millis: ${SECKILL_PROVISIONAL_DELAY_MILLIS:5000}
     order-delay-millis: ${SECKILL_ORDER_RECOVERY_DELAY_MILLIS:60000}

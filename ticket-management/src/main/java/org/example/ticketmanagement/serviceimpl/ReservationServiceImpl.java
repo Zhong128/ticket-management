@@ -44,6 +44,7 @@ public class ReservationServiceImpl implements ReservationService {
     private final OrderNoGenerator orderNumbers;
     private final ObjectProvider<SeckillServiceImpl> seckill;
     private final Clock clock;
+    private final OrderCreationCoordinator orderCoordinator;
 
     @Autowired(required = false)
     private MeterRegistry metrics;
@@ -163,6 +164,17 @@ public class ReservationServiceImpl implements ReservationService {
     @Override
     public Long createOrder(long id) {
         requireEnabled();
+        StockReservation initial = requireReservation(id);
+        if (initial.getOrderId() != null) {
+            return initial.getOrderId();
+        }
+
+        // 在事务外按票档协调消费者和扫描任务，避免热点版本相互碰撞。
+        return orderCoordinator.execute(initial.getTierId(), () -> createWithVersionRetry(id));
+    }
+
+    private Long createWithVersionRetry(long id) {
+        // 乐观锁仍兜底租约丢失及其他库存操作；每次冲突都使用新事务。
         for (int attempt = 0; attempt < 3; attempt++) {
             try {
                 return transactions.execute(status -> createInTransaction(id));

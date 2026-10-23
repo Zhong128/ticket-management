@@ -17,6 +17,7 @@ import org.springframework.amqp.rabbit.listener.RabbitListenerEndpointRegistry;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.example.ticketmanagement.serviceimpl.StockServiceImpl;
+import org.example.ticketmanagement.serviceimpl.OrderCreationCoordinator;
 import org.example.ticketmanagement.serviceimpl.SeckillServiceImpl;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.example.ticketmanagement.trade.payment.PaymentGateway;
@@ -440,6 +441,15 @@ class TradeLoadIT {
                 ORDER BY 1
                 """, Long.class, tierId);
         Map<String, Object> report = new LinkedHashMap<>();
+        // 建单锁单列指标，不与入口用户分段锁等待混淆。
+        OrderCreationCoordinator coordinator = context.getBean(OrderCreationCoordinator.class);
+        MeterRegistry metrics = context.getBean(MeterRegistry.class);
+        var orderWait = metrics.find("seckill.order.lock.wait").timer();
+        var orderBusy = metrics.find("seckill.order.lock.busy").counter();
+        report.put("orderCoordinationEnabled", ReflectionTestUtils.getField(coordinator, "enabled"));
+        report.put("orderLockWaitMillis", ReflectionTestUtils.getField(coordinator, "waitMillis"));
+        report.put("orderLockWaitSecondsParent", orderWait == null ? 0 : orderWait.totalTime(TimeUnit.SECONDS));
+        report.put("orderLockBusyParent", orderBusy == null ? 0 : orderBusy.count());
         report.put("orderConcurrentMinimum", ReflectionTestUtils.getField(orderListener, "concurrentConsumers"));
         report.put("orderConcurrentMaximum", ReflectionTestUtils.getField(orderListener, "maxConcurrentConsumers"));
         report.put("orderConsumersAtStop", consumersAtStop);

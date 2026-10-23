@@ -5,6 +5,7 @@ import com.rabbitmq.client.Channel;
 import org.example.ticketmanagement.serviceimpl.MessageRecoveryService;
 import org.example.ticketmanagement.consumer.SeckillOrderConsumer;
 import org.example.ticketmanagement.exception.StockVersionConflictException;
+import org.example.ticketmanagement.exception.OrderCreationDeferredException;
 import org.example.ticketmanagement.service.OrderService;
 import org.example.ticketmanagement.service.ReservationService;
 import org.example.ticketmanagement.util.TradeMessageSupport;
@@ -72,6 +73,19 @@ class TradeMessageSupportTest {
         var consumer = new SeckillOrderConsumer(reservations, orders, support);
         consumer.handleSeckillOrder(message("{\"eventType\":\"CREATE_ORDER\",\"payload\":{\"reservationId\":1}}"), channel);
         verify(reservations, never()).creationFailed(anyLong(), anyString());
+        var sequence = inOrder(recovery, channel);
+        sequence.verify(recovery).retry(eq("original-event"), eq("CREATE_ORDER"), any());
+        sequence.verify(channel).basicAck(7, false);
+    }
+
+    @Test
+    void orderLockContentionPersistsRetryBeforeAckWithoutReleasingReservation() throws Exception {
+        ReservationService reservations = mock(ReservationService.class);
+        OrderService orders = mock(OrderService.class);
+        when(orders.createOrder(1L)).thenThrow(new OrderCreationDeferredException("busy"));
+        new SeckillOrderConsumer(reservations, orders, support).handleSeckillOrder(
+                message("{\"eventType\":\"CREATE_ORDER\",\"payload\":{\"reservationId\":1}}"), channel);
+        verifyNoInteractions(reservations);
         var sequence = inOrder(recovery, channel);
         sequence.verify(recovery).retry(eq("original-event"), eq("CREATE_ORDER"), any());
         sequence.verify(channel).basicAck(7, false);

@@ -7,6 +7,7 @@ import org.example.ticketmanagement.service.OrderService;
 import org.example.ticketmanagement.service.ReservationService;
 import org.example.ticketmanagement.exception.StockCacheNotReadyException;
 import org.example.ticketmanagement.exception.StockVersionConflictException;
+import org.example.ticketmanagement.exception.OrderCreationDeferredException;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -48,7 +49,8 @@ public class OrderRecoveryService {
                     } else {
                         try {
                             reservations.createOrder(id);
-                        } catch (StockCacheNotReadyException | StockVersionConflictException paused) {
+                        } catch (StockCacheNotReadyException | StockVersionConflictException
+                                | OrderCreationDeferredException paused) {
                             throw paused;
                         } catch (RuntimeException failed) {
                             reservations.creationFailed(id, failed.getMessage());

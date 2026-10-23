@@ -4,6 +4,7 @@ import org.example.ticketmanagement.mapper.TradeRecoveryMapper;
 import org.example.ticketmanagement.service.OrderService;
 import org.example.ticketmanagement.serviceimpl.OrderRecoveryService;
 import org.example.ticketmanagement.exception.StockVersionConflictException;
+import org.example.ticketmanagement.exception.OrderCreationDeferredException;
 import org.example.ticketmanagement.service.ReservationService;
 import org.junit.jupiter.api.Test;
 
@@ -24,6 +25,20 @@ class TradeRecoveryTest {
         when(db.findDueReservations(eq(0L), any())).thenReturn(List.of(
                 Map.of("id", 1L, "expires_at", now.plusMinutes(20))));
         when(reservations.createOrder(1)).thenThrow(new StockVersionConflictException());
+        new OrderRecoveryService(db, reservations, mock(OrderService.class),
+                Clock.fixed(now.toInstant(ZoneOffset.UTC), ZoneOffset.UTC)).recover();
+        verify(reservations, never()).creationFailed(anyLong(), anyString());
+        verify(reservations, never()).releaseUnordered(anyLong(), anyString());
+    }
+
+    @Test
+    void unavailableOrderCoordinationDoesNotCountAsBusinessFailure() {
+        var db = mock(TradeRecoveryMapper.class);
+        var reservations = mock(ReservationService.class);
+        LocalDateTime now = LocalDateTime.of(2026, 10, 19, 0, 0);
+        when(db.findDueReservations(eq(0L), any())).thenReturn(List.of(
+                Map.of("id", 1L, "expires_at", now.plusMinutes(20))));
+        when(reservations.createOrder(1)).thenThrow(new OrderCreationDeferredException("busy"));
         new OrderRecoveryService(db, reservations, mock(OrderService.class),
                 Clock.fixed(now.toInstant(ZoneOffset.UTC), ZoneOffset.UTC)).recover();
         verify(reservations, never()).creationFailed(anyLong(), anyString());

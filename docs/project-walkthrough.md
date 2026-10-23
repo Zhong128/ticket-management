@@ -8,8 +8,8 @@
 |---|---|---|
 | `src/main/java/.../controller`、`dto`、`vo` | HTTP 入参、鉴权和返回值 | `SeckillController`、`PaymentController`、`OrderController` |
 | `serviceimpl` | 演出维护、认证、订单、支付入口等业务编排 | `EventServiceImpl`、`TicketTierServiceImpl`、`SeckillServiceImpl`、`OrderServiceImpl`、`PaymentServiceImpl` |
-| `serviceimpl` 交易主线 | Redis受理、可靠日志、异步建单与恢复 | `SeckillServiceImpl`、`StockServiceImpl`、`ReservationServiceImpl`、`OrderRecoveryService` |
-| `trade/core` | 库存调整与暂用调用接口；旧实现不再注册运行Bean | `StockAdjustmentService`；旧实现仅待阶段5迁移测试后删除 |
+| `serviceimpl` 交易主线 | Redis受理、可靠日志、异步建单与恢复 | `SeckillServiceImpl`、`StockServiceImpl`、`ReservationServiceImpl`、`OrderCreationCoordinator`、`OrderRecoveryService` |
+| `trade/core` | 受控库存调整 | `StockAdjustmentService`；旧交易入口已在阶段5删除 |
 | `trade/payment` | 支付流水、渠道查单／关单、退款与回调审计 | `PaymentCoordinator`、`RefundService`、`PaymentNotificationAudit`、`AlipayPaymentGateway` |
 | `consumer`、`schedule` | 按业务消费与定时恢复，拓扑在原config | `SeckillOrderConsumer`、`PaymentTimeoutConsumer`、两个原schedule |
 | `trade/messaging` | Outbox、截止时间、展示投影与通知任务辅助 | `OutboxPublisher`、`DeadlineHandler`、`StockProjection`、`NotificationTasks`；旧聚合消费/调度不再运行 |
@@ -28,7 +28,7 @@ Redis Lua负责前置配额、限购和预扣，Redisson用户分段锁协调短
 |---|---|---|
 | 上架 | 管理员创建演出、场次和票档 | `EventController`、`EventSessionController`、`TicketTierController`；票档有可售时间、状态与库存 |
 | 抢票受理 | `POST /api/user/seckill` | `SeckillServiceImpl`取得分段锁并调用Lua预扣，再由`ReservationServiceImpl.accept`事务保存PENDING申请、受理日志、限购和Outbox；不在入口扣MySQL库存 |
-| 异步落单 | 申请ID查询，或`/requests/by-key`找回结果 | `OutboxPublisher`发布V3事件，`SeckillOrderConsumer`调用事务建单；版本和库存条件扣减、写订单、转HELD及通知事件同事务提交 |
+| 异步落单 | 申请ID查询，或`/requests/by-key`找回结果 | `OutboxPublisher`发布V3事件，`SeckillOrderConsumer`经`ReservationServiceImpl`在事务外取得票档协调锁，再事务建单；版本和库存条件扣减、写订单、转HELD及通知事件同事务提交 |
 | 创建支付 | `POST /api/user/payments/create`，建议显式传 `orderId` | `PaymentCoordinator.create` 锁订单、复用活跃支付流水，再由 `AlipayPaymentGateway` 生成沙箱付款表单 |
 | 支付确认 | `POST /api/public/payments/notify`，用户另可查 `/api/user/payments/status/{paymentNo}` | `PaymentServiceImpl` 验签并核对应用、交易号和金额；`PaymentCoordinator.settle` 更新流水、订单与预占，`PaymentNotificationAudit` 记录有效异步回调。同步回跳不直接入账 |
 | 通知与恢复 | 后台调度，无用户入口 | 具名消费者保存通知任务；`NotificationTasks`发送邮件，原schedule和`OrderRecoveryService`恢复订单、孤立预扣、支付及退款 |
@@ -45,6 +45,8 @@ Redis Lua负责前置配额、限购和预扣，Redisson用户分段锁协调短
 
 ## 建议的讲解顺序
 
-先讲分段锁、Lua原子限购、可靠受理日志和Outbox如何交接，再讲异步乐观扣库存与申请查询；接着解释PENDING/HELD不同释放、代次重建和旧事件幂等。支付强调验签、统一入账、渠道未知及迟到退款。细节见[新协议](redis-seckill-protocol.md)。
+先讲分段锁、Lua原子限购、可靠受理日志和Outbox如何交接，再讲异步建单的票档协调与乐观扣库存：前者减少热点碰撞，后者及数据库约束仍兜底租约失效；接着解释PENDING/HELD不同释放、代次重建和旧事件幂等。支付强调验签、统一入账、渠道未知及迟到退款。细节见[新协议](redis-seckill-protocol.md)。
+
+热点建单协调后，10次/秒同版本120秒对照中建单P95由6566ms降至740ms，版本冲突由2189次降至0；一轮五分钟2997请求全部建单、P95为744ms，库存与任务收敛通过。属于延迟与重试放大改善，尚未重新确定最大吞吐、多票档和双实例持续能力，不能直接写成容量提升。详见[协调修复记录](performance/order-coordination-2026-10-23.md)。
 
 历史44.51次/秒仅对应重构前版本。V5已完成10次/秒三轮五分钟及双独立JVM等专项，40次/秒持续档未通过；同负载旧基线对照未证明吞吐提升，V5异步建单等待明显增加。不能把快速受理或增加技术组件直接表述为完整建单能力提升。详见[本轮实测记录](performance/results-2026-10-23-v5.md)。V5真实支付宝沙箱已独立通过付款、真实通知、迟到退款及真实关单回归，SMTP有作者确认收件记录；这些结果分别列示，不混入模拟压测成绩。
