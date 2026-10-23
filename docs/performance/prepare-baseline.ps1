@@ -17,7 +17,6 @@ $oldMethod = '    void sustainedReservationsUseFreshUsersAndStock() throws Excep
 if (-not $source.Contains($oldMethod)) { throw '该提交的驱动结构与适配脚本不符' }
 $newMethod = @'
     void sustainedReservationsUseFreshUsersAndStock() throws Exception {
-        runBaseline(30, 0);
         for (int round = 1; round <= 3; round++) {
             runBaseline(300, round);
         }
