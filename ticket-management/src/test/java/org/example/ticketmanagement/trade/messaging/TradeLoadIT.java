@@ -3,6 +3,7 @@ package org.example.ticketmanagement.trade.messaging;
 import java.util.Arrays;
 import cn.dev33.satoken.stp.StpUtil;
 import com.alipay.api.AlipayClient;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.ticketmanagement.TicketManagementApplication;
 import org.example.ticketmanagement.service.EmailService;
 import org.junit.jupiter.api.Test;
@@ -10,8 +11,10 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Import;
 import org.springframework.core.env.Environment;
 import org.springframework.amqp.rabbit.listener.RabbitListenerEndpointRegistry;
+import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.example.ticketmanagement.serviceimpl.StockServiceImpl;
 import org.example.ticketmanagement.serviceimpl.SeckillServiceImpl;
@@ -21,6 +24,7 @@ import org.example.ticketmanagement.pojo.PaymentRecord;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -58,6 +62,7 @@ import static org.mockito.Mockito.when;
 @Testcontainers
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @EnabledIfEnvironmentVariable(named = "RUN_JMETER_LOAD", matches = "true")
+@Import(LoadSqlDiagnostics.DiagnosticConfiguration.class)
 @SpringBootTest(classes = TicketManagementApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = { "spring.config.location=classpath:application-trade-isolated-it.properties",
                 "spring.config.import=", "logging.level.org.example.ticketmanagement=WARN" })
@@ -192,6 +197,26 @@ class TradeLoadIT {
         seedUsersAndTokens(buyers, users, mode);
 
         var listeners = context.getBean(RabbitListenerEndpointRegistry.class);
+        LoadSqlDiagnostics diagnostics = context.getBeanProvider(LoadSqlDiagnostics.class).getIfAvailable();
+        SimpleMessageListenerContainer orderListener = listeners.getListenerContainers().stream()
+                .filter(SimpleMessageListenerContainer.class::isInstance)
+                .map(SimpleMessageListenerContainer.class::cast)
+                .filter(listener -> Arrays.asList(listener.getQueueNames()).contains("trade.order.v3"))
+                .findFirst().orElseThrow();
+
+        // 仅诊断开关允许改变建单队列并发，其他监听及业务配置保持原样。
+        int diagnosticConsumers = System.getenv().containsKey("LOAD_ORDER_CONSUMERS")
+                ? setting("LOAD_ORDER_CONSUMERS", 1) : 0;
+        if (Boolean.parseBoolean(System.getenv().getOrDefault("LOAD_DIAGNOSTICS", "false"))) {
+            assertNotNull(diagnostics, "诊断开关开启但MyBatis采集器未加载");
+        }
+        if (diagnosticConsumers > 0) {
+            assertNotNull(diagnostics, "调整建单监听并发仅用于显式诊断模式");
+            orderListener.stop();
+            orderListener.setConcurrentConsumers(diagnosticConsumers);
+            orderListener.setMaxConcurrentConsumers(diagnosticConsumers);
+            orderListener.start();
+        }
         IsolatedSecondApplication second = null;
         if (mode.equals("dual")) {
             Map<String, String> endpoints = new HashMap<>();
@@ -208,6 +233,9 @@ class TradeLoadIT {
         MeterRegistry metrics = context.getBean(MeterRegistry.class);
         double lockWaitBefore = lockWait(metrics);
         double conflictsBefore = conflicts(metrics);
+        if (diagnostics != null) {
+            diagnostics.reset();
+        }
 
         // JMeter仅发送HTTP；数据库断言在停压和收敛后独立执行。
         Path results = runDirectory.resolve("load.jtl");
@@ -257,6 +285,7 @@ class TradeLoadIT {
             int outboxAtStop = pendingOutbox();
             int emailsAtStop = pendingEmailTasks();
             int pendingAtStop = db.queryForObject("SELECT COUNT(*) FROM stock_reservation WHERE tier_id=? AND inventory_state='PENDING'", Integer.class, tierId);
+            int orderConsumersAtStop = orderListener.getActiveConsumerCount();
             if (mode.equals("recovery")) {
                 listeners.start();
             }
@@ -319,6 +348,9 @@ class TradeLoadIT {
             var releaseReasons = db.queryForList("SELECT release_reason,COUNT(*) AS requests FROM stock_reservation WHERE tier_id=? AND order_id IS NULL GROUP BY release_reason", tierId);
             Files.writeString(runDirectory.resolve("release-reasons.txt"), releaseReasons.toString(), StandardCharsets.UTF_8);
             Files.writeString(runDirectory.resolve("database-summary.txt"), "releasedWithoutOrder=" + releasedWithoutOrder + "\n", StandardCharsets.UTF_8, java.nio.file.StandardOpenOption.APPEND);
+            if (diagnostics != null) {
+                writeDiagnostics(runDirectory, diagnostics, orderListener, orderConsumersAtStop);
+            }
             boolean acceptedLoad = jmeterFailures == 0 && releasedWithoutOrder == 0;
             if (!mode.equals("duplicate")) {
                 assertEquals(acceptedResponses, accepted, summary);
@@ -390,6 +422,51 @@ class TradeLoadIT {
     private int pendingOutbox() {
         return db.queryForObject("SELECT COUNT(*) FROM message_outbox WHERE publish_status<>'PUBLISHED'",
                 Integer.class);
+    }
+
+    /** 诊断数据只含具名SQL计数和聚合耗时，不记录Token、参数或消息正文。 */
+    private void writeDiagnostics(Path directory, LoadSqlDiagnostics diagnostics,
+            SimpleMessageListenerContainer orderListener, int consumersAtStop) throws IOException {
+        assertTrue(diagnostics.snapshot().stream().anyMatch(timing -> timing.statement().endsWith(".deduct")),
+                "真实扣库存Mapper没有采集到，不能生成诊断结论");
+        diagnostics.write(directory.resolve("sql-timings.tsv"));
+
+        // 首发确认耗时与建单等待分开记录，不能把秒级退避当成Broker确认耗时。
+        List<Long> firstPublication = db.queryForList("""
+                SELECT GREATEST(0,TIMESTAMPDIFF(MICROSECOND,m.created_at,m.updated_at)/1000)
+                FROM message_outbox m JOIN stock_reservation r
+                  ON m.business_key=CONCAT('create-order:',r.id,':0')
+                WHERE r.tier_id=? AND m.publish_status='PUBLISHED'
+                ORDER BY 1
+                """, Long.class, tierId);
+        Map<String, Object> report = new LinkedHashMap<>();
+        report.put("orderConcurrentMinimum", ReflectionTestUtils.getField(orderListener, "concurrentConsumers"));
+        report.put("orderConcurrentMaximum", ReflectionTestUtils.getField(orderListener, "maxConcurrentConsumers"));
+        report.put("orderConsumersAtStop", consumersAtStop);
+        report.put("firstPublicationCount", firstPublication.size());
+        report.put("firstPublicationP95Millis", percentile(firstPublication, .95));
+        report.put("firstPublicationMaxMillis", percentile(firstPublication, 1));
+        report.put("retryDistribution", db.queryForList("""
+                SELECT task_status,retry_count,COUNT(*) AS tasks
+                FROM payment_compensation WHERE task_type='MESSAGE_RETRY'
+                GROUP BY task_status,retry_count ORDER BY task_status,retry_count
+                """));
+        report.put("outboxDistribution", db.queryForList("""
+                SELECT event_type,publish_status,COUNT(*) AS events,SUM(attempts) AS publication_retries
+                FROM message_outbox GROUP BY event_type,publish_status ORDER BY event_type,publish_status
+                """));
+
+        // 仅在停压后读取执行计划，避免诊断查询干扰发压阶段。
+        LocalDateTime now = LocalDateTime.now();
+        report.put("outboxFindDuePlan", db.queryForList("""
+                EXPLAIN SELECT * FROM message_outbox
+                WHERE (publish_status='NEW' AND next_attempt_at<=?)
+                   OR (publish_status='IN_FLIGHT' AND lease_until<=?)
+                ORDER BY next_attempt_at LIMIT 100
+                """, now, now));
+        Files.writeString(directory.resolve("load-diagnostics.json"),
+                context.getBean(ObjectMapper.class).writerWithDefaultPrettyPrinter().writeValueAsString(report),
+                StandardCharsets.UTF_8);
     }
 
     private int pendingEmailTasks() {
