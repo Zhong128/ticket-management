@@ -58,3 +58,7 @@
 - 新公网域名已由用户提供并启用：`http://a85a63aa.natappfree.cc`；已同步忽略的`.env`及`ticket-management/config/application-local.properties`中异步通知与回跳地址，密钥未修改，主配置继续引用环境变量。沙箱付款前仍需核对进入隔离18080应用。
 - 后续结果：10次/秒三轮合计8993次请求全部建单，11/17/28秒收敛；全部场景及锁配置短测通过。旧基线同环境三轮也各计8993单、零业务失败，停压收敛0秒；V5建单等待明显增加，未证明吞吐提升。完整对照见`docs/performance/results-2026-10-23-v5.md`。
 - 真实沙箱已启动，公网和本机分类接口仅返回本轮隔离分类5001，转发验证通过；当前等待人工完成`target/alipay-sandbox/refactor-payment-page.html`首笔付款。进程日志`target/resume-20261023-alipay.log`、阶段标记`target/alipay-sandbox/refactor-phase.txt`；仍未验收通过，不能沿用历史版本的渠道成绩。
+- 首次真实沙箱运行于13:09:59因10分钟内未收到成功通知而退出，未通过真实渠道验收；14:10用户反馈旧页面可能已过期。检查确认18080无服务、公网502，旧表单已超过30分钟期限。重新建立隔离订单继续验收，日志改为`target/resume-20261023-alipay-retest.log`，不延长旧订单截止时间。
+- 14:14:39真实首笔异步通知及重复通知重放通过：订单已支付、流水成功、成功审计2条、通知任务仅1条，库存3/4，Outbox清空。当前阶段WAIT_LATE_PAYMENT：第二笔本地订单已取消、流水关闭、预占RELEASED，等待作者完成`target/alipay-sandbox/refactor-late-payment-20261023-141440.html`，验证迟到收款自动退款；真实关单仍待下一步。
+- 14:17:41迟到收款及自动退款通过，真实退款查询成功，重复通知未重复回补；当前阶段WAIT_CLOSE_CONFIRMATION，等待作者打开`target/alipay-sandbox/refactor-close-20261023-141742.html`并停在未付款确认页。收到确认后才写`allow-close.signal`，由项目取消接口执行真实关单；不能将NOT_FOUND当作已存在交易关单成功。作者报告收银台付款成功后出现TRADE_STATUS_ERROR，具体页面触发点未单独定位，服务端真实退款成功已核实。
+- 14:21作者确认未付款后触发真实关单：渠道WAITING→项目取消接口成功→渠道CLOSED，本地订单取消及库存等式、Redis配额断言通过。最终阶段PASSED，`AlipaySandboxIT`1项通过、0失败、0错误，六项摘要全部passed。独立应用已退出，临时容器已回收，18080停止监听。阶段5～6验收及测量完成；40次/秒失败、吞吐未提升和收银台错误具体触发点未定位仍如实保留，后续须另行定位，不自动改业务架构。
