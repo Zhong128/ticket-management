@@ -124,6 +124,7 @@ class TradeLoadIT {
     @Autowired
     Environment environment;
     private int tierId = 4000;
+    private int lastTierId = 4000;
     private int userSequence;
 
     @Test
@@ -179,7 +180,9 @@ class TradeLoadIT {
         when(gateway.close(anyString())).thenReturn(true);
 
         int threads = setting("LOAD_THREADS", 60);
-        tierId++;
+        tierId = lastTierId + 1;
+        boolean multiTier = mode.contains("multi");
+        lastTierId = multiTier ? tierId + 2 : tierId;
         var seckill = context.getBean(SeckillServiceImpl.class);
         ReflectionTestUtils.setField(seckill, "segments", segments);
         ReflectionTestUtils.setField(seckill, "lockingEnabled", locking);
@@ -192,8 +195,13 @@ class TradeLoadIT {
         Files.createDirectories(runDirectory);
 
         // 只在 Testcontainers 的新库中准备足够的库存和不同用户。
-        seedSale(mode.equals("soldout") ? 30 : buyers * 3 + 1000);
-        context.getBean(StockServiceImpl.class).prepare(tierId);
+        int firstTier = tierId;
+        for (int current = firstTier; current <= lastTierId; current++) {
+            tierId = current;
+            seedSale(mode.equals("soldout") ? 30 : buyers * 3 + 1000);
+            context.getBean(StockServiceImpl.class).prepare(tierId);
+        }
+        tierId = firstTier;
         Path users = runDirectory.resolve("test-users.csv");
         seedUsersAndTokens(buyers, users, mode);
 
@@ -219,7 +227,7 @@ class TradeLoadIT {
             orderListener.start();
         }
         IsolatedSecondApplication second = null;
-        if (mode.equals("dual")) {
+        if (mode.startsWith("dual")) {
             Map<String, String> endpoints = new HashMap<>();
             for (String name : List.of("spring.datasource.url", "spring.datasource.username", "spring.datasource.password",
                     "spring.rabbitmq.host", "spring.rabbitmq.port", "spring.rabbitmq.username", "spring.rabbitmq.password",
@@ -272,7 +280,8 @@ class TradeLoadIT {
             int elapsedColumn = columns.indexOf("elapsed");
             int timestampColumn = columns.indexOf("timeStamp");
             long jmeterFailures = samples.stream().filter(row -> !row[successColumn].equals("true")).count();
-            var reservations = samples.stream().filter(row -> row[labelColumn].equals("reserve")).toList();
+            var reservations = samples.stream().filter(row -> row[labelColumn].equals("reserve")
+                    || row[labelColumn].startsWith("reserve-tier-")).toList();
             long jmeterSamples = reservations.size();
             long acceptedResponses = reservations.stream().filter(row -> row[messageColumn].equals("ACCEPTED")).count();
             long rejectedResponses = reservations.stream().filter(row -> row[messageColumn].equals("SOLD_OUT")).count();
@@ -285,7 +294,7 @@ class TradeLoadIT {
             // 记录停压时的积压，再等待建单消息及订单通知收敛。
             int outboxAtStop = pendingOutbox();
             int emailsAtStop = pendingEmailTasks();
-            int pendingAtStop = db.queryForObject("SELECT COUNT(*) FROM stock_reservation WHERE tier_id=? AND inventory_state='PENDING'", Integer.class, tierId);
+            int pendingAtStop = db.queryForObject("SELECT COUNT(*) FROM stock_reservation WHERE tier_id BETWEEN ? AND ? AND inventory_state='PENDING'", Integer.class, tierId, lastTierId);
             int orderConsumersAtStop = orderListener.getActiveConsumerCount();
             if (mode.equals("recovery")) {
                 listeners.start();
@@ -307,21 +316,24 @@ class TradeLoadIT {
                     + "GROUP BY t.id,t.total_stock,t.available_stock HAVING t.total_stock<>t.available_stock+"
                     + "COALESCE(SUM(CASE WHEN r.inventory_state='HELD' "
                     + "THEN r.quantity ELSE 0 END),0)) v", Integer.class);
-            int accepted = db.queryForObject("SELECT COUNT(*) FROM stock_reservation WHERE tier_id=?", Integer.class, tierId);
-            int orders = db.queryForObject("SELECT COUNT(*) FROM order_info WHERE tier_id=?", Integer.class, tierId);
+            int accepted = db.queryForObject("SELECT COUNT(*) FROM stock_reservation WHERE tier_id BETWEEN ? AND ?", Integer.class, tierId, lastTierId);
+            int orders = db.queryForObject("SELECT COUNT(*) FROM order_info WHERE tier_id BETWEEN ? AND ?", Integer.class, tierId, lastTierId);
             int manualEmails = db.queryForObject("SELECT COUNT(*) FROM payment_compensation "
                     + "WHERE task_type IN ('EMAIL_ORDER','EMAIL_PAYMENT') AND task_status=3", Integer.class);
             int pendingEmails = pendingEmailTasks();
 
-            int paidOrders = db.queryForObject("SELECT COUNT(*) FROM order_info WHERE tier_id=? AND order_status=1", Integer.class, tierId);
-            int canceledOrders = db.queryForObject("SELECT COUNT(*) FROM order_info WHERE tier_id=? AND order_status=2", Integer.class, tierId);
-            int databaseStock = db.queryForObject("SELECT available_stock FROM ticket_tier WHERE id=?", Integer.class, tierId);
-            int pendingQuantity = db.queryForObject("SELECT COALESCE(SUM(quantity),0) FROM stock_reservation WHERE tier_id=? AND inventory_state='PENDING'", Integer.class, tierId);
-            int redisQuota = context.getBean(StockServiceImpl.class).getStock((long) tierId);
+            int paidOrders = db.queryForObject("SELECT COUNT(*) FROM order_info WHERE tier_id BETWEEN ? AND ? AND order_status=1", Integer.class, tierId, lastTierId);
+            int canceledOrders = db.queryForObject("SELECT COUNT(*) FROM order_info WHERE tier_id BETWEEN ? AND ? AND order_status=2", Integer.class, tierId, lastTierId);
+            int databaseStock = db.queryForObject("SELECT SUM(available_stock) FROM ticket_tier WHERE id BETWEEN ? AND ?", Integer.class, tierId, lastTierId);
+            int pendingQuantity = db.queryForObject("SELECT COALESCE(SUM(quantity),0) FROM stock_reservation WHERE tier_id BETWEEN ? AND ? AND inventory_state='PENDING'", Integer.class, tierId, lastTierId);
+            int redisQuota = 0;
+            for (int current = tierId; current <= lastTierId; current++) {
+                redisQuota += context.getBean(StockServiceImpl.class).getStock((long) current);
+            }
             int quotaDifference = redisQuota - (databaseStock - pendingQuantity);
-            int duplicateGuards = db.queryForObject("SELECT COUNT(*) FROM (SELECT user_id FROM stock_reservation WHERE tier_id=? AND status<>'RELEASED' GROUP BY user_id HAVING COUNT(*)>1) x", Integer.class, tierId);
+            int duplicateGuards = db.queryForObject("SELECT COUNT(*) FROM (SELECT user_id,tier_id FROM stock_reservation WHERE tier_id BETWEEN ? AND ? AND status<>'RELEASED' GROUP BY user_id,tier_id HAVING COUNT(*)>1) x", Integer.class, tierId, lastTierId);
             int manualRetries = db.queryForObject("SELECT COUNT(*) FROM payment_compensation WHERE task_type='MESSAGE_RETRY' AND task_status=3", Integer.class);
-            List<Long> orderLatency = db.queryForList("SELECT GREATEST(0,TIMESTAMPDIFF(MICROSECOND,r.create_time,o.create_time)/1000) FROM stock_reservation r JOIN order_info o ON o.id=r.order_id WHERE r.tier_id=? ORDER BY 1", Long.class, tierId);
+            List<Long> orderLatency = db.queryForList("SELECT GREATEST(0,TIMESTAMPDIFF(MICROSECOND,r.create_time,o.create_time)/1000) FROM stock_reservation r JOIN order_info o ON o.id=r.order_id WHERE r.tier_id BETWEEN ? AND ? ORDER BY 1", Long.class, tierId, lastTierId);
             String summary = "mode=" + mode + "\nround=" + round + "\nlocking=" + locking + "\nsegments=" + segments
                     + "\nactualSeconds=" + actualSeconds + "\nacceptedResponses=" + acceptedResponses
                     + "\nexpectedSoldOutResponses=" + rejectedResponses
@@ -345,12 +357,16 @@ class TradeLoadIT {
                     + "\nmanualEmails=" + manualEmails + "\npendingEmails=" + pendingEmails
                     + "\ninvalidStock=" + invalidStock + "\ninvalidBalance=" + invalidBalance + "\n";
             Files.writeString(runDirectory.resolve("database-summary.txt"), summary, StandardCharsets.UTF_8);
-            int releasedWithoutOrder = db.queryForObject("SELECT COUNT(*) FROM stock_reservation WHERE tier_id=? AND inventory_state='RELEASED' AND order_id IS NULL", Integer.class, tierId);
-            var releaseReasons = db.queryForList("SELECT release_reason,COUNT(*) AS requests FROM stock_reservation WHERE tier_id=? AND order_id IS NULL GROUP BY release_reason", tierId);
+            int releasedWithoutOrder = db.queryForObject("SELECT COUNT(*) FROM stock_reservation WHERE tier_id BETWEEN ? AND ? AND inventory_state='RELEASED' AND order_id IS NULL", Integer.class, tierId, lastTierId);
+            var releaseReasons = db.queryForList("SELECT release_reason,COUNT(*) AS requests FROM stock_reservation WHERE tier_id BETWEEN ? AND ? AND order_id IS NULL GROUP BY release_reason", tierId, lastTierId);
             Files.writeString(runDirectory.resolve("release-reasons.txt"), releaseReasons.toString(), StandardCharsets.UTF_8);
             Files.writeString(runDirectory.resolve("database-summary.txt"), "releasedWithoutOrder=" + releasedWithoutOrder + "\n", StandardCharsets.UTF_8, java.nio.file.StandardOpenOption.APPEND);
             if (diagnostics != null) {
                 writeDiagnostics(runDirectory, diagnostics, orderListener, orderConsumersAtStop);
+            }
+            if (multiTier) {
+                writeTierResults(runDirectory, reservations, labelColumn, elapsedColumn, successColumn,
+                        mode.startsWith("dual"));
             }
             boolean acceptedLoad = jmeterFailures == 0 && releasedWithoutOrder == 0;
             if (!mode.equals("duplicate")) {
@@ -376,6 +392,14 @@ class TradeLoadIT {
             }
             if (second != null) {
                 second.close();
+                if (multiTier) {
+                    Path secondMetrics = runDirectory.resolve("second-application/runtime-metrics.json");
+                    assertTrue(Files.isRegularFile(secondMetrics),
+                            "第二应用必须保存自己的指标，不能只以主应用结果代替双实例结果");
+                    var node = context.getBean(ObjectMapper.class).readTree(Files.readString(secondMetrics));
+                    assertTrue(node.path("orderLockWaitSeconds").asDouble() > 0,
+                            "第二应用必须实际参与建单，不能仅启动后接收HTTP请求");
+                }
             }
         }
     }
@@ -410,7 +434,8 @@ class TradeLoadIT {
 
                 // 使用项目原有 Sa-Token 建立真实 Redis 登录会话。
                 String token = StpUtil.createLoginSession(userId);
-                String row = token + "," + tierId + ",load-" + userId + "," + i + ","
+                int targetTier = mode.contains("multi") ? LoadTierTraffic.targetTier(tierId, i) : tierId;
+                String row = token + "," + targetTier + ",load-" + userId + "," + i + ","
                         + (mode.equals("mixed") ? i % 5 + 1 : 1) + "\n";
                 writer.write(row);
                 if (mode.equals("duplicate")) {
@@ -437,9 +462,9 @@ class TradeLoadIT {
                 SELECT GREATEST(0,TIMESTAMPDIFF(MICROSECOND,m.created_at,m.updated_at)/1000)
                 FROM message_outbox m JOIN stock_reservation r
                   ON m.business_key=CONCAT('create-order:',r.id,':0')
-                WHERE r.tier_id=? AND m.publish_status='PUBLISHED'
+                WHERE r.tier_id BETWEEN ? AND ? AND m.publish_status='PUBLISHED'
                 ORDER BY 1
-                """, Long.class, tierId);
+                """, Long.class, tierId, lastTierId);
         Map<String, Object> report = new LinkedHashMap<>();
         // 建单锁单列指标，不与入口用户分段锁等待混淆。
         OrderCreationCoordinator coordinator = context.getBean(OrderCreationCoordinator.class);
@@ -485,12 +510,71 @@ class TradeLoadIT {
     }
 
     private boolean quotaConverged() {
-        int available = db.queryForObject("SELECT available_stock FROM ticket_tier WHERE id=?", Integer.class, tierId);
-        int pending = db.queryForObject("SELECT COALESCE(SUM(quantity),0) FROM stock_reservation WHERE tier_id=? AND inventory_state='PENDING'", Integer.class, tierId);
-        try {
-            return context.getBean(StockServiceImpl.class).getStock((long) tierId) == available - pending;
-        } catch (IllegalStateException recovering) {
-            return false;
+        for (int current = tierId; current <= lastTierId; current++) {
+            int available = db.queryForObject("SELECT available_stock FROM ticket_tier WHERE id=?", Integer.class, current);
+            int pending = db.queryForObject("SELECT COALESCE(SUM(quantity),0) FROM stock_reservation WHERE tier_id=? AND inventory_state='PENDING'", Integer.class, current);
+            try {
+                if (context.getBean(StockServiceImpl.class).getStock((long) current) != available - pending) {
+                    return false;
+                }
+            } catch (IllegalStateException recovering) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** 分票档断言，防止总量正确却隐藏普通票档饥饿或不同票档配额差额抵消。 */
+    private void writeTierResults(Path directory, List<String[]> samples, int labelColumn,
+            int elapsedColumn, int successColumn, boolean dual) throws IOException {
+        List<Map<String, Object>> reports = new ArrayList<>();
+        for (int current = tierId; current <= lastTierId; current++) {
+            String prefix = "reserve-tier-" + current + "-node-";
+            List<String[]> selected = samples.stream().filter(row -> row[labelColumn].startsWith(prefix)).toList();
+            List<Long> httpLatency = selected.stream().map(row -> Long.parseLong(row[elapsedColumn])).sorted().toList();
+            List<Long> orderLatency = db.queryForList("""
+                    SELECT GREATEST(0,TIMESTAMPDIFF(MICROSECOND,r.create_time,o.create_time)/1000)
+                    FROM stock_reservation r JOIN order_info o ON o.id=r.order_id
+                    WHERE r.tier_id=? ORDER BY 1
+                    """, Long.class, current);
+            int accepted = db.queryForObject("SELECT COUNT(*) FROM stock_reservation WHERE tier_id=?", Integer.class, current);
+            int orders = db.queryForObject("SELECT COUNT(*) FROM order_info WHERE tier_id=?", Integer.class, current);
+            int available = db.queryForObject("SELECT available_stock FROM ticket_tier WHERE id=?", Integer.class, current);
+            int quota = context.getBean(StockServiceImpl.class).getStock((long) current);
+            long failures = selected.stream().filter(row -> !row[successColumn].equals("true")).count();
+            long firstNode = selected.stream().filter(row -> row[labelColumn].endsWith("-node-0")).count();
+            long secondNode = selected.size() - firstNode;
+            Map<String, Object> report = new LinkedHashMap<>();
+            report.put("tierId", current);
+            report.put("kind", current == tierId ? "HOT" : "NORMAL");
+            report.put("requests", selected.size());
+            report.put("failures", failures);
+            report.put("httpP95Millis", percentile(httpLatency, .95));
+            report.put("httpP99Millis", percentile(httpLatency, .99));
+            report.put("orderP95MillisCoarse", percentile(orderLatency, .95));
+            report.put("orderMaxMillisCoarse", percentile(orderLatency, 1));
+            report.put("accepted", accepted);
+            report.put("orders", orders);
+            report.put("databaseStock", available);
+            report.put("redisQuota", quota);
+            report.put("firstTargetRequests", firstNode);
+            report.put("secondTargetRequests", secondNode);
+            reports.add(report);
+        }
+        Files.writeString(directory.resolve("tier-results.json"), context.getBean(ObjectMapper.class)
+                .writerWithDefaultPrettyPrinter().writeValueAsString(reports), StandardCharsets.UTF_8);
+
+        // 每个普通票档必须真实受理并落单；双节点模式还必须覆盖各票档的两个HTTP入口。
+        for (Map<String, Object> report : reports) {
+            assertTrue(((Number) report.get("requests")).intValue() > 0, report.toString());
+            assertEquals(0L, report.get("failures"), report.toString());
+            assertEquals(((Number) report.get("requests")).intValue(), report.get("accepted"), report.toString());
+            assertEquals(report.get("accepted"), report.get("orders"), report.toString());
+            assertEquals(report.get("databaseStock"), report.get("redisQuota"), report.toString());
+            if (dual) {
+                assertTrue(((Number) report.get("firstTargetRequests")).longValue() > 0, report.toString());
+                assertTrue(((Number) report.get("secondTargetRequests")).longValue() > 0, report.toString());
+            }
         }
     }
 

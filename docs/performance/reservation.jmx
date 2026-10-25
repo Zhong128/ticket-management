@@ -39,6 +39,9 @@
           <JSR223Assertion guiclass="TestBeanGUI" testclass="JSR223Assertion" testname="Assert business acceptance, not only HTTP 200">
             <stringProp name="scriptLanguage">groovy</stringProp><stringProp name="cacheKey">true</stringProp><stringProp name="script"><![CDATA[
 def result = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString())
+if ((props.get('mode') ?: '').contains('multi')) {
+  prev.setSampleLabel('reserve-tier-' + vars.get('tierId') + '-node-' + (vars.get('userIndex').toInteger() % 2))
+}
 vars.put('requestId', result.data?.requestId?.toString() ?: '')
 vars.put('orderId', '')
 if (result.code == 1 && result.data?.requestId) {

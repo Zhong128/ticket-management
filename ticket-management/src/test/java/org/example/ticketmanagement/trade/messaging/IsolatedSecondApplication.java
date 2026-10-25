@@ -1,5 +1,8 @@
 package org.example.ticketmanagement.trade.messaging;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.MeterRegistry;
+
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import com.alipay.api.AlipayClient;
@@ -26,6 +29,7 @@ import static org.mockito.Mockito.*;
 /** 第二个独立JVM，端口动态分配，只连接调用方提供的临时中间件。 */
 final class IsolatedSecondApplication implements AutoCloseable {
     private final Process process;
+    private final Path stopFile;
     final int port;
 
     IsolatedSecondApplication(Map<String, String> endpoints, Path directory) throws Exception {
@@ -40,7 +44,10 @@ final class IsolatedSecondApplication implements AutoCloseable {
             values.store(writer, "Disposable test endpoints only");
         }
         Path portFile = directory.resolve("port.txt").toAbsolutePath();
+        stopFile = directory.resolve("stop.signal").toAbsolutePath();
         Files.deleteIfExists(portFile);
+        Files.deleteIfExists(stopFile);
+        Files.deleteIfExists(directory.resolve("runtime-metrics.json"));
         Path arguments = directory.resolve("java.args").toAbsolutePath();
         String classpath = System.getProperty("surefire.test.class.path", System.getProperty("java.class.path"));
         Files.writeString(arguments, "-Djdk.net.unixdomain.tmpdir=" + Path.of("target").toAbsolutePath().toString().replace("\\", "/") + "\n-cp\n\"" + classpath.replace("\\", "/") + "\"\n"
@@ -62,9 +69,16 @@ final class IsolatedSecondApplication implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
-        process.destroy();
-        if (!process.waitFor(15, TimeUnit.SECONDS)) {
-            process.destroyForcibly().waitFor();
+        // Windows的destroy可能直接终止JVM；用本地信号请求保存指标并正常关闭。
+        try {
+            if (process.isAlive()) {
+                Files.writeString(stopFile, "stop", StandardCharsets.UTF_8);
+            }
+            process.waitFor(15, TimeUnit.SECONDS);
+        } finally {
+            if (process.isAlive()) {
+                process.destroyForcibly().waitFor();
+            }
         }
     }
 
@@ -72,7 +86,22 @@ final class IsolatedSecondApplication implements AutoCloseable {
         String[] springArguments = Arrays.copyOfRange(args, 1, args.length);
         var context = (ServletWebServerApplicationContext) SpringApplication.run(
                 new Class<?>[] {TicketManagementApplication.class, Channels.class}, springArguments);
+        // 保存第二个JVM自己的指标，在正常关闭前读取，不依赖Windows终止进程时的钩子。
+        MeterRegistry registry = context.getBean(MeterRegistry.class);
+        var conflicts = registry.counter("seckill.stock.optimistic.conflicts");
+        var busy = registry.counter("seckill.order.lock.busy");
+        var wait = registry.timer("seckill.order.lock.wait");
+        var releaseFailures = registry.counter("seckill.order.lock.release.failures");
+        Path metricsFile = Path.of(args[0]).getParent().resolve("runtime-metrics.json");
         Files.writeString(Path.of(args[0]), Integer.toString(context.getWebServer().getPort()));
+        while (!Files.exists(Path.of(args[0]).getParent().resolve("stop.signal"))) {
+            Thread.sleep(100);
+        }
+        Files.writeString(metricsFile, new ObjectMapper().writeValueAsString(Map.of(
+                "optimisticConflicts", conflicts.count(), "orderLockBusy", busy.count(),
+                "orderLockWaitSeconds", wait.totalTime(TimeUnit.SECONDS),
+                "orderLockReleaseFailures", releaseFailures.count())), StandardCharsets.UTF_8);
+        context.close();
     }
 
     @TestConfiguration
