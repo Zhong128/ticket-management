@@ -93,7 +93,7 @@ public class AuthController {
             }
 
             // 完成注册并登录
-            LoginInfo loginInfo = authService.completeRegistrationWithCode(dto.getEmail());
+            LoginInfo loginInfo = authService.completeRegistrationWithCode(dto.getEmail(), dto.getPassword());
 
             return Result.success("注册成功", loginInfo);
         } catch (RuntimeException e) {

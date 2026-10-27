@@ -3,6 +3,7 @@ package org.example.ticketmanagement.dto;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import jakarta.validation.constraints.Size;
 import org.example.ticketmanagement.pojo.PageQuery;
 
 /**
@@ -11,6 +12,8 @@ import org.example.ticketmanagement.pojo.PageQuery;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class EventQueryDTO extends PageQuery {
+    @Size(max = 100, message = "搜索关键词最多100字")
+    private String keyword;        // 同时检索演出名称或艺人名称
     private String name;           // 演出名称（模糊查询）
     private String artistName;     // 艺人名称（模糊查询）
     private Long categoryId;       // 分类ID

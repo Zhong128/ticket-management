@@ -131,7 +131,7 @@ public class UserAddressServiceImpl implements UserAddressService {
 
             // 设置默认值
             if (userAddressDTO.getIsDefault() == null) {
-                userAddressDTO.setIsDefault(0); // 新增的地址默认不为默认地址
+                userAddressDTO.setIsDefault(existingAddress.getIsDefault()); // 编辑时保留已有默认标记
             }
 
             // 验证必要字段

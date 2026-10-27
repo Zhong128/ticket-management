@@ -4,12 +4,22 @@ import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.stp.StpUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.pojo.Result;
 import org.example.ticketmanagement.serviceimpl.CustomerServiceTools;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.support.ToolCallbacks;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Arrays;
+import java.util.Set;
 
 @Slf4j
 @RestController
@@ -19,65 +29,62 @@ import org.springframework.web.bind.annotation.*;
 @SaCheckLogin
 public class AiCustomerServiceController {
 
+    private static final Set<String> QUERY_TOOLS = Set.of(
+            "queryEventsByCity", "queryEventsByArtist", "getEventDetail", "getSessionDetail",
+            "getUserProfile", "getUserAddresses", "getUserOrders", "checkSeckillQualification");
+
     private final ChatClient chatClient;
     private final CustomerServiceTools customerServiceTools;
+    private final ChatMemory chatMemory;
 
-    /**
-     * 发送消息给AI客服
-     */
+    @Value("${customer-service.enabled:true}")
+    private boolean enabled = true;
+
     @Operation(summary = "发送消息", tags = {"AI智能客服"})
     @PostMapping("/chat")
-    public Result<String> chat(@RequestBody ChatRequest request) {
-        log.info("用户咨询AI客服: userId={}, message={}",
-                StpUtil.getLoginIdAsLong(), request.message);
-
+    public Result<String> chat(@Valid @RequestBody ChatRequest request) {
+        if (!enabled) {
+            return Result.error(503, "智能客服功能维护中，请稍后再试");
+        }
+        long userId = StpUtil.getLoginIdAsLong();
+        log.info("用户咨询AI客服: userId={}, messageLength={}", userId, request.message.length());
         try {
             String response = chatClient.prompt()
                     .user(request.message)
-                    .tools(customerServiceTools)
+                    .toolCallbacks(Arrays.stream(ToolCallbacks.from(customerServiceTools))
+                            .filter(tool -> QUERY_TOOLS.contains(tool.getToolDefinition().name()))
+                            .toArray(ToolCallback[]::new))
+                    .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, "user_" + userId))
                     .call()
                     .content();
-
-            log.info("AI客服回复成功");
-            return Result.success(response);
+            return Result.success("回复成功", response);
         } catch (Exception e) {
-            log.error("AI客服对话失败", e);
+            log.error("AI客服对话失败: userId={}", userId, e);
             return Result.error("智能客服暂时不可用，请稍后重试");
         }
     }
 
-    /**
-     * 清空对话历史
-     */
     @Operation(summary = "清空对话历史", tags = {"AI智能客服"})
     @DeleteMapping("/clear-history")
     public Result<Void> clearHistory() {
-        log.info("用户清空对话历史");
-
+        long userId = StpUtil.getLoginIdAsLong();
         try {
-            long userId = StpUtil.getLoginIdAsLong();
-            String conversationId = "user_" + userId;
-
-            chatClient.prompt()
-                    .system("")
-                    .user("clear")
-                    .advisors(advisorSpec -> advisorSpec.param(
-                            "chat_memory_conversation_id",
-                            conversationId
-                    ))
-                    .call();
-
+            // 仅清除本人记忆，不调用外部模型。
+            chatMemory.clear("user_" + userId);
             return Result.success("对话历史已清空");
         } catch (Exception e) {
-            log.error("清空对话历史失败", e);
+            log.error("清空对话历史失败: userId={}", userId, e);
             return Result.error("操作失败");
         }
     }
 
     public static class ChatRequest {
+        @NotBlank(message = "咨询内容不能为空")
+        @Size(max = 2000, message = "咨询内容不能超过2000字")
         public String message;
 
-        public ChatRequest() {}
+        public ChatRequest() {
+        }
 
         public ChatRequest(String message) {
             this.message = message;

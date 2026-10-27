@@ -37,6 +37,7 @@ public class PaymentServiceImpl implements PaymentService {
         result.setTotalAmount(p.getTotalAmount());
         result.setExpireTime(p.getExpireTime().toString());
         result.setQrCode(created.page());
+        result.setPaymentPageHtml(created.page());
         return result;
     }
 

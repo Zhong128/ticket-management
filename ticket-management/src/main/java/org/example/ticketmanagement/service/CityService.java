@@ -44,6 +44,9 @@ public interface CityService {
      * @return 城市视图对象列表
      */
     List<CityVO> getAllCities();
+
+    /** 获取前台可选的启用城市。 */
+    List<CityVO> getEnabledCities();
     /**
      * 根据城市名称查询城市信息
      */

@@ -1,0 +1,2 @@
+-- SUPER_ADMIN需要11个字符；仅扩宽角色列，保留原默认值与可空语义。
+ALTER TABLE user MODIFY COLUMN role VARCHAR(20) DEFAULT 'USER';

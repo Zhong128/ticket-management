@@ -1,0 +1,56 @@
+name: youxi-local
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: youxi-local-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${YOUXI_LOCAL_DB_PASSWORD:?Run scripts/start-local.ps1 first}
+      MYSQL_DATABASE: youxi_local
+      TZ: Asia/Shanghai
+    ports:
+      - "127.0.0.1:3308:3306"
+    volumes:
+      - youxi-mysql:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h localhost -u root --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+  redis:
+    image: redis:7-alpine
+    container_name: youxi-local-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6381:6379"
+    volumes:
+      - youxi-redis:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: youxi-local-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: youxi
+      RABBITMQ_DEFAULT_PASS: ${YOUXI_LOCAL_MQ_PASSWORD:?Run scripts/start-local.ps1 first}
+      RABBITMQ_DEFAULT_VHOST: /youxi
+    ports:
+      - "127.0.0.1:5673:5672"
+      - "127.0.0.1:15673:15672"
+    volumes:
+      - youxi-rabbitmq:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+volumes:
+  youxi-mysql:
+  youxi-redis:
+  youxi-rabbitmq:

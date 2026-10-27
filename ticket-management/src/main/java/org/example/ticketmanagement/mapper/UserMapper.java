@@ -2,6 +2,8 @@ package org.example.ticketmanagement.mapper;
 
 import org.apache.ibatis.annotations.*;
 import org.example.ticketmanagement.mapper.provider.UserSqlProvider;
+import org.example.ticketmanagement.dto.UserProfileDTO;
+import java.time.LocalDateTime;
 import org.example.ticketmanagement.pojo.User;
 import org.example.ticketmanagement.pojo.UserAddress;
 import org.example.ticketmanagement.pojo.UserQuery;
@@ -13,6 +15,14 @@ import java.util.List;
  */
 @Mapper
 public interface UserMapper {
+    /** 显式本地初始化时只新增管理员，用户名冲突由唯一约束拒绝。 */
+    @Insert("""
+            INSERT INTO user(username, password, email, nickname, role, status, create_time, update_time)
+            VALUES(#{username}, #{password}, #{email}, #{nickname}, 'ADMIN', 1, #{createTime}, #{updateTime})
+            """)
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insertLocalAdmin(User user);
+
     /**
      * 根据ID查询用户
      *
@@ -39,9 +49,9 @@ public interface UserMapper {
     void addUser(User user);
 
     /**
-     * 根据id删除用户
+     * 按id删除普通用户，SQL条件阻止删除管理员。
      */
-    @Delete("delete from user where id=#{id}")
+    @Delete("delete from user where id=#{id} AND role NOT IN ('ADMIN', 'SUPER_ADMIN')")
     void deleteUserById(Long id);
 
     /**
@@ -49,6 +59,58 @@ public interface UserMapper {
      */
     @Update("update user set username=#{username},password=#{password},email=#{email},phone=#{phone},nickname=#{nickname},avatar=#{avatar},real_name=#{realName},id_card=#{idCard},gender=#{gender},birthday=#{birthday},status=#{status},last_login_ip=#{lastLoginIp} where id=#{id}")
     void updateUser(User user);
+
+    /**
+     * 仅更新允许编辑的资料列，不覆盖并发改密或账户状态，空值保留原列。
+     */
+    @Update("""
+            UPDATE user
+            SET username = COALESCE(#{profile.username}, username),
+                email = COALESCE(#{profile.email}, email),
+                phone = COALESCE(#{profile.phone}, phone),
+                nickname = COALESCE(#{profile.nickname}, nickname),
+                avatar = COALESCE(#{profile.avatar}, avatar),
+                real_name = COALESCE(#{profile.realName}, real_name),
+                gender = COALESCE(#{profile.gender}, gender),
+                birthday = COALESCE(#{profile.birthday}, birthday),
+                update_time = #{updatedAt}
+            WHERE id = #{id}
+            """)
+    int updateProfile(@Param("id") Long id, @Param("profile") UserProfileDTO profile,
+                      @Param("updatedAt") LocalDateTime updatedAt);
+
+    /**
+     * 仅更新允许编辑的资料列，不覆盖并发改密或账户状态，空值保留原列。
+     */
+    @Update("""
+            UPDATE user
+            SET username = COALESCE(#{profile.username}, username),
+                email = COALESCE(#{profile.email}, email),
+                phone = COALESCE(#{profile.phone}, phone),
+                nickname = COALESCE(#{profile.nickname}, nickname),
+                avatar = COALESCE(#{profile.avatar}, avatar),
+                real_name = COALESCE(#{profile.realName}, real_name),
+                gender = COALESCE(#{profile.gender}, gender),
+                birthday = COALESCE(#{profile.birthday}, birthday),
+                update_time = #{updatedAt}
+            WHERE id = #{id} AND role NOT IN ('ADMIN', 'SUPER_ADMIN')
+            """)
+    int updateAdminProfile(@Param("id") Long id, @Param("profile") UserProfileDTO profile,
+                      @Param("updatedAt") LocalDateTime updatedAt);
+
+    /** 只更新密码与修改时间，避免旧用户快照覆盖并发禁用和资料变更。 */
+    @Update("""
+            UPDATE user
+            SET password=#{password}, update_time=#{now}
+            WHERE id=#{id}
+            """)
+    int updatePassword(@Param("id") Long id, @Param("password") String password,
+                       @Param("now") LocalDateTime now);
+
+    /** 仅更新普通用户状态，不回写密码和资料快照。 */
+    @Update("UPDATE user SET status=#{status}, update_time=#{now} WHERE id=#{id} AND role NOT IN ('ADMIN','SUPER_ADMIN')")
+    int updateOrdinaryUserStatus(@Param("id") Long id, @Param("status") Integer status,
+                                 @Param("now") LocalDateTime now);
 
     /**
      * 用户注册

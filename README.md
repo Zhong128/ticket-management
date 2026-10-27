@@ -1,13 +1,19 @@
-# Ticket Management：纯后端票务系统
+# Ticket Management：票务系统
+
+本机启动补充：8082被QQ占用时，一键脚本现在自动选择空闲端口，当前完整入口为 **http://127.0.0.1:8083**；以启动窗口最终地址为准，前端开发代理会在重启Vite后跟随实际端口。
 
 这是一个以演出上架、用户抢票和订单支付为主线的 Java 后端项目。管理员维护城市、分类、演出、场次和票档；用户登录后发起抢票，系统异步建单，并处理付款、取消、超时释放、迟到付款退款及邮件通知。
 
-项目使用 Java 21、Spring Boot 3.5.8、MyBatis、MySQL、Redis／Redisson、RabbitMQ 和 Sa-Token。支付宝 SDK 用于沙箱支付、查单、关单与退款；Spring Mail 用于通知。Flyway 是显式迁移工具，H2 和 Testcontainers 只用于测试；业务数据库访问统一走 MyBatis Mapper。仓库只有后端服务，没有前端售票页面。
+后端使用 Java 21、Spring Boot 3.5.8、MyBatis、MySQL、Redis／Redisson、RabbitMQ 和 Sa-Token。支付宝 SDK 用于沙箱支付、查单、关单与退款；Spring Mail 用于通知。Flyway 是显式迁移工具，H2 和 Testcontainers 只用于测试；业务数据库访问统一走 MyBatis Mapper。
+
+用户端前端位于 `frontend/`，使用 Vue 3、TypeScript 和 Vite，包含浏览、登录、购票、订单及个人中心。完整本地版当前访问 **http://127.0.0.1:8083**（以启动脚本最终地址为准），双击 `start-local.cmd` 可启动，前端已打包进后端 JAR。使用独立持久库启用交易，不迁移原库；客服当前按要求显示维护提示。启动、账号位置和真实渠道验收边界见[完整本地运行版](docs/local-usable-version.md)，页面与接口见[前端验收说明](docs/frontend-acceptance.md)和[接口说明](docs/frontend-api.md)，阶段计划见[前端计划](docs/frontend-plan.md)。海报来自公开来源，演示排期、票价和库存不代表官方售票信息。
 
 ## 从哪里开始
 
 | 目的 | 文档 |
 |---|---|
+| 使用管理端、初始化本地管理员、理解后台页面 | [管理端使用与源码导读](docs/admin-guide.md)、[后台接口](docs/admin-api.md) |
+| 学习前端目录、Vue基础和页面到接口的关系 | [前端入门阅读指南](docs/frontend-learning-guide.md) |
 | 配置、构建和启动 | [模块 README](ticket-management/README.md) |
 | 理解目录、模块职责和完整交易链路 | [项目导读](docs/project-walkthrough.md) |
 | 按步骤复现售票与异常分支、核对当前验收范围 | [验收清单](docs/acceptance-checklist.md) |

@@ -20,6 +20,14 @@ test-users*.csv
 **/logs/
 **/uploads/
 *.log
+**/node_modules/
+/frontend/dist/
+/frontend/test-results/
+/frontend/test-results-live/
+/frontend/test-results-admin*/
+/frontend/playwright-report/
+**/*.tsbuildinfo
+/output/
 
 # Keep database initialization SQL, not live middleware data
 /ticket-management/docker-data/*

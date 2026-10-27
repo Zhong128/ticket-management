@@ -1,6 +1,7 @@
 package org.example.ticketmanagement.serviceimpl;
 
 import lombok.extern.slf4j.Slf4j;
+import org.example.ticketmanagement.dto.AdminUserDTO;
 import org.example.ticketmanagement.constant.OrderConstant;
 import org.example.ticketmanagement.mapper.OrderInfoMapper;
 import org.example.ticketmanagement.mapper.UserAddressMapper;
@@ -13,6 +14,7 @@ import org.example.ticketmanagement.pojo.UserQuery;
 import org.example.ticketmanagement.service.OrderService;
 import org.example.ticketmanagement.service.UserService;
 import org.example.ticketmanagement.dto.UserDTO;
+import org.example.ticketmanagement.dto.UserProfileDTO;
 import org.example.ticketmanagement.vo.UserVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -75,7 +77,7 @@ public class UserServiceImpl implements UserService {
             }
 
             // 检查是否为管理员（可选：防止删除管理员）
-            if ("ADMIN".equals(existingUser.getRole())) {
+            if (isAdmin(existingUser)) {
                 log.warn("删除用户失败，不能删除管理员账户，ID: {}", id);
                 throw new RuntimeException("不能删除管理员账户");
             }
@@ -93,6 +95,78 @@ public class UserServiceImpl implements UserService {
         } catch (Exception e) {
             log.error("删除用户异常: {}", e.getMessage(), e);
             throw new RuntimeException("删除用户失败");
+        }
+    }
+
+    @Override
+    @Transactional
+    public boolean updateProfile(Long userId, UserProfileDTO profile) {
+        User user = userMapper.getUserById(userId);
+        if (user == null) {
+            throw new RuntimeException("用户不存在");
+        }
+
+        // 复用原有唯一性约束，资料写入只包含提交的字段。
+        if (StringUtils.hasText(profile.getUsername())
+                && !profile.getUsername().equals(user.getUsername())) {
+            User conflict = userMapper.getUserByUsername(profile.getUsername());
+            if (conflict != null && !conflict.getId().equals(userId)) {
+                throw new RuntimeException("用户名已存在");
+            }
+        }
+        if (StringUtils.hasText(profile.getEmail())
+                && !profile.getEmail().equals(user.getEmail())) {
+            User conflict = userMapper.getUserByEmail(profile.getEmail());
+            if (conflict != null && !conflict.getId().equals(userId)) {
+                throw new RuntimeException("邮箱已存在");
+            }
+        }
+        if (StringUtils.hasText(profile.getPhone())
+                && !profile.getPhone().equals(user.getPhone())) {
+            User conflict = userMapper.getUserByPhone(profile.getPhone());
+            if (conflict != null && !conflict.getId().equals(userId)) {
+                throw new RuntimeException("手机号已存在");
+            }
+        }
+
+        // 具名Mapper只更新资料列，不能把旧密码或账户状态快照写回。
+        return userMapper.updateProfile(userId, profile, LocalDateTime.now()) == 1;
+    }
+
+    private boolean isAdmin(User user) {
+        return "ADMIN".equals(user.getRole()) || "SUPER_ADMIN".equals(user.getRole());
+    }
+
+    @Override
+    @Transactional
+    public boolean updateAdminProfile(Long userId, AdminUserDTO profile) {
+        // 管理员账户不能通过普通用户管理入口修改。
+        User target = userMapper.getUserById(userId);
+        if (target == null || isAdmin(target)) {
+            throw new IllegalArgumentException("用户不存在或不能修改管理员账户");
+        }
+        validateProfileUnique(userId, profile, target);
+        return userMapper.updateAdminProfile(userId, profile, LocalDateTime.now()) == 1;
+    }
+
+    private void validateProfileUnique(Long id, UserProfileDTO profile, User user) {
+        if (StringUtils.hasText(profile.getUsername()) && !profile.getUsername().equals(user.getUsername())) {
+            User conflict = userMapper.getUserByUsername(profile.getUsername());
+            if (conflict != null && !id.equals(conflict.getId())) {
+                throw new IllegalArgumentException("用户名已存在");
+            }
+        }
+        if (StringUtils.hasText(profile.getEmail()) && !profile.getEmail().equals(user.getEmail())) {
+            User conflict = userMapper.getUserByEmail(profile.getEmail());
+            if (conflict != null && !id.equals(conflict.getId())) {
+                throw new IllegalArgumentException("邮箱已存在");
+            }
+        }
+        if (StringUtils.hasText(profile.getPhone()) && !profile.getPhone().equals(user.getPhone())) {
+            User conflict = userMapper.getUserByPhone(profile.getPhone());
+            if (conflict != null && !id.equals(conflict.getId())) {
+                throw new IllegalArgumentException("手机号已存在");
+            }
         }
     }
 
@@ -231,7 +305,7 @@ public class UserServiceImpl implements UserService {
                 User user = userMapper.getUserById(id);
                 if (user == null) {
                     notExistIds.add(String.valueOf(id));
-                } else if ("ADMIN".equals(user.getRole())) {
+                } else if (isAdmin(user)) {
                     adminIds.add(String.valueOf(id));
                 }
             }
@@ -281,7 +355,7 @@ public class UserServiceImpl implements UserService {
             throw new IllegalArgumentException("用户ID列表不能为空");
         }
 
-        if (status != 0 && status != 1) {
+        if (status == null || (status != 0 && status != 1)) {
             log.warn("批量修改用户状态失败，状态值必须是0或1，当前值: {}", status);
             throw new IllegalArgumentException("状态值必须是0或1");
         }
@@ -297,7 +371,7 @@ public class UserServiceImpl implements UserService {
                 User user = userMapper.getUserById(id);
                 if (user == null) {
                     notExistIds.add(String.valueOf(id));
-                } else if (status == 0 && "ADMIN".equals(user.getRole())) {
+                } else if (isAdmin(user)) {
                     adminIds.add(String.valueOf(id));
                 }
             }
@@ -319,7 +393,7 @@ public class UserServiceImpl implements UserService {
                 if (user != null) {
                     user.setStatus(status);
                     user.setUpdateTime(LocalDateTime.now());
-                    userMapper.updateUser(user);
+                    userMapper.updateOrdinaryUserStatus(id, status, LocalDateTime.now());
                     updatedCount++;
                 }
             }
@@ -346,7 +420,7 @@ public class UserServiceImpl implements UserService {
         log.info("修改用户状态，用户ID: {}, 状态: {}", userId, status);
 
         try {
-            if (status != 0 && status != 1) {
+            if (status == null || (status != 0 && status != 1)) {
                 log.warn("修改用户状态失败，状态值必须是0或1，当前值: {}", status);
                 throw new IllegalArgumentException("状态值必须是0或1");
             }
@@ -358,7 +432,7 @@ public class UserServiceImpl implements UserService {
             }
 
             // 防止禁用管理员
-            if (status == 0 && "ADMIN".equals(user.getRole())) {
+            if (isAdmin(user)) {
                 log.warn("修改用户状态失败，不能禁用管理员账户，用户ID: {}", userId);
                 throw new RuntimeException("不能禁用管理员账户");
             }
@@ -366,7 +440,7 @@ public class UserServiceImpl implements UserService {
             user.setStatus(status);
             user.setUpdateTime(LocalDateTime.now());
 
-            userMapper.updateUser(user);
+            userMapper.updateOrdinaryUserStatus(userId, status, LocalDateTime.now());
             log.info("修改用户状态成功，用户ID: {}", userId);
 
             return true;
@@ -394,6 +468,11 @@ public class UserServiceImpl implements UserService {
                 throw new IllegalArgumentException("密码不能为空");
             }
 
+            // 新密码长度必须与登录接口保持一致，避免改密后无法登录。
+            if (newPassword.length() < 6 || newPassword.length() > 20) {
+                throw new IllegalArgumentException("新密码长度必须在6-20位之间");
+            }
+
             User user = userMapper.getUserById(userId);
             if (user == null) {
                 log.warn("修改密码失败，用户不存在，用户ID: {}", userId);
@@ -413,11 +492,11 @@ public class UserServiceImpl implements UserService {
                 throw new RuntimeException("新密码不能与原密码相同");
             }
 
-            // 更新密码（需要加密新密码）
-            user.setPassword(passwordEncoder.encode(newPassword));
-            user.setUpdateTime(LocalDateTime.now());
-
-            userMapper.updateUser(user);
+            // 只写入加密密码，不把校验时读取的旧状态和资料快照写回。
+            String encodedPassword = passwordEncoder.encode(newPassword);
+            if (userMapper.updatePassword(userId, encodedPassword, LocalDateTime.now()) != 1) {
+                throw new RuntimeException("修改密码失败");
+            }
             log.info("修改密码成功，用户ID: {}", userId);
 
             return true;

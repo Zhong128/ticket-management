@@ -153,6 +153,13 @@ public class CityServiceImpl implements CityService {
     }
 
     @Override
+    public List<CityVO> getEnabledCities() {
+        return cityMapper.selectByStatus(1).stream()
+                .map(this::convertToVO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public PageResult<CityVO> queryCities(CityQueryDTO queryDTO) {
         log.debug("分页查询城市，参数: {}", queryDTO);
 

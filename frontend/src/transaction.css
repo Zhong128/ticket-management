@@ -1,0 +1,799 @@
+.header-account {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    font-size: 12px;
+}
+.header-account span {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.header-account button {
+    border: 0;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+}
+.transaction-page {
+    padding-top: 34px;
+    padding-bottom: 70px;
+    min-height: 65vh;
+}
+.transaction-heading {
+    margin: 22px 0 28px;
+}
+.transaction-heading h1,
+.order-detail-heading h1 {
+    font-size: 28px;
+    margin: 8px 0 10px;
+    line-height: 1.5;
+}
+.transaction-heading p,
+.transaction-note {
+    color: #68707d;
+}
+.transaction-panel {
+    background: white;
+    border: 1px solid #e9eaf0;
+    padding: 30px;
+    margin-bottom: 22px;
+    border-radius: 10px;
+}
+.sale-steps {
+    display: flex;
+    list-style: none;
+    padding: 18px 0 28px;
+    gap: 0;
+    max-width: 850px;
+    margin: 0 auto;
+}
+.sale-steps li {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: #68707d;
+}
+.sale-steps li:not(:last-child)::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #dddfe7;
+    margin: 0 22px 0 12px;
+}
+.sale-steps li:last-child {
+    flex: 0 0 auto;
+}
+.sale-steps li > span {
+    width: 28px;
+    height: 28px;
+    border: 1px solid #d5d7df;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.sale-steps .current,
+.sale-steps .done {
+    color: #be104c;
+}
+.sale-steps .current > span,
+.sale-steps .done > span {
+    background: #eb1761;
+    border-color: #eb1761;
+    color: white;
+}
+.order-summary {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    min-width: 0;
+}
+.summary-poster {
+    width: 98px;
+    height: 132px;
+    flex-shrink: 0;
+    border-radius: 5px;
+    overflow: hidden;
+}
+.summary-poster img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.summary-content {
+    flex: 1;
+    min-width: 0;
+}
+.summary-content h2 {
+    font-size: 18px;
+    margin: 0 0 14px;
+    line-height: 1.5;
+}
+.summary-content p {
+    margin: 6px 0;
+    color: #68707d;
+    font-size: 14px;
+}
+.summary-content .summary-tier {
+    color: #20212a;
+    margin-top: 14px;
+}
+.summary-tier span {
+    color: #68707d;
+    margin-left: 12px;
+}
+.summary-amount {
+    text-align: right;
+    flex-shrink: 0;
+}
+.summary-amount small {
+    display: block;
+    color: #68707d;
+    margin-bottom: 8px;
+}
+.summary-amount strong,
+.checkout-footer strong,
+.payment-actions strong {
+    color: #eb1761;
+    font-size: 25px;
+}
+.purchase-rules {
+    margin-top: 30px;
+    padding-top: 22px;
+    border-top: 1px solid #ececf2;
+}
+.purchase-rules h2 {
+    font-size: 16px;
+}
+.purchase-rules p {
+    color: #68707d;
+    line-height: 1.9;
+    font-size: 14px;
+}
+.checkout-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    align-items: center;
+    background: #fff;
+    padding: 24px 30px;
+    border-radius: 8px;
+}
+.checkout-footer > div {
+    display: flex;
+    align-items: center;
+    gap: 26px;
+}
+.agreement {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+}
+.agreement input {
+    accent-color: #eb1761;
+    width: 16px;
+    height: 16px;
+}
+.transaction-note {
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    line-height: 1.8;
+}
+.inline-notice {
+    padding: 16px 20px;
+    background: #fff2f6;
+    border: 1px solid #ffd6e4;
+    color: #942944;
+    font-size: 14px;
+    line-height: 1.8;
+    margin: 18px 0;
+    border-radius: 6px;
+}
+.inline-notice a {
+    color: #be104c;
+    text-decoration: underline;
+    margin-left: 10px;
+}
+.text-button {
+    border: 0;
+    background: none;
+    color: #be104c;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    padding: 8px 0;
+}
+.form-error {
+    color: #b20c38;
+    font-size: 14px;
+    line-height: 1.8;
+    overflow-wrap: anywhere;
+}
+.full-width {
+    width: 100%;
+}
+.result-panel {
+    max-width: 850px;
+    margin: 30px auto;
+    text-align: center;
+    padding: 55px 35px;
+}
+.result-panel h1 {
+    font-size: 26px;
+    margin: 24px 0 14px;
+}
+.result-panel > p {
+    color: #68707d;
+    line-height: 1.9;
+}
+.result-symbol {
+    width: 80px;
+    height: 80px;
+    background: #fff0f5;
+    color: #eb1761;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    margin: auto;
+}
+.result-symbol.created,
+.result-symbol.paid {
+    background: #e9f6ef;
+    color: #27824b;
+}
+.result-facts {
+    border-top: 1px dashed #e4e5eb;
+    border-bottom: 1px dashed #e4e5eb;
+    padding: 16px;
+    margin: 28px 0;
+}
+.result-facts p {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    font-size: 14px;
+    color: #68707d;
+}
+.result-facts strong {
+    color: #20212a;
+    overflow-wrap: anywhere;
+}
+.result-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    margin-top: 24px;
+}
+.request-reference {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    align-items: center;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+    margin-top: 32px;
+}
+.orders-heading,
+.order-detail-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+}
+.order-tabs {
+    display: flex;
+    overflow: auto;
+    gap: 30px;
+    border-bottom: 1px solid #e4e5eb;
+    margin-bottom: 24px;
+}
+.order-tabs button {
+    white-space: nowrap;
+    background: none;
+    border: 0;
+    padding: 16px 0;
+    color: #68707d;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+}
+.order-tabs .active {
+    color: #be104c;
+    border-color: #eb1761;
+}
+.order-card {
+    padding: 0;
+}
+.order-card-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 24px;
+    background: #fafafe;
+    border-bottom: 1px solid #ececf2;
+    font-size: 13px;
+    border-radius: 10px 10px 0 0;
+}
+.order-card .order-summary {
+    padding: 24px;
+}
+.order-card-actions {
+    border-top: 1px solid #ececf2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    padding: 16px 24px;
+}
+.order-card-actions > span {
+    color: #68707d;
+    font-size: 12px;
+}
+.order-card-actions > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.order-state {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.order-state-0 {
+    color: #be104c;
+}
+.order-state-1,
+.order-state-3 {
+    color: #27824b;
+}
+.order-state-2 {
+    color: #68707d;
+}
+.order-state-4 {
+    color: #9b5c12;
+}
+.order-status-banner {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    background: #fff1f6;
+    padding: 22px 26px;
+    border-radius: 8px;
+    margin: 24px 0;
+    color: #be104c;
+}
+.order-status-banner h2 {
+    font-size: 18px;
+    margin: 0 0 8px;
+}
+.order-status-banner p {
+    font-size: 13px;
+    color: #68707d;
+    margin: 0;
+}
+.order-facts {
+    border-top: 1px solid #ececf2;
+    padding-top: 22px;
+    margin-top: 28px;
+    font-size: 14px;
+}
+.order-facts > div {
+    display: flex;
+    margin: 14px 0;
+    gap: 20px;
+}
+.order-facts dt {
+    width: 90px;
+    flex-shrink: 0;
+    color: #68707d;
+}
+.order-facts dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+.order-detail-actions {
+    justify-content: flex-end;
+}
+.payment-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.payment-heading h2 {
+    font-size: 18px;
+}
+.payment-heading > span {
+    color: #be104c;
+    font-size: 14px;
+}
+.payment-method {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    border: 1px solid #ffd2e1;
+    padding: 22px;
+    border-radius: 7px;
+    margin: 15px 0 28px;
+    color: #217cbd;
+}
+.payment-method > div {
+    flex: 1;
+}
+.payment-method h3 {
+    font-size: 17px;
+    color: #20212a;
+    margin: 0 0 8px;
+}
+.payment-method p {
+    font-size: 13px;
+    color: #68707d;
+    margin: 0;
+    line-height: 1.7;
+}
+.payment-actions {
+    border-top: 1px solid #ececf2;
+    padding-top: 24px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 16px;
+}
+.payment-actions > div {
+    margin-right: auto;
+    font-size: 14px;
+}
+.payment-success {
+    text-align: center;
+    padding: 26px;
+    color: #27824b;
+}
+.payment-success h2 {
+    font-size: 26px;
+}
+.payment-success p {
+    color: #68707d;
+    margin: 22px 0;
+}
+.confirm-dialog {
+    border: 0;
+    border-radius: 12px;
+    padding: 28px;
+    width: 500px;
+    max-width: calc(100% - 32px);
+    color: #20212a;
+}
+.confirm-dialog::backdrop {
+    background: rgb(20 22 35 / 45%);
+}
+.confirm-dialog h2 {
+    font-size: 20px;
+}
+.confirm-dialog > p {
+    color: #68707d;
+    line-height: 1.9;
+    font-size: 14px;
+}
+.login-page {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    max-width: 1050px;
+    margin: 55px auto 75px;
+    background: white;
+    border: 1px solid #eee;
+    border-radius: 14px;
+    overflow: hidden;
+}
+.login-story {
+    background: #fce8ef;
+    padding: 55px 45px;
+    color: #be104c;
+    position: relative;
+    overflow: hidden;
+}
+.login-story h1 {
+    font-size: 42px;
+    line-height: 1.5;
+    letter-spacing: 2px;
+    margin: 24px 0 16px;
+}
+.login-story > p {
+    font-size: 14px;
+    color: #8d465e;
+    line-height: 1.9;
+}
+.login-ticket {
+    margin: 45px 0 0 5px;
+    transform: rotate(-7deg);
+    background: #fff;
+    box-shadow: 0 10px 30px #b8104120;
+    border-radius: 8px;
+    padding: 22px;
+    max-width: 300px;
+    position: relative;
+}
+.login-ticket > span:first-child {
+    font-size: 28px;
+    font-weight: 800;
+}
+.login-ticket p {
+    font-size: 14px;
+    padding-bottom: 25px;
+    border-bottom: 1px dashed #e8b8c8;
+}
+.ticket-stub {
+    font-size: 12px;
+    letter-spacing: 5px;
+    display: block;
+    text-align: right;
+}
+.login-form-panel {
+    padding: 48px 42px;
+}
+.login-form-panel h2 {
+    font-size: 28px;
+    margin: 12px 0;
+}
+.login-description,
+.login-footnote {
+    font-size: 13px;
+    color: #68707d;
+    line-height: 1.9;
+    overflow-wrap: anywhere;
+}
+.login-form-panel form {
+    margin-top: 26px;
+}
+.field-label {
+    font-size: 14px;
+    display: block;
+    margin: 20px 0 10px;
+}
+.field-input {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid #dddfe7;
+    border-radius: 6px;
+    padding: 0 14px;
+    height: 46px;
+    color: #9297a4;
+}
+.field-input:focus-within {
+    border-color: #eb1761;
+}
+.field-input input {
+    width: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    min-width: 0;
+    font: inherit;
+    color: #20212a;
+}
+.verification-field {
+    display: flex;
+    border: 1px solid #dddfe7;
+    border-radius: 6px;
+    overflow: hidden;
+}
+.verification-field input {
+    width: 0;
+    flex: 1;
+    border: 0;
+    padding: 14px;
+    font: inherit;
+}
+.verification-field button {
+    border: 0;
+    color: #be104c;
+    background: #fff5f8;
+    padding: 0 12px;
+    cursor: pointer;
+}
+.login-form-panel .full-width {
+    margin: 26px 0 12px;
+}
+.login-footnote {
+    margin-top: 25px;
+    font-size: 12px;
+}
+@media (max-width: 700px) {
+    .utility-inner > span {
+        display: none;
+    }
+    .header-account {
+        width: 100%;
+        gap: 14px;
+        justify-content: flex-end;
+    }
+    .header-account span {
+        max-width: 110px;
+    }
+    .transaction-page {
+        padding-top: 20px;
+        padding-bottom: 40px;
+    }
+    .transaction-heading h1,
+    .order-detail-heading h1 {
+        font-size: 23px;
+    }
+    .transaction-panel {
+        padding: 20px 16px;
+    }
+    .sale-steps {
+        padding: 8px 0 15px;
+    }
+    .sale-steps li {
+        font-size: 11px;
+        gap: 5px;
+    }
+    .sale-steps li > span {
+        width: 22px;
+        height: 22px;
+    }
+    .sale-steps li:not(:last-child)::after {
+        margin: 0 7px;
+        min-width: 8px;
+    }
+    .order-summary {
+        gap: 14px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+    .summary-poster {
+        width: 74px;
+        height: 102px;
+    }
+    .summary-content h2 {
+        font-size: 15px;
+        margin-bottom: 8px;
+    }
+    .summary-content p {
+        font-size: 12px;
+    }
+    .summary-content .summary-tier {
+        margin-top: 8px;
+    }
+    .summary-amount {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 12px;
+        padding-top: 12px;
+        border-top: 1px solid #f0f0f4;
+    }
+    .summary-amount small {
+        margin: 0;
+    }
+    .summary-amount strong {
+        font-size: 21px;
+    }
+    .checkout-footer {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 20px 16px;
+    }
+    .checkout-footer > div {
+        gap: 14px;
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+    .agreement {
+        font-size: 12px;
+    }
+    .checkout-footer strong {
+        font-size: 22px;
+    }
+    .transaction-note {
+        justify-content: flex-start;
+        font-size: 11px;
+    }
+    .result-panel {
+        padding: 35px 20px;
+    }
+    .result-panel h1 {
+        font-size: 22px;
+    }
+    .result-facts {
+        padding: 12px 0;
+    }
+    .result-facts p {
+        flex-direction: column;
+        gap: 8px;
+    }
+    .request-reference {
+        flex-wrap: wrap;
+    }
+    .order-tabs {
+        gap: 22px;
+    }
+    .order-card {
+        padding: 0;
+    }
+    .order-card .order-summary {
+        padding: 18px 16px;
+    }
+    .order-card-heading {
+        padding: 14px 16px;
+        font-size: 11px;
+        flex-wrap: wrap;
+    }
+    .order-card-actions {
+        padding: 14px 16px;
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .order-card-actions > div {
+        justify-content: flex-end;
+    }
+    .order-card-actions .button {
+        padding: 10px 12px;
+        font-size: 12px;
+    }
+    .order-detail-heading {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+    .order-status-banner {
+        padding: 18px 16px;
+        align-items: flex-start;
+    }
+    .order-status-banner h2 {
+        font-size: 16px;
+    }
+    .payment-method {
+        padding: 18px 14px;
+        gap: 12px;
+    }
+    .payment-actions .button {
+        flex: 1;
+        padding: 12px 10px;
+        font-size: 12px;
+    }
+    .payment-actions > div {
+        width: 100%;
+        margin-bottom: 4px;
+    }
+    .login-page {
+        display: block;
+        margin: 24px auto 45px;
+    }
+    .login-story {
+        padding: 25px;
+    }
+    .login-story > svg,
+    .login-story > p,
+    .login-ticket {
+        display: none;
+    }
+    .login-story h1 {
+        font-size: 26px;
+        margin: 0;
+        letter-spacing: 1px;
+    }
+    .login-story h1 br {
+        display: none;
+    }
+    .login-form-panel {
+        padding: 28px 24px;
+    }
+}
+.order-card-heading > span:first-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}

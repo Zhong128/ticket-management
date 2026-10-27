@@ -30,12 +30,15 @@ public class HomeController {
     @Operation(summary = "获取默认首页推荐", tags = {"首页推荐-公共接口"})
     @GetMapping("/public/home/recommend/default")
     public Result<HomeRecommendVO> getDefaultHomeRecommend(
+            @RequestParam(required = false) Long cityId,
             @RequestParam(defaultValue = "4") Integer limit) {
 
         log.info("获取默认首页推荐，limit: {}", limit);
 
         try {
-            HomeRecommendVO result = homeService.getDefaultHomeRecommend(limit);
+            HomeRecommendVO result = cityId == null
+                    ? homeService.getDefaultHomeRecommend(Math.max(1, Math.min(limit, 12)))
+                    : homeService.getHomeRecommendByCityId(cityId, Math.max(1, Math.min(limit, 12)));
             return Result.success("获取成功", result);
         } catch (Exception e) {
             log.error("获取默认首页推荐失败", e);

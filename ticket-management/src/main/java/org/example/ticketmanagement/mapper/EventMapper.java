@@ -5,11 +5,28 @@ import org.apache.ibatis.annotations.*;
 import org.example.ticketmanagement.dto.EventQueryDTO;
 import org.example.ticketmanagement.mapper.provider.EventSqlProvider;
 import org.example.ticketmanagement.pojo.Event;
+import org.example.ticketmanagement.vo.EventPriceVO;
 
 import java.util.List;
 
 @Mapper
 public interface EventMapper {
+
+    /** 批量查询演出的最低展示价，仅计算启用的场次与票档，不按余票过滤。 */
+    @Select("""
+            <script>
+            SELECT t.event_id, MIN(t.current_price) AS min_price
+            FROM ticket_tier t
+            JOIN event_session s ON s.id = t.session_id AND s.event_id = t.event_id
+            WHERE t.status = 1 AND s.status = 1
+              AND t.event_id IN
+              <foreach collection="eventIds" item="id" open="(" separator="," close=")">
+                #{id}
+              </foreach>
+            GROUP BY t.event_id
+            </script>
+            """)
+    List<EventPriceVO> selectMinPrices(@Param("eventIds") List<Long> eventIds);
 
     /**
      * 1. 新增一个演出

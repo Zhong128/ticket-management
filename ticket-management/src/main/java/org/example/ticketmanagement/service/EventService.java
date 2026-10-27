@@ -71,4 +71,10 @@ public interface  EventService {
      * @return 分页结果
      */
     PageResult<EventVO> queryEvents(EventQueryDTO queryDTO);
+
+    /** 公开查询只返回已发布演出。 */
+    EventVO getPublicEventById(Long id);
+
+    /** 公共分页忽略客户端状态，仅查询已发布演出。 */
+    PageResult<EventVO> queryPublicEvents(EventQueryDTO queryDTO);
 }

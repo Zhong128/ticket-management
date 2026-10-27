@@ -8,6 +8,9 @@ import org.example.ticketmanagement.pojo.User;
  * 认证服务接口
  */
 public interface AuthService {
+
+    /** 邮箱验证后保存用户选择的密码；旧验证码调用仍可使用原重载。 */
+    LoginInfo completeRegistrationWithCode(String email, String password);
     /**
      * 通用登录方法
      */

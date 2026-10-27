@@ -8,6 +8,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.concurrent.TimeUnit;
 import java.util.HashMap;
 import java.nio.file.Path;
+import java.nio.file.Files;
 import com.alipay.api.AlipayClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,6 +32,7 @@ import org.springframework.amqp.core.MessageProperties;
 import com.rabbitmq.client.Channel;
 import java.io.IOException;
 import org.example.ticketmanagement.util.LuaScriptLoader;
+import org.example.ticketmanagement.util.RedisUtil;
 import org.example.ticketmanagement.pojo.StockReservation;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -42,6 +44,12 @@ import org.example.ticketmanagement.util.AlipaySignatureUtil;
 import org.junit.jupiter.api.*;
 import org.mockito.ArgumentMatchers;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
+import org.mockito.ArgumentCaptor;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -68,6 +76,7 @@ import org.testcontainers.utility.DockerImageName;
 import java.math.BigDecimal;
 import java.time.*;
 import java.util.Map;
+import java.util.Set;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -167,6 +176,208 @@ class TradeApplicationIT {
 
     @Autowired
     StringRedisTemplate redis;
+
+    @Test
+    void bundledFrontendRefreshDoesNotCaptureApisOrMissingAssets() {
+        for (String path : List.of("/", "/events/7501", "/account/orders/7501", "/payment/return", "/admin", "/admin/events/1/edit", "/unknown-page")) {
+            var response = http.getForEntity(path, String.class);
+            assertEquals(HttpStatus.OK, response.getStatusCode(), path);
+            assertTrue(response.getBody().contains("youxi-frontend-routing-fixture"), path);
+        }
+        var asset = http.getForEntity("/assets/no-such-module.js", String.class);
+        assertFalse(asset.getBody().contains("youxi-frontend-routing-fixture"));
+        var api = http.getForEntity("/api/public/no-such-api", String.class);
+        assertFalse(api.getBody().contains("youxi-frontend-routing-fixture"));
+        JsonNode status = http.getForObject("/api/public/app-status", JsonNode.class);
+        assertSuccess(status);
+        assertTrue(status.path("data").path("ready").asBoolean());
+        assertTrue(status.path("data").path("tradingEnabled").asBoolean());
+    }
+
+    @Test
+    void frontendBrowserCompletesRealPurchaseAndAccountJourney() throws Exception {
+        seedProtocolSale(7501, 5);
+        seedAccount(7501, "USER");
+        seedAccount(7502, "USER");
+        db.update("UPDATE event SET name='隔离联调音乐会' WHERE id=7501");
+        when(email.sendSimpleEmail(anyString(), anyString(), anyString())).thenReturn(true);
+        when(gateway.create(ArgumentMatchers.any())).thenReturn("""
+                <form method="post" action="https://openapi-sandbox.dl.alipaydev.com/gateway.do">
+                  <input type="hidden" name="biz_content" value="isolated-acceptance">
+                </form>
+                """);
+        when(gateway.query(anyString())).thenAnswer(invocation -> new PaymentGateway.Query(
+                PaymentGateway.State.PAID, invocation.getArgument(0), "ISOLATED-BROWSER-PAID",
+                new BigDecimal("200.00")));
+        when(ai.call(ArgumentMatchers.any(Prompt.class)))
+                .thenReturn(new ChatResponse(List.of(new Generation(new AssistantMessage("隔离验收客服回复")))));
+
+        // 独立Vite只代理本测试的随机端口，浏览器不得拦截任何业务API。
+        Path root = Path.of(System.getProperty("user.dir")).getParent();
+        Path browserLog = root.resolve("output/frontend-live-browser.log");
+        Files.createDirectories(browserLog.getParent());
+        ProcessBuilder builder = new ProcessBuilder("cmd.exe", "/d", "/c", "npm.cmd", "run", "test:e2e:live", "--", "purchase-flow.spec.ts");
+        builder.directory(root.resolve("frontend").toFile());
+        builder.environment().put("API_PROXY_TARGET", http.getRootUri());
+        builder.environment().put("LIVE_ISOLATED_ACCEPTANCE", "true");
+        builder.environment().put("LIVE_EVENT_ID", "7501");
+        builder.redirectErrorStream(true);
+        builder.redirectOutput(browserLog.toFile());
+        Process browser = builder.start();
+        try {
+            assertTrue(browser.waitFor(150, TimeUnit.SECONDS), "浏览器验收超时，见 " + browserLog);
+            assertEquals(0, browser.exitValue(), Files.readString(browserLog));
+        } finally {
+            if (browser.isAlive()) {
+                browser.descendants().forEach(ProcessHandle::destroy);
+                browser.destroyForcibly();
+            }
+        }
+
+        // 浏览器结果还需由真实数据库与网关调用独立核对。
+        assertEquals(1, db.queryForObject(
+                "SELECT order_status FROM order_info WHERE user_id=7501", Integer.class));
+        assertEquals(2, db.queryForObject(
+                "SELECT order_status FROM order_info WHERE user_id=7502", Integer.class));
+        assertEquals(3, stock(7501));
+        assertEquals("真实联调现场朋友", db.queryForObject(
+                "SELECT nickname FROM user WHERE id=7501", String.class));
+        assertTrue(encoder.matches("browser-new-pass", db.queryForObject(
+                "SELECT password FROM user WHERE id=7501", String.class)));
+        assertEquals(1, db.queryForObject(
+                "SELECT COUNT(*) FROM user_address WHERE user_id=7501 AND is_default=1", Integer.class));
+        verify(gateway, times(1)).create(ArgumentMatchers.any());
+        verify(ai, times(1)).call(ArgumentMatchers.any(Prompt.class));
+        assertTrue(context.getBean(ChatMemory.class).get("user_7502").isEmpty());
+    }
+
+    @Test
+    void accountPagesSaveThroughRealMappersAndRejectForeignAddresses() {
+        seedAccount(7301, "USER");
+        seedAccount(7302, "USER");
+        String token = loginUser(7301);
+        String other = loginUser(7302);
+
+        // 部分资料更新保留原邮箱、密码、状态和角色，仍可继续登录。
+        assertSuccess(accountWrite(HttpMethod.PUT, "/api/user/profile",
+                Map.of("nickname", "现场朋友", "realName", "小林"), token, MediaType.APPLICATION_JSON));
+        JsonNode profile = get("/api/user/profile", token);
+        assertSuccess(profile);
+        assertEquals("现场朋友", profile.path("data").path("nickname").asText());
+        assertEquals("journey-7301@example.invalid", profile.path("data").path("email").asText());
+        assertEquals(1, db.queryForObject("SELECT status FROM user WHERE id=7301", Integer.class));
+        assertFalse(profile.path("data").has("password"));
+
+        Map<String, Object> address = Map.of("receiverName", "小林", "receiverPhone", "13800138000",
+                "province", "北京市", "city", "北京市", "district", "海淀区", "detailAddress", "现场路1号");
+        assertSuccess(post("/api/user/address", address, token));
+        JsonNode rows = get("/api/user/address", token);
+        long id = rows.path("data").get(0).path("id").asLong();
+        assertSuccess(post("/api/user/address/" + id + "/default", Map.of(), token));
+        assertSuccess(accountWrite(HttpMethod.PUT, "/api/user/address/" + id, address,
+                token, MediaType.APPLICATION_JSON));
+        assertEquals(1, get("/api/user/address/default", token).path("data").path("isDefault").asInt());
+        assertNotEquals(1, get("/api/user/address/" + id, other).path("code").asInt());
+        assertNotEquals(1, accountWrite(HttpMethod.PUT, "/api/user/address/" + id, address,
+                other, MediaType.APPLICATION_JSON).path("code").asInt());
+        assertNotEquals(1, accountWrite(HttpMethod.DELETE, "/api/user/address/" + id, null,
+                other, MediaType.APPLICATION_JSON).path("code").asInt());
+        assertNotEquals(1, accountWrite(HttpMethod.DELETE, "/api/user/address/" + id, null,
+                token, MediaType.APPLICATION_JSON).path("code").asInt(), "默认地址不能删除");
+        assertEquals(1, get("/api/user/address", token).path("data").size());
+
+        // 密码通过表单请求体发送，实际BCrypt写入后用新密码再次登录。
+        MultiValueMap<String, String> passwords = new LinkedMultiValueMap<>();
+        passwords.add("oldPassword", "journey-test-pass");
+        passwords.add("newPassword", "changed-pass-42");
+        assertSuccess(accountWrite(HttpMethod.PUT, "/api/user/password", passwords,
+                token, MediaType.APPLICATION_FORM_URLENCODED));
+        assertSuccess(post("/api/auth/user/login-or-register",
+                Map.of("email", "journey-7301@example.invalid", "password", "changed-pass-42"), null));
+        assertNotEquals(1, post("/api/auth/user/login-or-register",
+                Map.of("email", "journey-7301@example.invalid", "password", "journey-test-pass"), null)
+                .path("code").asInt());
+        // 用改密前已打开表单的旧资料再保存，SQL不得覆盖最新密码和账户状态。
+        assertSuccess(accountWrite(HttpMethod.PUT, "/api/user/profile",
+                Map.of("nickname", "改密后继续保存资料"), token, MediaType.APPLICATION_JSON));
+        String latestHash = db.queryForObject("SELECT password FROM user WHERE id=7301", String.class);
+        assertTrue(encoder.matches("changed-pass-42", latestHash));
+        assertEquals(1, db.queryForObject("SELECT status FROM user WHERE id=7301", Integer.class));
+    }
+
+    @Test
+    void customerChatSeparatesUsersAndClearDoesNotCallModel() {
+        seedAccount(7401, "USER");
+        seedAccount(7402, "USER");
+        String first = loginUser(7401);
+        String second = loginUser(7402);
+        when(ai.call(ArgumentMatchers.any(Prompt.class)))
+                .thenReturn(new ChatResponse(List.of(new Generation(new AssistantMessage("测试回复")))));
+
+        JsonNode firstReply = post("/api/user/ai-customer-service/chat",
+                Map.of("message", "first-user-marker"), first);
+        assertSuccess(firstReply);
+        assertEquals("测试回复", firstReply.path("data").asText(), "回复正文必须放入data而不是msg");
+        assertSuccess(post("/api/user/ai-customer-service/chat", Map.of("message", "second-user-marker"), second));
+        assertSuccess(post("/api/user/ai-customer-service/chat", Map.of("message", "follow-up-marker"), first));
+        ArgumentCaptor<Prompt> prompts = ArgumentCaptor.forClass(Prompt.class);
+        verify(ai, times(3)).call(prompts.capture());
+        assertFalse(prompts.getAllValues().get(1).getInstructions().stream()
+                .anyMatch(message -> message.getText().contains("first-user-marker")));
+        assertTrue(prompts.getAllValues().get(2).getInstructions().stream()
+                .anyMatch(message -> message.getText().contains("first-user-marker")));
+        var options = (ToolCallingChatOptions) prompts.getAllValues().get(0).getOptions();
+        assertTrue(options.getToolCallbacks().stream().noneMatch(tool ->
+                Set.of("updateUserProfile", "addUserAddress", "createOrder", "cancelOrder")
+                        .contains(tool.getToolDefinition().name())));
+
+        // 清空仅操作该用户的内存，不再额外请求模型。
+        assertSuccess(accountWrite(HttpMethod.DELETE, "/api/user/ai-customer-service/clear-history",
+                null, first, MediaType.APPLICATION_JSON));
+        ChatMemory memory = context.getBean(ChatMemory.class);
+        assertTrue(memory.get("user_7401").isEmpty());
+        assertFalse(memory.get("user_7402").isEmpty());
+        verify(ai, times(3)).call(ArgumentMatchers.any(Prompt.class));
+        assertNotEquals(1, post("/api/user/ai-customer-service/chat", Map.of("message", " "), first)
+                .path("code").asInt());
+        verify(ai, times(3)).call(ArgumentMatchers.any(Prompt.class));
+    }
+
+    private JsonNode accountWrite(HttpMethod method, String path, Object body, String token, MediaType type) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("ticket-token", token);
+        headers.setContentType(type);
+        var response = http.exchange(path, method, new HttpEntity<>(body, headers), JsonNode.class);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        return response.getBody();
+    }
+
+    @Test
+    void registrationKeepsChosenPasswordAndCanLoginAgainOverHttp() {
+        String address = "frontend-registration@example.invalid";
+        String password = "frontend-test-pass";
+        when(email.sendVerificationCodeEmail(ArgumentMatchers.eq(address), anyString())).thenReturn(true);
+
+        // 邮件被替换，验证码仍由真实服务写入隔离Redis并由HTTP接口核验。
+        JsonNode challenge = post("/api/auth/user/login-or-register",
+                Map.of("email", address, "password", password), null);
+        assertEquals(200, challenge.path("code").asInt());
+        String code = context.getBean(RedisUtil.class).getString("verification:code:" + address);
+        assertNotNull(code);
+        JsonNode registered = post("/api/auth/user/verify-registration",
+                Map.of("email", address, "code", code, "password", password), null);
+        assertSuccess(registered);
+        assertFalse(registered.path("data").path("token").asText().isBlank());
+        String stored = db.queryForObject("SELECT password FROM user WHERE email=?", String.class, address);
+        assertTrue(encoder.matches(password, stored));
+
+        // 后续登录必须能使用用户选定的原密码。
+        JsonNode loggedIn = post("/api/auth/user/login-or-register",
+                Map.of("email", address, "password", password), null);
+        assertSuccess(loggedIn);
+        assertEquals(registered.path("data").path("id"), loggedIn.path("data").path("id"));
+    }
 
     @Test
     void completeContextMigratesBeforeStartupAndServesPublicHttp() {
@@ -864,6 +1075,8 @@ class TradeApplicationIT {
         assertSuccess(userRefunds);
         assertEquals(1, userRefunds.path("data").size());
         assertEquals("SUCCESS", userRefunds.path("data").get(0).path("status").asText());
+        assertEquals(lateOrder, userRefunds.path("data").get(0).path("order_id").asLong());
+        assertTrue(get("/api/user/refunds", paidToken).path("data").isEmpty());
         assertEquals(5, paymentStatus(lateNo));
         assertEquals(8, stock(tierId));
 
@@ -878,6 +1091,48 @@ class TradeApplicationIT {
         assertEquals(5, db.queryForObject("SELECT COUNT(*) FROM order_info WHERE tier_id=?", Integer.class, tierId));
         assertEquals(0, db.queryForObject("SELECT COUNT(*) FROM stock_reservation "
                 + "WHERE tier_id=? AND status IN ('RESERVED','ORDER_CREATED')", Integer.class, tierId));
+    }
+
+    @Test
+    void adminBrowserConfiguresSaleAndProtectsPrivilegedAccounts() throws Exception {
+        seedAccount(9101, "USER");
+        seedAccount(9102, "SUPER_ADMIN");
+        String viewer = loginUser(9101);
+        String admin = loginAdmin(9102);
+
+        // 普通用户无法读取后台；超级管理员继承现有ADMIN能力。
+        assertNotEquals(1, get("/api/admin/dashboard/summary", viewer).path("code").asInt());
+        assertSuccess(get("/api/admin/dashboard/summary", admin));
+        assertNotEquals(1, put("/api/admin/user/9102/status?status=0", admin).path("code").asInt());
+
+        Path root = Path.of("").toAbsolutePath().normalize();
+        if (root.getFileName().toString().equals("ticket-management")) {
+            root = root.getParent();
+        }
+        Path browserLog = root.resolve("output/admin-live-browser.log");
+        Files.createDirectories(browserLog.getParent());
+        ProcessBuilder builder = new ProcessBuilder("cmd.exe", "/d", "/c", "npm.cmd", "run", "test:e2e:live", "--", "admin-flow.spec.ts");
+        builder.directory(root.resolve("frontend").toFile());
+        builder.environment().put("API_PROXY_TARGET", http.getRootUri());
+        builder.environment().put("LIVE_ISOLATED_ACCEPTANCE", "true");
+        builder.redirectErrorStream(true);
+        builder.redirectOutput(browserLog.toFile());
+        Process browser = builder.start();
+        try {
+            assertTrue(browser.waitFor(180, TimeUnit.SECONDS), "管理端浏览器验收超时");
+            assertEquals(0, browser.exitValue(), Files.readString(browserLog));
+        } finally {
+            if (browser.isAlive()) {
+                browser.descendants().forEach(ProcessHandle::destroy);
+                browser.destroyForcibly();
+            }
+        }
+
+        // 独立核对真实Mapper写入结果，而非只相信页面提示。
+        assertEquals(1, db.queryForObject("SELECT COUNT(*) FROM event WHERE name='隔离后台音乐会' AND status=1", Integer.class));
+        assertEquals(1, db.queryForObject("SELECT COUNT(*) FROM event_session WHERE session_name='隔离后台晚场' AND status=0", Integer.class));
+        assertEquals(20, db.queryForObject("SELECT available_stock FROM ticket_tier WHERE tier_name='隔离后台看台'", Integer.class));
+        assertTrue(encoder.matches("journey-test-pass", db.queryForObject("SELECT password FROM user WHERE id=9101", String.class)));
     }
 
     private void seedAccount(long id, String role) {
@@ -925,6 +1180,7 @@ class TradeApplicationIT {
         JsonNode result = post("/api/user/payments/create", Map.of("orderId", orderId, "payType", 1), token);
         assertSuccess(result);
         assertEquals("isolated-payment-page", result.path("data").path("qrCode").asText());
+        assertEquals("isolated-payment-page", result.path("data").path("paymentPageHtml").asText());
         String paymentNo = result.path("data").path("paymentNo").asText();
         assertFalse(paymentNo.isBlank());
         return paymentNo;

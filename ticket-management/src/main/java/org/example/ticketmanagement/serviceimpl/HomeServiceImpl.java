@@ -53,7 +53,9 @@ public class HomeServiceImpl implements HomeService {
         String locationSource = getLocationSource(cityId, userId, request);
 
         // 5. 获取默认分类ID
-        Long[] categoryIds = ipLocationUtil.getHomeCategoryIds();
+        Long[] categoryIds = eventCategoryService.getCategoriesByStatus(1).stream()
+                .filter(category -> Integer.valueOf(1).equals(category.getStatus()))
+                .map(EventCategoryVO::getId).toArray(Long[]::new);
 
         // 6. 获取每个分类的演出
         List<CategoryWithEventsVO> categoriesWithEvents = new ArrayList<>();
@@ -108,8 +110,10 @@ public class HomeServiceImpl implements HomeService {
             return createErrorHomeRecommend();
         }
 
-        // 获取默认分类ID
-        Long[] categoryIds = ipLocationUtil.getHomeCategoryIds();
+        // 使用启用分类生成推荐，避免新增演出类型被固定分类列表遗漏。
+        Long[] categoryIds = eventCategoryService.getCategoriesByStatus(1).stream()
+                .filter(category -> Integer.valueOf(1).equals(category.getStatus()))
+                .map(EventCategoryVO::getId).toArray(Long[]::new);
 
         // 获取每个分类的演出
         List<CategoryWithEventsVO> categoriesWithEvents = new ArrayList<>();

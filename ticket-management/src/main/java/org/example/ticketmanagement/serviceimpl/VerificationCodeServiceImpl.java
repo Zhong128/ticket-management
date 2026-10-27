@@ -74,7 +74,7 @@ public class VerificationCodeServiceImpl implements VerificationCodeService {
         // 发送邮件
         boolean sent = emailService.sendVerificationCodeEmail(email, code);
         if (sent) {
-            log.info("验证码发送成功，邮箱: {}，验证码: {}", email, code);
+            log.info("验证码发送成功，邮箱: {}", email);
             return true;
         } else {
             // 邮件发送失败，删除Redis中的验证码相关数据
@@ -117,7 +117,7 @@ public class VerificationCodeServiceImpl implements VerificationCodeService {
         // 发送邮件
         boolean sent = emailService.sendVerificationCodeEmail(email, code);
         if (sent) {
-            log.info("验证码重新发送成功，邮箱: {}，验证码: {}", email, code);
+            log.info("验证码重新发送成功，邮箱: {}", email);
             return true;
         } else {
             // 邮件发送失败，减少重试次数
@@ -153,7 +153,7 @@ public class VerificationCodeServiceImpl implements VerificationCodeService {
             redisUtil.delete(getRetryKey(email));
             log.info("验证码验证成功，邮箱: {}", email);
         } else {
-            log.warn("验证码验证失败，邮箱: {}，输入: {}，存储: {}", email, code, storedCode);
+            log.warn("验证码验证失败，邮箱: {}", email);
         }
 
         return isValid;

@@ -44,6 +44,11 @@ public class EventSqlProvider {
      * 构建 WHERE 条件（公共逻辑）
      */
     private void buildWhereClause(SQL sql, EventQueryDTO queryDTO) {
+        if (queryDTO.getKeyword() != null && !queryDTO.getKeyword().isBlank()) {
+            sql.WHERE("(name LIKE CONCAT('%', #{queryDTO.keyword}, '%') "
+                    + "OR artist_name LIKE CONCAT('%', #{queryDTO.keyword}, '%'))");
+        }
+
         if (queryDTO.getName() != null && !queryDTO.getName().isEmpty()) {
             sql.WHERE("name LIKE CONCAT('%', #{queryDTO.name}, '%')");
         }

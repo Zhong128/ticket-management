@@ -27,6 +27,12 @@ public class CityController {
     @Autowired
     private CityService cityService;
 
+    @Operation(summary = "获取启用城市列表", tags = {"城市-公共接口"})
+    @GetMapping("/public/cities")
+    public Result<List<CityVO>> getPublicCities() {
+        return Result.success("查询成功", cityService.getEnabledCities());
+    }
+
     // ==================== 公共接口（无需登录） ====================
 
     /**

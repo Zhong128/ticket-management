@@ -17,6 +17,7 @@ public class PaymentResultDTO {
     private String paymentNo;       // 支付流水号
     private String orderNo;         // 订单号
     private String qrCode;          // 支付二维码（Base64或URL）
+    private String paymentPageHtml; // 支付宝SDK返回的支付表单；旧qrCode字段保留兼容
     private BigDecimal totalAmount; // 支付金额
     private Integer payStatus;      // 支付状态
     private String payStatusDesc;   // 支付状态描述

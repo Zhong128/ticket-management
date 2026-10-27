@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.dto.EventDTO;
 import org.example.ticketmanagement.dto.EventQueryDTO;
 import org.example.ticketmanagement.vo.EventVO;
+import org.example.ticketmanagement.vo.EventPriceVO;
 import org.example.ticketmanagement.mapper.CityMapper;
 import org.example.ticketmanagement.mapper.EventCategoryMapper;
 import org.example.ticketmanagement.mapper.EventMapper;
@@ -17,8 +18,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -171,25 +175,37 @@ public class EventServiceImpl implements EventService {
             return null;
         }
         // Entity 转 VO（基础信息）
-        return convertToVO(event);
+        return convertToVOs(List.of(event)).getFirst();
+    }
+
+    @Override
+    public EventVO getPublicEventById(Long id) {
+        // 可见性规则留在业务层，下架或草稿不进入前台展示转换。
+        Event event = eventMapper.selectById(id);
+        if (event == null || !Integer.valueOf(1).equals(event.getStatus())) {
+            return null;
+        }
+        return convertToVOs(List.of(event)).getFirst();
+    }
+
+    @Override
+    public PageResult<EventVO> queryPublicEvents(EventQueryDTO queryDTO) {
+        queryDTO.setStatus(1);
+        return queryEvents(queryDTO);
     }
 
     @Override
     public List<EventVO> getAllEvents() {
         log.debug("查询所有演出列表");
         List<Event> events = eventMapper.selectAll();
-        return events.stream()
-                .map(this::convertToVO)
-                .collect(Collectors.toList());
+        return convertToVOs(events);
     }
 
     @Override
     public List<EventVO> getEventsByCategoryAndCity(Long categoryId, Long cityId) {
         log.debug("根据分类和城市查询演出，categoryId: {}, cityId: {}", categoryId, cityId);
         List<Event> events = eventMapper.selectByCategoryAndCity(categoryId, cityId);
-        return events.stream()
-                .map(this::convertToVO)
-                .collect(Collectors.toList());
+        return convertToVOs(events);
     }
 
     @Override
@@ -197,9 +213,7 @@ public class EventServiceImpl implements EventService {
         log.debug("获取热门演出，limit: {}", limit);
         int actualLimit = Math.min(limit, 100);
         List<Event> events = eventMapper.selectHotEvents(actualLimit);
-        return events.stream()
-                .map(this::convertToVO)
-                .collect(Collectors.toList());
+        return convertToVOs(events);
     }
 
     @Override
@@ -209,9 +223,7 @@ public class EventServiceImpl implements EventService {
         // 调用Mapper的selectUpcomingEvents方法
         List<Event> events = eventMapper.selectUpcomingEvents(limit);
 
-        return events.stream()
-                .map(this::convertToVO)
-                .collect(Collectors.toList());
+        return convertToVOs(events);
     }
 
     @Override
@@ -247,9 +259,7 @@ public class EventServiceImpl implements EventService {
         log.debug("查询到当前页演出数量: {}", events.size());
 
         // 6. 转换为VO
-        List<EventVO> voList = events.stream()
-                .map(this::convertToVO)
-                .collect(Collectors.toList());
+        List<EventVO> voList = convertToVOs(events);
 
         // 7. 返回分页结果
         return PageResult.success(voList, total, queryDTO);
@@ -289,11 +299,26 @@ public class EventServiceImpl implements EventService {
         return true;
     }
 
-    /**
-     * 内部辅助方法：将 Entity 对象转换为 VO 对象
-     * 这里只转换基础字段，关联信息（如分类名称、城市名称）可以在需要时扩展
-     * 可以在这里查询关联信息，但为了性能，通常采用懒加载或单独接口
-     */
+    /** 转换演出列表并批量补充最低展示价。 */
+    private List<EventVO> convertToVOs(List<Event> events) {
+        if (events.isEmpty()) {
+            return List.of();
+        }
+
+        // 批量补充展示价，避免每张演出卡片额外查询票档。
+        List<Long> ids = events.stream().map(Event::getId).toList();
+        Map<Long, BigDecimal> prices = new HashMap<>();
+        for (EventPriceVO price : eventMapper.selectMinPrices(ids)) {
+            prices.put(price.getEventId(), price.getMinPrice());
+        }
+        return events.stream().map(event -> {
+            EventVO vo = convertToVO(event);
+            vo.setMinPrice(prices.get(event.getId()));
+            return vo;
+        }).collect(Collectors.toList());
+    }
+
+    /** 转换单条演出及既有关联名称。 */
     private EventVO convertToVO(Event event) {
         EventVO vo = new EventVO();
         BeanUtils.copyProperties(event, vo);

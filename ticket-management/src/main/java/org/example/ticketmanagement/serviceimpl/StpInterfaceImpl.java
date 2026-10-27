@@ -132,6 +132,9 @@ public class StpInterfaceImpl implements StpInterface {
                 String role = user.getRole();
                 if (role != null && !role.trim().isEmpty()) {
                     roleList.add(role);
+                    if (RoleConstant.SUPER_ADMIN.equals(role)) {
+                        roleList.add(RoleConstant.ADMIN);
+                    }
 
                     // VIP用户同时拥有USER角色（VIP是USER的升级版）
                     if (RoleConstant.VIP.equals(role)) {

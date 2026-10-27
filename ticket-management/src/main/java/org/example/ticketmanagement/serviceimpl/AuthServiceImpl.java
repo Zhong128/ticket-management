@@ -212,6 +212,11 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginInfo completeRegistrationWithCode(String email) {
+        return completeRegistrationWithCode(email, null);
+    }
+
+    @Override
+    public LoginInfo completeRegistrationWithCode(String email, String password) {
         log.info("完成验证码注册: email={}", email);
 
         // 检查用户是否已存在
@@ -224,7 +229,8 @@ public class AuthServiceImpl implements AuthService {
             // 创建新用户
             User user = new User();
             user.setEmail(email);
-            user.setPassword(passwordEncoder.encode("")); // 验证码注册不需要密码，但设置空密码
+            // 由register统一加密一次，避免丢弃用户密码或重复加密。
+            user.setPassword(password == null ? "" : password);
 
             // 生成默认用户名
             String emailPrefix = email.split("@")[0];

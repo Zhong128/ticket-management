@@ -74,12 +74,7 @@ public class UserController {
 
         try {
 
-            // 创建User对象并复制属性
-            User user = new User();
-            BeanUtils.copyProperties(profileDTO, user);
-            user.setId(userId); // 手动设置用户ID
-
-            boolean success = userService.updateUser(user);
+            boolean success = userService.updateProfile(userId, profileDTO);
             if (success) {
                 return Result.success("修改成功");
             } else {
@@ -158,13 +153,13 @@ public class UserController {
     @Operation(summary = "查询用户详情", tags = {"用户信息-管理端"})
     @GetMapping("/admin/user/{id}")
     @SaCheckRole(RoleConstant.ADMIN)
-    public Result<UserProfileDTO> getUserDetail(@PathVariable Long id) {
+    public Result<UserVO> getUserDetail(@PathVariable Long id) {
         log.info("管理员查询用户详情: {}", id);
 
         try {
             User user = userService.getUserById(id);
             if (user != null) {
-                UserProfileDTO userProfileDTO = new UserProfileDTO();
+                UserVO userProfileDTO = new UserVO();
                 BeanUtils.copyProperties(user, userProfileDTO);
                 return Result.success(userProfileDTO);
             }
@@ -186,13 +181,7 @@ public class UserController {
         log.info("管理员修改用户信息: {}", id);
 
         try {
-            // 创建User对象
-            User user = new User();
-            BeanUtils.copyProperties(adminUserDTO, user);
-            // 确保ID一致
-            user.setId(id);
-
-            boolean success = userService.updateUser(user);
+            boolean success = userService.updateAdminProfile(id, adminUserDTO);
             if (success) {
                 return Result.success("修改成功");
             } else {

@@ -253,6 +253,16 @@
     </dependencyManagement>
 
     <build>
+        <!-- 前端先由启动脚本构建；只打包dist，不提交生成资源。 -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>../frontend/dist</directory>
+                <targetPath>static</targetPath>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

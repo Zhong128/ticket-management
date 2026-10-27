@@ -1,0 +1,698 @@
+.account-page {
+    display: grid;
+    grid-template-columns: 194px minmax(0, 1fr);
+    gap: 32px;
+    padding-top: 32px;
+    padding-bottom: 65px;
+    min-height: 68vh;
+    align-items: start;
+}
+.account-sidebar {
+    background: white;
+    border: 1px solid #e9eaf0;
+    border-radius: 8px;
+    padding: 26px 0 18px;
+    margin-top: 22px;
+}
+.account-sidebar-title {
+    font-size: 20px;
+    font-weight: 750;
+    margin: 0 22px 24px;
+}
+.account-sidebar-title small {
+    display: block;
+    color: #8a8f9d;
+    font-size: 11px;
+    font-weight: 400;
+    margin-top: 10px;
+}
+.account-sidebar nav {
+    display: flex;
+    flex-direction: column;
+}
+.account-sidebar nav a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 22px;
+    font-size: 14px;
+    border-left: 3px solid transparent;
+    color: #5c6370;
+}
+.account-sidebar nav a.active {
+    background: #fff1f6;
+    border-color: #eb1761;
+    color: #be104c;
+    font-weight: 650;
+}
+.account-content {
+    min-width: 0;
+}
+.account-content .transaction-heading {
+    margin: 20px 0 26px;
+}
+.account-content .transaction-heading p {
+    font-size: 14px;
+    line-height: 1.8;
+}
+.account-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+}
+.account-panel {
+    background: white;
+    border: 1px solid #e9eaf0;
+    border-radius: 8px;
+    padding: 30px;
+    margin-bottom: 20px;
+}
+.profile-intro {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding-bottom: 26px;
+    border-bottom: 1px solid #eeeef4;
+    margin-bottom: 26px;
+}
+.profile-avatar {
+    width: 66px;
+    height: 66px;
+    border-radius: 50%;
+    background: #fff1f6;
+    color: #be104c;
+    display: grid;
+    place-items: center;
+}
+.profile-intro h2 {
+    font-size: 19px;
+    margin: 0 0 8px;
+}
+.profile-intro p {
+    font-size: 13px;
+    margin: 0;
+    color: #68707d;
+    overflow-wrap: anywhere;
+}
+.account-form {
+    font-size: 14px;
+}
+.account-form fieldset {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+}
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+.account-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    color: #4b5260;
+    min-width: 0;
+}
+.account-form input,
+.account-form select,
+.account-form textarea {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    font: inherit;
+    border: 1px solid #dfe1e9;
+    border-radius: 5px;
+    padding: 12px 13px;
+    color: #20212a;
+    background: white;
+}
+.account-form input:focus,
+.account-form select:focus,
+.account-form textarea:focus {
+    outline: 2px solid #ffb1ca;
+    outline-offset: 2px;
+    border-color: #eb1761;
+}
+.account-form .readonly-input {
+    background: #f7f8fa;
+    color: #7a808d;
+}
+.account-form input::placeholder,
+.account-form textarea::placeholder {
+    color: #a1a5b0;
+}
+.account-form > .button,
+.account-form fieldset > .button {
+    margin-top: 16px;
+    min-width: 130px;
+}
+.form-hint {
+    font-size: 12px;
+    color: #68707d;
+    line-height: 1.8;
+}
+.account-form .form-hint {
+    margin: 24px 0 8px;
+}
+.save-success {
+    display: flex;
+    gap: 7px;
+    align-items: center;
+    color: #27824b;
+    font-size: 13px;
+    line-height: 1.8;
+    margin: 14px 0;
+}
+.section-title {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    padding-bottom: 24px;
+    border-bottom: 1px solid #eeeef4;
+    margin-bottom: 28px;
+    color: #be104c;
+}
+.section-title h2 {
+    color: #20212a;
+    font-size: 19px;
+    margin: 0 0 8px;
+}
+.section-title p {
+    color: #68707d;
+    font-size: 13px;
+    margin: 0;
+    line-height: 1.8;
+}
+.password-form {
+    max-width: 430px;
+}
+.password-form label {
+    margin: 20px 0;
+}
+.account-empty {
+    text-align: center;
+    padding: 55px 20px;
+    color: #858c99;
+}
+.account-empty h2 {
+    color: #20212a;
+    font-size: 20px;
+    margin: 20px 0 12px;
+}
+.account-empty p {
+    font-size: 14px;
+    margin: 0 0 24px;
+    line-height: 1.8;
+}
+.address-card {
+    background: white;
+    border: 1px solid #e5e7ee;
+    border-radius: 7px;
+    padding: 24px;
+    margin-bottom: 18px;
+}
+.address-card.default-address {
+    border-color: #f3b4ca;
+}
+.address-card-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+.address-card-heading h2 {
+    font-size: 17px;
+    margin: 0;
+}
+.address-card-heading h2 > span {
+    font-size: 14px;
+    color: #68707d;
+    font-weight: 400;
+    margin-left: 20px;
+}
+.address-card > p {
+    font-size: 14px;
+    line-height: 1.9;
+    margin: 18px 0 10px;
+    overflow-wrap: anywhere;
+}
+.address-card > small {
+    color: #8a8f9d;
+    font-size: 12px;
+}
+.default-badge {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+    color: #be104c;
+    background: #fff0f5;
+    font-size: 11px;
+    padding: 5px 8px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+.address-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    border-top: 1px solid #f0f0f5;
+    margin-top: 18px;
+    padding-top: 8px;
+}
+.address-actions > div {
+    display: flex;
+    gap: 20px;
+    flex-shrink: 0;
+}
+.text-button:disabled {
+    color: #a0a5af;
+    cursor: not-allowed;
+}
+.address-dialog {
+    width: 650px;
+    max-width: calc(100% - 32px);
+    max-height: calc(100dvh - 40px);
+    overflow: auto;
+    border: 0;
+    border-radius: 10px;
+    padding: 28px;
+    color: #20212a;
+}
+.address-dialog::backdrop {
+    background: rgb(20 22 35 / 45%);
+}
+.address-dialog h2 {
+    font-size: 21px;
+    margin: 0;
+}
+.address-dialog .account-form {
+    margin-top: 24px;
+}
+.wide-field {
+    grid-column: 1/-1;
+}
+.dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 25px;
+}
+.refund-card-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    font-size: 12px;
+    color: #68707d;
+    overflow-wrap: anywhere;
+}
+.refund-state {
+    color: #9b5c12;
+    white-space: nowrap;
+    font-weight: 600;
+}
+.refund-state.success {
+    color: #27824b;
+}
+.refund-amount {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: center;
+    margin: 24px 0;
+}
+.refund-amount p {
+    font-size: 16px;
+    margin: 0 0 10px;
+}
+.refund-amount small,
+.refund-card-footer > span {
+    font-size: 12px;
+    color: #68707d;
+}
+.refund-amount > strong {
+    color: #eb1761;
+    font-size: 27px;
+    white-space: nowrap;
+}
+.refund-card-footer {
+    border-top: 1px solid #eeeef4;
+    padding-top: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+}
+.chat-panel {
+    background: white;
+    border: 1px solid #e9eaf0;
+    border-radius: 10px;
+    overflow: hidden;
+}
+.chat-service-heading {
+    padding: 19px 24px;
+    border-bottom: 1px solid #eeeef4;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.chat-service-heading > div {
+    flex: 1;
+}
+.chat-service-heading strong {
+    font-size: 15px;
+}
+.chat-service-heading p {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: #68707d;
+}
+.chat-bot {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    background: #fff1f6;
+    color: #be104c;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+.chat-history {
+    height: 430px;
+    overflow: auto;
+    padding: 24px;
+    background: #fcfcfe;
+    scroll-behavior: smooth;
+}
+.chat-welcome {
+    text-align: center;
+    padding: 25px 15px;
+    color: #be104c;
+}
+.chat-welcome h2 {
+    font-size: 23px;
+    margin: 20px 0 12px;
+    color: #20212a;
+}
+.chat-welcome p {
+    font-size: 13px;
+    color: #68707d;
+    line-height: 1.8;
+}
+.chat-welcome small {
+    color: #8a8f9d;
+    font-size: 11px;
+    display: block;
+    line-height: 1.8;
+    margin-top: 22px;
+}
+.chat-suggestions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 24px;
+}
+.chat-suggestions button {
+    background: white;
+    border: 1px solid #e4e5ed;
+    color: #5b6371;
+    border-radius: 6px;
+    padding: 11px 14px;
+    display: flex;
+    gap: 7px;
+    align-items: center;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    text-align: left;
+}
+.chat-message {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 24px;
+}
+.message-avatar {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    background: #fce7ef;
+    color: #be104c;
+    border-radius: 50%;
+}
+.chat-message > div {
+    max-width: calc(100% - 45px);
+    min-width: 0;
+}
+.message-bubble {
+    background: white;
+    border: 1px solid #e7e8f0;
+    border-radius: 0 12px 12px 12px;
+    padding: 13px 17px;
+    font-size: 14px;
+    color: #424956;
+    line-height: 1.9;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.chat-message.user {
+    flex-direction: row-reverse;
+}
+.user .message-avatar {
+    background: #eef0f5;
+    color: #68707d;
+}
+.user .message-bubble {
+    background: #fff0f5;
+    border-color: #f7dce6;
+    border-radius: 12px 0 12px 12px;
+}
+.chat-thinking {
+    display: flex;
+    gap: 9px;
+    align-items: center;
+    color: #68707d;
+}
+.chat-composer {
+    padding: 18px 24px 14px;
+    border-top: 1px solid #eeeef4;
+}
+.chat-composer form {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    border: 1px solid #dadde7;
+    border-radius: 8px;
+    padding: 12px;
+}
+.chat-composer form:focus-within {
+    border-color: #eb1761;
+}
+.chat-composer textarea {
+    width: 0;
+    flex: 1;
+    resize: vertical;
+    max-height: 150px;
+    border: 0;
+    outline: 0;
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.8;
+    color: #20212a;
+}
+.chat-composer .button {
+    width: 38px;
+    height: 38px;
+    min-height: 0;
+    padding: 0;
+    flex-shrink: 0;
+    border-radius: 7px;
+}
+.chat-footnote {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 11px;
+    color: #8a8f9d;
+    margin-top: 10px;
+    line-height: 1.7;
+}
+@media (max-width: 800px) {
+    .account-page {
+        grid-template-columns: 1fr;
+        gap: 0;
+        padding-top: 18px;
+        padding-bottom: 40px;
+    }
+    .account-sidebar {
+        margin: 0 0 10px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+    }
+    .account-sidebar-title {
+        display: none;
+    }
+    .account-sidebar nav {
+        flex-direction: row;
+        overflow: auto;
+        border-bottom: 1px solid #e1e3ec;
+        gap: 22px;
+    }
+    .account-sidebar nav a {
+        border: 0;
+        padding: 12px 0;
+        white-space: nowrap;
+        border-bottom: 2px solid transparent;
+        font-size: 12px;
+        gap: 6px;
+    }
+    .account-sidebar nav a.active {
+        background: transparent;
+        border-color: #eb1761;
+    }
+    .account-sidebar nav svg {
+        width: 15px;
+    }
+    .account-panel {
+        padding: 22px 18px;
+    }
+    .account-heading {
+        gap: 10px;
+    }
+    .account-heading .button {
+        padding: 11px 13px;
+        font-size: 12px;
+        flex-shrink: 0;
+    }
+    .account-heading .text-button {
+        font-size: 12px;
+        flex-shrink: 0;
+    }
+    .account-content .transaction-heading h1 {
+        font-size: 24px;
+    }
+    .account-content .transaction-heading p {
+        font-size: 12px;
+    }
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 22px;
+    }
+    .profile-intro {
+        gap: 14px;
+        margin-bottom: 24px;
+    }
+    .profile-avatar {
+        width: 54px;
+        height: 54px;
+    }
+    .address-card {
+        padding: 20px 16px;
+    }
+    .address-card-heading {
+        flex-wrap: wrap;
+    }
+    .address-card-heading h2 > span {
+        margin-left: 12px;
+        font-size: 13px;
+    }
+    .address-actions {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .address-actions .form-hint {
+        width: 100%;
+        font-size: 11px;
+    }
+    .address-actions > div {
+        margin-left: auto;
+    }
+    .address-dialog {
+        padding: 24px 20px;
+    }
+    .address-dialog .form-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 20px 14px;
+    }
+    .address-dialog label {
+        font-size: 12px;
+    }
+    .address-dialog input {
+        padding: 11px 10px;
+        font-size: 13px;
+    }
+    .refund-card-heading {
+        flex-direction: column;
+        gap: 10px;
+    }
+    .refund-card-footer {
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    .refund-amount > strong {
+        font-size: 23px;
+    }
+    .refund-amount p {
+        font-size: 14px;
+    }
+    .chat-service-heading {
+        padding: 17px 14px;
+        gap: 10px;
+    }
+    .chat-service-heading .text-button {
+        font-size: 12px;
+    }
+    .chat-history {
+        height: 420px;
+        padding: 20px 14px;
+    }
+    .chat-welcome {
+        padding: 25px 0;
+    }
+    .chat-welcome h2 {
+        font-size: 20px;
+    }
+    .chat-suggestions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .chat-composer {
+        padding: 14px;
+    }
+    .chat-footnote {
+        font-size: 10px;
+    }
+    .message-bubble {
+        font-size: 13px;
+        padding: 11px 13px;
+    }
+    .header-account {
+        gap: 12px;
+        font-size: 11px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .chat-history {
+        scroll-behavior: auto;
+    }
+}
+@media (max-width: 800px) {
+    .account-page {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .account-sidebar {
+        min-width: 0;
+    }
+}
+.chat-footnote > span:last-child {
+    flex-shrink: 0;
+    white-space: nowrap;
+}

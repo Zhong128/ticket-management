@@ -36,8 +36,18 @@ public class EventController {
     public Result<PageResult<EventVO>> getEventsByPage(@Valid EventQueryDTO queryDTO) {
         log.debug("分页查询演出列表，参数: {}", queryDTO);
         // 调用分页查询方法
-        PageResult<EventVO> result = eventService.queryEvents(queryDTO);
+        PageResult<EventVO> result = eventService.queryPublicEvents(queryDTO);
         return Result.success("查询成功", result);
+    }
+
+    @Operation(summary = "公开演出详情", tags = { "演出-公共接口" })
+    @GetMapping("/public/events/{id}")
+    public Result<EventVO> getPublicEvent(@PathVariable Long id) {
+        EventVO event = eventService.getPublicEventById(id);
+        if (event == null) {
+            return Result.error("演出不存在或已下架");
+        }
+        return Result.success("查询成功", event);
     }
 
     /**
