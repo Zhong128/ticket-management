@@ -205,6 +205,15 @@ class TradeLoadIT {
         Path users = runDirectory.resolve("test-users.csv");
         seedUsersAndTokens(buyers, users, mode);
 
+        // 三组独立运行；历史票档的库存与本轮新买家隔离。
+        String history = System.getenv().getOrDefault("LOAD_EXPIRY_HISTORY", "none");
+        assertTrue(List.of("none", "future", "due").contains(history), "未知历史订单模式");
+        int historyTier = lastTierId + 100;
+        if (!history.equals("none")) {
+            assertEquals("abundant", mode, "到期对照仅适用于单热点独立运行");
+            prepareHistory(seckill, historyTier, runDirectory);
+        }
+
         var listeners = context.getBean(RabbitListenerEndpointRegistry.class);
         LoadSqlDiagnostics diagnostics = context.getBeanProvider(LoadSqlDiagnostics.class).getIfAvailable();
         SimpleMessageListenerContainer orderListener = listeners.getListenerContainers().stream()
@@ -261,6 +270,13 @@ class TradeLoadIT {
             builder.environment().put("JVM_ARGS", "-Djdk.net.unixdomain.tmpdir=" + Path.of("target").toAbsolutePath());
             long loadStarted = System.nanoTime();
             Process process = builder.start();
+            if (history.equals("due")) {
+                // 只移动隔离夹具的截止时间，通过真实数据库兜底扫描触发关单。
+                LocalDateTime expiry = LocalDateTime.now().plusMinutes(2);
+                db.update("UPDATE stock_reservation SET expires_at=? WHERE tier_id=?", expiry, historyTier);
+                db.update("UPDATE order_info SET expire_time=? WHERE tier_id=?", expiry, historyTier);
+                Files.writeString(runDirectory.resolve("history-deadline.txt"), expiry.toString());
+            }
             boolean finished = process.waitFor(duration + 180L, TimeUnit.SECONDS);
             if (!finished) {
                 process.destroyForcibly();
@@ -301,10 +317,29 @@ class TradeLoadIT {
             }
             long settleStart = System.nanoTime();
             long deadline = System.nanoTime() + Duration.ofMinutes(3).toNanos();
-            while (System.nanoTime() < deadline && (pendingOutbox() > 0 || pendingEmailTasks() > 0 || pendingReservations() > 0 || !quotaConverged())) {
+            while (System.nanoTime() < deadline && (pendingOutbox() > 0 || pendingEmailTasks() > 0
+                    || pendingReservations() > 0 || !quotaConverged()
+                    || (history.equals("due") && historicalClosed(historyTier) != 1000))) {
                 Thread.sleep(1000);
             }
             long settleSeconds = Duration.ofNanos(System.nanoTime() - settleStart).toSeconds();
+            if (!history.equals("none")) {
+                int expectedClosed = history.equals("due") ? 1000 : 0;
+                int closed = historicalClosed(historyTier);
+                int released = db.queryForObject("SELECT COUNT(*) FROM stock_reservation "
+                        + "WHERE tier_id=? AND inventory_state='RELEASED' AND status='RELEASED'",
+                        Integer.class, historyTier);
+                int stock = db.queryForObject("SELECT available_stock FROM ticket_tier WHERE id=?",
+                        Integer.class, historyTier);
+                int quota = context.getBean(StockServiceImpl.class).getStock((long) historyTier);
+                Files.writeString(runDirectory.resolve("history-summary.txt"),
+                        "mode=" + history + "\nclosed=" + closed + "\nreleased=" + released
+                                + "\nstock=" + stock + "\nquota=" + quota + "\n");
+                assertEquals(expectedClosed, closed, "历史订单关闭数");
+                assertEquals(expectedClosed, released, "历史申请释放数");
+                assertEquals(expectedClosed, stock, "历史库存只回补一次");
+                assertEquals(stock, quota, "历史票档Redis配额");
+            }
 
             double completionSeconds = (System.nanoTime() - loadStarted) / 1_000_000_000.0;
 
@@ -416,6 +451,39 @@ class TradeLoadIT {
         db.update("INSERT INTO ticket_tier(id,event_id,session_id,tier_name,original_price,current_price,"
                 + "total_stock,available_stock,status) VALUES(?,?,?,'Load tier',100,100,?,?,1)",
                 tierId, tierId, tierId, stock, stock);
+    }
+
+    private int historicalClosed(int historyTier) {
+        return db.queryForObject("SELECT COUNT(*) FROM order_info WHERE tier_id=? AND order_status=2",
+                Integer.class, historyTier);
+    }
+
+    private void prepareHistory(SeckillServiceImpl seckill, int historyTier, Path directory) throws Exception {
+        int activeTier = tierId;
+        tierId = historyTier;
+        try {
+            seedSale(1000);
+            context.getBean(StockServiceImpl.class).prepare(historyTier);
+            long firstUser = 100000L + userSequence;
+            seedUsersAndTokens(1000, directory.resolve("history-users.csv"), "abundant");
+            for (long user = firstUser; user < firstUser + 1000; user++) {
+                seckill.reserveApplication(user, historyTier, 1, "history-" + user);
+            }
+        } finally {
+            tierId = activeTier;
+        }
+
+        // 通过真实Outbox和消费者建单，预热的发布及通知须先排空。
+        long deadline = System.nanoTime() + Duration.ofMinutes(3).toNanos();
+        while (System.nanoTime() < deadline) {
+            int orders = db.queryForObject("SELECT COUNT(*) FROM order_info WHERE tier_id=?",
+                    Integer.class, historyTier);
+            if (orders == 1000 && pendingOutbox() == 0 && pendingEmailTasks() == 0) {
+                return;
+            }
+            Thread.sleep(1000);
+        }
+        fail("历史订单准备未收敛");
     }
 
     private void seedUsersAndTokens(int buyers, Path users, String mode) throws IOException {
