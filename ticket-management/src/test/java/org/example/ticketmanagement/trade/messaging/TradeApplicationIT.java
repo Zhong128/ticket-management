@@ -386,7 +386,9 @@ class TradeApplicationIT {
         assertNotNull(context.getBean(SeckillOrderConsumer.class));
         assertTrue(context.getBeansOfType(TestDataController.class).isEmpty());
         assertEquals(1, context.getBeansOfType(Clock.class).size());
-        assertEquals(5, db.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1", Integer.class));
+        // 核对交易与管理端的基础迁移，允许后续模块继续新增迁移。
+        assertEquals(6, db.queryForObject("SELECT COUNT(*) FROM flyway_schema_history "
+                + "WHERE success=1 AND version IN ('1','2','3','4','5','6')", Integer.class));
         assertEquals("", environment.getProperty("spring.config.import"));
         assertEquals("isolated-it-dummy-key", environment.getProperty("spring.ai.openai.api-key"));
         assertTrue(environment.getProperty("spring.datasource.url", "").contains("trade_application_it"));
