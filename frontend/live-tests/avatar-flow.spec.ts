@@ -1,0 +1,25 @@
+import {test,expect} from '@playwright/test'
+
+test('真实头像上传经开发代理展示、刷新后保留并恢复默认',async({page})=>{
+    const errors:string[]=[]
+    page.on('pageerror',error=>errors.push(error.message))
+    await page.goto('/login?redirect=/account/profile')
+    await page.getByLabel('邮箱',{exact:true}).fill('journey-9601@example.invalid')
+    await page.getByLabel('密码',{exact:true}).fill('journey-test-pass')
+    await page.getByRole('button',{name:'登录 / 注册',exact:true}).click()
+    await expect(page).toHaveURL(/\/account\/profile$/)
+    await page.getByLabel('选择头像文件').setInputFiles(process.env.LIVE_AVATAR_FILE!)
+    await page.getByRole('button',{name:'保存头像',exact:true}).click()
+    await expect(page.getByText('头像已保存',{exact:true})).toBeVisible()
+    const avatar=page.getByAltText('账户头像')
+    await expect(avatar).toBeVisible()
+    const url=await avatar.getAttribute('src')
+    expect(url).toMatch(/^\/media\/avatars\/9601-/)
+    await expect.poll(()=>avatar.evaluate((img:HTMLImageElement)=>img.naturalWidth)).toBe(256)
+    await page.reload()
+    await expect(page.getByAltText('我的头像')).toHaveAttribute('src',url!)
+    await page.getByRole('button',{name:'恢复默认头像'}).click()
+    await expect(page.getByText('已恢复默认头像',{exact:true})).toBeVisible()
+    await expect(page.getByAltText('账户头像')).toHaveCount(0)
+    expect(errors).toEqual([])
+})

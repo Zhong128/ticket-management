@@ -102,12 +102,12 @@ public class OrderServiceImpl implements OrderService {
         log.debug("用户查询订单详情: orderId={}, userId={}", orderId, userId);
         OrderInfo orderInfo = orderInfoMapper.selectById(orderId);
         if (orderInfo == null) {
-            throw new RuntimeException("订单不存在");
+            throw new IllegalArgumentException("订单不存在");
         }
         // 验证权限：只能查看自己的订单
         if (!orderInfo.getUserId().equals(userId)) {
             log.warn("用户越权访问订单: userId={}, orderUserId={}", userId, orderInfo.getUserId());
-            throw new RuntimeException("无权查看此订单");
+            throw new IllegalArgumentException("无权查看此订单");
         }
         return convertToVO(orderInfo);
     }

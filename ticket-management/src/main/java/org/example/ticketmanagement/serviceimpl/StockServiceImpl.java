@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.ticketmanagement.dto.RedisReservation;
 import org.example.ticketmanagement.exception.StockCacheNotReadyException;
+import org.example.ticketmanagement.exception.ReservationRejectedException;
 import org.example.ticketmanagement.mapper.SeckillAdmissionMapper;
 import org.example.ticketmanagement.mapper.TradeStockMapper;
 import org.example.ticketmanagement.pojo.StockEpoch;
@@ -81,6 +82,9 @@ public class StockServiceImpl implements StockService {
         }
         String state = result.getFirst().toString();
         if (!Set.of("OK", "EXISTING").contains(state)) {
+            if (!Set.of("NOT_READY", "DUPLICATE", "SOLD_OUT", "MISMATCH", "INVALID").contains(state)) {
+                throw new StockCacheNotReadyException();
+            }
             if ("NOT_READY".equals(state)) {
                 redis.opsForHash().put(metaKey(tierId), "ready", "0");
             }
@@ -91,7 +95,7 @@ public class StockServiceImpl implements StockService {
                 case "INVALID" -> "抢票参数或缓存格式异常";
                 default -> "票档库存正在恢复，请稍后重试";
             };
-            throw new IllegalStateException(message);
+            throw new ReservationRejectedException(message);
         }
         return new RedisReservation(tierId, userId, requestKey, quantity, result.get(1).toString(), epoch,
                 Long.parseLong(result.get(2).toString()), Long.parseLong(result.get(3).toString()));

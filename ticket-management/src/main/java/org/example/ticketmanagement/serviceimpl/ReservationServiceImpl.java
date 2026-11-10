@@ -2,6 +2,7 @@ package org.example.ticketmanagement.serviceimpl;
 
 import lombok.RequiredArgsConstructor;
 import org.example.ticketmanagement.exception.StockVersionConflictException;
+import org.example.ticketmanagement.exception.ConfirmedPriceChangedException;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.example.ticketmanagement.dto.RedisReservation;
@@ -58,6 +59,11 @@ public class ReservationServiceImpl implements ReservationService {
     }
 
     public StockReservation accept(RedisReservation pending) {
+        return accept(pending, null);
+    }
+
+    /** 确认卡片的预期单价在可靠受理事务内校验，旧入口保持原行为。 */
+    public StockReservation accept(RedisReservation pending, BigDecimal expectedPrice) {
         requireEnabled();
         return transactions.execute(status -> {
             stock.requireReady(pending.tierId(), pending.epoch());
@@ -78,6 +84,11 @@ public class ReservationServiceImpl implements ReservationService {
                 throw new IllegalStateException("已存在该票档有效申请或订单");
             }
             Map<String, Object> sale = requireSale(pending.tierId());
+            // 以本事务即将固化的价格比对，不能用事务外快照代替用户确认金额。
+            if (expectedPrice != null && expectedPrice.compareTo((BigDecimal) sale.get("current_price")) != 0) {
+                throw new ConfirmedPriceChangedException();
+            }
+
             LocalDateTime expires = LocalDateTime.ofInstant(Instant.ofEpochMilli(pending.expiresAt()), clock.getZone());
             if (!now().isBefore(expires)) {
                 throw new IllegalStateException("申请已过期");

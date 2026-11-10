@@ -101,6 +101,10 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public boolean updateProfile(Long userId, UserProfileDTO profile) {
+        // 头像必须经专用接口校验和转码，资料请求不能写入任意地址。
+        if (profile.getAvatar() != null) {
+            throw new IllegalArgumentException("请通过头像上传接口设置头像");
+        }
         User user = userMapper.getUserById(userId);
         if (user == null) {
             throw new RuntimeException("用户不存在");

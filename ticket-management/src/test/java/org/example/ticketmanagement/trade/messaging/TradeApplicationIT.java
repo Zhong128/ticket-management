@@ -9,6 +9,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.HashMap;
 import java.nio.file.Path;
 import java.nio.file.Files;
+import java.util.UUID;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.ByteArrayInputStream;
+import javax.imageio.ImageIO;
+import org.springframework.core.io.ByteArrayResource;
 import com.alipay.api.AlipayClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -44,11 +50,14 @@ import org.example.ticketmanagement.util.AlipaySignatureUtil;
 import org.junit.jupiter.api.*;
 import org.mockito.ArgumentMatchers;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.chat.memory.ChatMemory;
+import org.example.ticketmanagement.serviceimpl.AgentConversationStore;
+import reactor.core.publisher.Flux;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
+import org.springframework.ai.chat.model.ToolContext;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -113,6 +122,7 @@ class TradeApplicationIT {
 
     @DynamicPropertySource
     static void isolatedEndpoints(DynamicPropertyRegistry properties) {
+        properties.add("app.avatar-directory", () -> AVATAR_DIRECTORY.toString());
         properties.add("spring.datasource.url", MYSQL::getJdbcUrl);
         properties.add("spring.datasource.username", MYSQL::getUsername);
         properties.add("spring.datasource.password", MYSQL::getPassword);
@@ -128,6 +138,8 @@ class TradeApplicationIT {
                         + "  subscriptionConnectionMinimumIdleSize: 1\n" + "  subscriptionConnectionPoolSize: 2\n"
                         + "threads: 2\n" + "nettyThreads: 2\n");
     }
+
+    private static final Path AVATAR_DIRECTORY = Path.of("target", "avatar-http-" + UUID.randomUUID()).toAbsolutePath();
 
     @MockitoBean
     PaymentGateway gateway;
@@ -182,12 +194,13 @@ class TradeApplicationIT {
         for (String path : List.of("/", "/events/7501", "/account/orders/7501", "/payment/return", "/admin", "/admin/events/1/edit", "/unknown-page")) {
             var response = http.getForEntity(path, String.class);
             assertEquals(HttpStatus.OK, response.getStatusCode(), path);
-            assertTrue(response.getBody().contains("youxi-frontend-routing-fixture"), path);
+            assertTrue(response.getBody().contains("id=\"app\""), path);
+            assertTrue(response.getBody().contains("/assets/"), path);
         }
         var asset = http.getForEntity("/assets/no-such-module.js", String.class);
-        assertFalse(asset.getBody().contains("youxi-frontend-routing-fixture"));
+        assertFalse(asset.getBody().contains("id=\"app\""));
         var api = http.getForEntity("/api/public/no-such-api", String.class);
-        assertFalse(api.getBody().contains("youxi-frontend-routing-fixture"));
+        assertFalse(api.getBody().contains("id=\"app\""));
         JsonNode status = http.getForObject("/api/public/app-status", JsonNode.class);
         assertSuccess(status);
         assertTrue(status.path("data").path("ready").asBoolean());
@@ -209,10 +222,9 @@ class TradeApplicationIT {
         when(gateway.query(anyString())).thenAnswer(invocation -> new PaymentGateway.Query(
                 PaymentGateway.State.PAID, invocation.getArgument(0), "ISOLATED-BROWSER-PAID",
                 new BigDecimal("200.00")));
-        when(ai.call(ArgumentMatchers.any(Prompt.class)))
-                .thenReturn(new ChatResponse(List.of(new Generation(new AssistantMessage("隔离验收客服回复")))));
+        stubAgentDraftModel(7501, 7502);
 
-        // 独立Vite只代理本测试的随机端口，浏览器不得拦截任何业务API。
+        // 独立前端构建预览只代理本测试随机端口，浏览器不得拦截任何业务API。
         Path root = Path.of(System.getProperty("user.dir")).getParent();
         Path browserLog = root.resolve("output/frontend-live-browser.log");
         Files.createDirectories(browserLog.getParent());
@@ -247,8 +259,20 @@ class TradeApplicationIT {
         assertEquals(1, db.queryForObject(
                 "SELECT COUNT(*) FROM user_address WHERE user_id=7501 AND is_default=1", Integer.class));
         verify(gateway, times(1)).create(ArgumentMatchers.any());
-        verify(ai, times(1)).call(ArgumentMatchers.any(Prompt.class));
-        assertTrue(context.getBean(ChatMemory.class).get("user_7502").isEmpty());
+        verify(ai, times(2)).stream(ArgumentMatchers.any(Prompt.class));
+        assertEquals(1, db.queryForObject("""
+                SELECT COUNT(*) FROM agent_action
+                WHERE user_id=7502 AND type='CANCEL' AND status='SUCCEEDED'
+                """, Integer.class));
+        assertEquals(0, db.queryForObject("""
+                SELECT COUNT(*) FROM agent_message m
+                JOIN agent_conversation c ON c.id=m.conversation_id
+                WHERE c.user_id=7502 AND c.title='隔离验收订单咨询'
+                """, Integer.class));
+        assertEquals(2, db.queryForObject("""
+                SELECT COUNT(*) FROM agent_message m
+                JOIN agent_action a ON a.run_id=m.run_id WHERE a.user_id=7502 AND a.type='CANCEL'
+                """, Integer.class));
     }
 
     @Test
@@ -311,8 +335,8 @@ class TradeApplicationIT {
         seedAccount(7402, "USER");
         String first = loginUser(7401);
         String second = loginUser(7402);
-        when(ai.call(ArgumentMatchers.any(Prompt.class)))
-                .thenReturn(new ChatResponse(List.of(new Generation(new AssistantMessage("测试回复")))));
+        when(ai.stream(ArgumentMatchers.any(Prompt.class)))
+                .thenReturn(Flux.just(new ChatResponse(List.of(new Generation(new AssistantMessage("测试回复"))))));
 
         JsonNode firstReply = post("/api/user/ai-customer-service/chat",
                 Map.of("message", "first-user-marker"), first);
@@ -321,7 +345,7 @@ class TradeApplicationIT {
         assertSuccess(post("/api/user/ai-customer-service/chat", Map.of("message", "second-user-marker"), second));
         assertSuccess(post("/api/user/ai-customer-service/chat", Map.of("message", "follow-up-marker"), first));
         ArgumentCaptor<Prompt> prompts = ArgumentCaptor.forClass(Prompt.class);
-        verify(ai, times(3)).call(prompts.capture());
+        verify(ai, times(3)).stream(prompts.capture());
         assertFalse(prompts.getAllValues().get(1).getInstructions().stream()
                 .anyMatch(message -> message.getText().contains("first-user-marker")));
         assertTrue(prompts.getAllValues().get(2).getInstructions().stream()
@@ -331,16 +355,167 @@ class TradeApplicationIT {
                 Set.of("updateUserProfile", "addUserAddress", "createOrder", "cancelOrder")
                         .contains(tool.getToolDefinition().name())));
 
-        // 清空仅操作该用户的内存，不再额外请求模型。
+        // 清空仅操作该用户的默认持久会话，不再额外请求模型。
         assertSuccess(accountWrite(HttpMethod.DELETE, "/api/user/ai-customer-service/clear-history",
                 null, first, MediaType.APPLICATION_JSON));
-        ChatMemory memory = context.getBean(ChatMemory.class);
-        assertTrue(memory.get("user_7401").isEmpty());
-        assertFalse(memory.get("user_7402").isEmpty());
-        verify(ai, times(3)).call(ArgumentMatchers.any(Prompt.class));
+        AgentConversationStore conversations = context.getBean(AgentConversationStore.class);
+        assertTrue(conversations.context(7401L, conversations.defaultConversation(7401L).getId()).isEmpty());
+        assertFalse(conversations.context(7402L, conversations.defaultConversation(7402L).getId()).isEmpty());
+        verify(ai, times(3)).stream(ArgumentMatchers.any(Prompt.class));
         assertNotEquals(1, post("/api/user/ai-customer-service/chat", Map.of("message", " "), first)
                 .path("code").asInt());
-        verify(ai, times(3)).call(ArgumentMatchers.any(Prompt.class));
+        verify(ai, times(3)).stream(ArgumentMatchers.any(Prompt.class));
+    }
+
+    @Test
+    void agentPurchaseCardRequiresExplicitOwnedConfirmationAndKeepsOneApplication() throws Exception {
+        seedProtocolSale(7601, 5);
+        seedAccount(7601, "USER");
+        seedAccount(7602, "USER");
+        stubAgentDraftModel(7601, 7601);
+        String token = loginUser(7601);
+        String foreign = loginUser(7602);
+        String base = "/api/user/ai-customer-service";
+        String conversation = post(base + "/conversations", Map.of("title", "确认购票"), token)
+                .path("data").path("id").asText();
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("ticket-token", token);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setAccept(List.of(MediaType.TEXT_EVENT_STREAM));
+        var response = http.exchange(base + "/conversations/" + conversation + "/messages/stream", HttpMethod.POST,
+                new HttpEntity<>(Map.of("message", "创建购票确认卡片", "clientMessageId", "purchase-card"), headers), String.class);
+        assertTrue(response.getBody().contains("event:action_proposed"), response.getBody());
+        String actionFrame = response.getBody().replace("\r\n", "\n").lines()
+                .dropWhile(line -> !line.equals("event:action_proposed"))
+                .skip(1).takeWhile(line -> !line.isEmpty()).filter(line -> line.startsWith("data:"))
+                .map(line -> line.substring(5)).reduce((left, right) -> left + "\n" + right).orElseThrow();
+        JsonNode proposed = new ObjectMapper().readTree(actionFrame);
+        assertTrue(proposed.path("action").path("expiresAt").isTextual(), proposed.toString());
+        JsonNode cards = get(base + "/conversations/" + conversation + "/actions", token).path("data");
+        assertEquals(1, cards.size());
+        String card = cards.get(0).path("id").asText();
+        assertEquals("PENDING", cards.get(0).path("status").asText());
+        assertEquals(0, db.queryForObject("SELECT COUNT(*) FROM stock_reservation WHERE user_id=7601", Integer.class));
+        assertEquals(404, post(base + "/actions/" + card + "/confirm", Map.of(), foreign).path("code").asInt());
+        assertSuccess(post(base + "/actions/" + card + "/confirm", Map.of(), token));
+        assertSuccess(post(base + "/actions/" + card + "/confirm", Map.of(), token));
+        awaitUntil(() -> db.queryForObject("SELECT COUNT(*) FROM order_info WHERE user_id=7601", Integer.class) == 1);
+        assertEquals(1, db.queryForObject("SELECT COUNT(*) FROM stock_reservation WHERE user_id=7601", Integer.class));
+        JsonNode resolved = get(base + "/actions/" + card, token).path("data");
+        assertEquals("SUCCEEDED", resolved.path("status").asText(), resolved.toString());
+        assertFalse(resolved.path("orderId").asText().isBlank());
+        assertFalse(resolved.has("requestKey"));
+        assertFalse(resolved.has("userId"));
+    }
+
+    private void stubAgentDraftModel(long tierId, long cancellationUser) {
+        // 模型替身只提出草稿，实际工具、确认HTTP和交易Service均使用生产实现。
+        when(ai.stream(ArgumentMatchers.any(Prompt.class))).thenAnswer(invocation -> {
+            Prompt prompt = invocation.getArgument(0);
+            return Flux.defer(() -> {
+                String toolName = null;
+                String arguments = null;
+                String userText = prompt.getInstructions().stream()
+                        .filter(message -> message.getMessageType() == MessageType.USER)
+                        .reduce((previous, current) -> current).orElseThrow().getText();
+                if (userText.contains("创建购票确认卡片")) {
+                    toolName = "proposePurchase";
+                    arguments = "{\"tierId\":" + tierId + ",\"quantity\":1}";
+                } else if (userText.contains("创建取消确认卡片")) {
+                    toolName = "proposeCancellation";
+                    long orderId = db.queryForObject("SELECT id FROM order_info WHERE user_id=? AND order_status=0 ORDER BY id DESC LIMIT 1",
+                            Long.class, cancellationUser);
+                    arguments = "{\"orderId\":" + orderId + "}";
+                }
+                if (toolName != null) {
+                    var options = (ToolCallingChatOptions) prompt.getOptions();
+                    String chosen = toolName;
+                    var callback = options.getToolCallbacks().stream()
+                            .filter(tool -> chosen.equals(tool.getToolDefinition().name())).findFirst().orElseThrow();
+                    String result = callback.call(arguments, new ToolContext(options.getToolContext()));
+                    assertTrue(result.contains("SUCCESS"), result);
+                }
+                return Flux.just(new ChatResponse(List.of(new Generation(new AssistantMessage("隔离验收客服回复")))));
+            });
+        });
+    }
+
+    @Test
+    void agentConversationStreamPersistsHistoryAndRejectsForeignAccess() {
+        seedAccount(7411, "USER");
+        seedAccount(7412, "USER");
+        String token = loginUser(7411);
+        String foreign = loginUser(7412);
+        when(ai.stream(ArgumentMatchers.any(Prompt.class))).thenReturn(Flux.just(
+                new ChatResponse(List.of(new Generation(new AssistantMessage("分片一")))),
+                new ChatResponse(List.of(new Generation(new AssistantMessage("分片二"))))));
+        JsonNode created = post("/api/user/ai-customer-service/conversations", Map.of("title", "流式会话"), token);
+        assertSuccess(created);
+        String id = created.path("data").path("id").asText();
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("ticket-token", token);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setAccept(List.of(MediaType.TEXT_EVENT_STREAM));
+        String path = "/api/user/ai-customer-service/conversations/" + id + "/messages/stream";
+        Map<String, String> body = Map.of("message", "订单付款期限多久，刷新会延长吗？", "clientMessageId", "http-client-1");
+        var response = http.exchange(path, HttpMethod.POST, new HttpEntity<>(body, headers), String.class);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertTrue(response.getHeaders().getContentType().isCompatibleWith(MediaType.TEXT_EVENT_STREAM));
+        String events = response.getBody();
+        assertTrue(events.contains("event:run_started"), events);
+        assertTrue(events.contains("event:text_delta"), events);
+        assertTrue(events.contains("event:knowledge_sources"), events);
+        assertTrue(events.contains("KB-ORD-004"), events);
+        assertTrue(events.contains("event:done"), events);
+        assertTrue(events.contains("分片一分片二"), events);
+        assertTrue(events.contains("SUCCEEDED"), events);
+        var rename = http.execute("/api/user/ai-customer-service/conversations/" + id,
+                HttpMethod.OPTIONS, request -> {
+                    request.getHeaders().setOrigin("http://127.0.0.1:5183");
+                    request.getHeaders().setAccessControlRequestMethod(HttpMethod.PATCH);
+                    request.getHeaders().setAccessControlRequestHeaders(List.of("ticket-token", "content-type"));
+                }, responseMessage -> responseMessage.getStatusCode());
+        assertTrue(rename.is2xxSuccessful(), "重命名PATCH必须通过真实浏览器CORS预检");
+        var replay = http.exchange(path, HttpMethod.POST, new HttpEntity<>(body, headers), String.class);
+        assertTrue(replay.getBody().replaceAll("\\s", "").contains("\"replayed\":true"), replay.getBody());
+        verify(ai, times(1)).stream(ArgumentMatchers.any(Prompt.class));
+
+        var conversationStore = context.getBean(AgentConversationStore.class);
+        var messages = conversationStore.messages(7411L, id, 1, 50).getRecords();
+        assertEquals(2, messages.size());
+        assertTrue(messages.getLast().getCitations().stream()
+                .anyMatch(citation -> "KB-ORD-004".equals(citation.entryId()) && citation.version() == 2));
+        String runId = messages.getFirst().getRunId();
+        assertEquals(messages.getLast().getCitations(), conversationStore.getRun(7411L, runId).getCitations());
+        HttpHeaders sourceHeaders = new HttpHeaders();
+        sourceHeaders.set("ticket-token", token);
+        var source = http.exchange("/api/user/ai-customer-service/knowledge/KB-ORD-004?version=2", HttpMethod.GET,
+                new HttpEntity<>(sourceHeaders), JsonNode.class).getBody();
+        assertSuccess(source);
+        assertTrue(source.path("data").path("answer").asText().contains("30分钟"));
+        assertTrue(source.path("data").path("current").asBoolean());
+        assertFalse(source.path("data").has("sourcePath"));
+        db.update("UPDATE agent_knowledge_chunk SET enabled=0 WHERE entry_id='KB-ORD-004'");
+        try {
+            var disabled = http.exchange("/api/user/ai-customer-service/knowledge/KB-ORD-004?version=2", HttpMethod.GET,
+                    new HttpEntity<>(sourceHeaders), JsonNode.class).getBody();
+            assertEquals(404, disabled.path("code").asInt());
+            assertEquals(messages.getLast().getCitations(), conversationStore.getRun(7411L, runId).getCitations(),
+                    "停用来源不篡改历史版本快照");
+        } finally {
+            db.update("UPDATE agent_knowledge_chunk SET enabled=1 WHERE entry_id='KB-ORD-004'");
+        }
+        HttpHeaders foreignHeaders = new HttpHeaders();
+        foreignHeaders.set("ticket-token", foreign);
+        foreignHeaders.setContentType(MediaType.APPLICATION_JSON);
+        foreignHeaders.setAccept(List.of(MediaType.TEXT_EVENT_STREAM));
+        var denied = http.exchange(path, HttpMethod.POST, new HttpEntity<>(body, foreignHeaders), String.class);
+        assertTrue(denied.getHeaders().getContentType().isCompatibleWith(MediaType.APPLICATION_JSON));
+        assertTrue(denied.getBody().contains("404"), denied.getBody());
+        var foreignRun = http.exchange("/api/user/ai-customer-service/runs/" + runId, HttpMethod.GET,
+                new HttpEntity<>(foreignHeaders), JsonNode.class);
+        assertEquals(404, foreignRun.getBody().path("code").asInt());
+        verify(ai, times(1)).stream(ArgumentMatchers.any(Prompt.class));
     }
 
     private JsonNode accountWrite(HttpMethod method, String path, Object body, String token, MediaType type) {
@@ -1135,6 +1310,92 @@ class TradeApplicationIT {
         assertEquals(1, db.queryForObject("SELECT COUNT(*) FROM event_session WHERE session_name='隔离后台晚场' AND status=0", Integer.class));
         assertEquals(20, db.queryForObject("SELECT available_stock FROM ticket_tier WHERE tier_name='隔离后台看台'", Integer.class));
         assertTrue(encoder.matches("journey-test-pass", db.queryForObject("SELECT password FROM user WHERE id=9101", String.class)));
+    }
+
+    @Test
+    void avatarUploadUsesOwnAccountAndSurvivesProfileEdits() throws Exception {
+        seedAccount(9601, "USER");
+        seedAccount(9602, "USER");
+        String token = loginUser(9601);
+        String other = loginUser(9602);
+        BufferedImage source = new BufferedImage(80, 40, BufferedImage.TYPE_INT_RGB);
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        ImageIO.write(source, "png", bytes);
+        byte[] image = bytes.toByteArray();
+
+        // PUT multipart真实经过认证、图像转换和Mapper，忽略伪造目标账号参数。
+        JsonNode uploaded = uploadAvatar(token, image);
+        assertSuccess(uploaded);
+        String first = uploaded.path("data").path("avatar").asText();
+        assertTrue(first.startsWith("/media/avatars/9601-"));
+        assertEquals(first, db.queryForObject("SELECT avatar FROM user WHERE id=9601", String.class));
+        assertNull(db.queryForObject("SELECT avatar FROM user WHERE id=9602", String.class));
+        ResponseEntity<byte[]> served = http.getForEntity(first, byte[].class);
+        assertEquals(HttpStatus.OK, served.getStatusCode());
+        assertEquals("nosniff", served.getHeaders().getFirst("X-Content-Type-Options"));
+        BufferedImage normalized = ImageIO.read(new ByteArrayInputStream(served.getBody()));
+        assertEquals(256, normalized.getWidth());
+        assertEquals(256, normalized.getHeight());
+
+        assertSuccess(accountWrite(HttpMethod.PUT, "/api/user/profile", Map.of("nickname", "头像现场朋友"), token, MediaType.APPLICATION_JSON));
+        assertEquals(first, get("/api/user/profile", token).path("data").path("avatar").asText());
+        assertNotEquals(1, accountWrite(HttpMethod.PUT, "/api/user/profile", Map.of("avatar", first), token, MediaType.APPLICATION_JSON).path("code").asInt());
+        assertSuccess(accountWrite(HttpMethod.DELETE, "/api/user/avatar", null, other, MediaType.APPLICATION_JSON));
+        assertEquals(HttpStatus.OK, http.getForEntity(first, byte[].class).getStatusCode());
+
+        JsonNode second = uploadAvatar(token, image);
+        assertSuccess(second);
+        String current = second.path("data").path("avatar").asText();
+        assertNotEquals(first, current);
+        assertEquals(HttpStatus.NOT_FOUND, http.getForEntity(first, String.class).getStatusCode());
+        assertSuccess(accountWrite(HttpMethod.DELETE, "/api/user/avatar", null, token, MediaType.APPLICATION_JSON));
+        assertNull(db.queryForObject("SELECT avatar FROM user WHERE id=9601", String.class));
+        assertEquals(HttpStatus.NOT_FOUND, http.getForEntity(current, String.class).getStatusCode());
+        assertNotEquals(1, uploadAvatar(null, image).path("code").asInt());
+        assertNotEquals(1, uploadAvatar(token, "not-an-image".getBytes()).path("code").asInt());
+        assertTrue(encoder.matches("journey-test-pass", db.queryForObject("SELECT password FROM user WHERE id=9601", String.class)));
+
+        // 浏览器不拦截业务或图片请求，验证开发代理和页面状态同步。
+        Path input = AVATAR_DIRECTORY.resolve("browser-input.png");
+        Files.write(input, image);
+        Path root = Path.of("").toAbsolutePath().normalize().getParent();
+        Path browserLog = root.resolve("output/avatar-live-browser.log");
+        Files.createDirectories(browserLog.getParent());
+        ProcessBuilder builder = new ProcessBuilder("cmd.exe", "/d", "/c", "npm.cmd", "run", "test:e2e:live", "--", "avatar-flow.spec.ts");
+        builder.directory(root.resolve("frontend").toFile());
+        builder.environment().put("API_PROXY_TARGET", http.getRootUri());
+        builder.environment().put("LIVE_ISOLATED_ACCEPTANCE", "true");
+        builder.environment().put("LIVE_AVATAR_FILE", input.toString());
+        builder.redirectErrorStream(true);
+        builder.redirectOutput(browserLog.toFile());
+        Process browser = builder.start();
+        try {
+            assertTrue(browser.waitFor(120, TimeUnit.SECONDS), "头像浏览器验收超时");
+            assertEquals(0, browser.exitValue(), Files.readString(browserLog));
+        } finally {
+            if (browser.isAlive()) {
+                browser.descendants().forEach(ProcessHandle::destroy);
+                browser.destroyForcibly();
+            }
+        }
+        assertNull(db.queryForObject("SELECT avatar FROM user WHERE id=9601", String.class));
+    }
+
+    private JsonNode uploadAvatar(String token, byte[] image) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+        if (token != null) {
+            headers.set("ticket-token", token);
+        }
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("file", new ByteArrayResource(image) {
+            @Override
+            public String getFilename() {
+                return "face.png";
+            }
+        });
+        body.add("userId", "9602");
+        return http.exchange("/api/user/avatar", HttpMethod.PUT, new HttpEntity<>(body, headers), JsonNode.class).getBody();
     }
 
     private void seedAccount(long id, String role) {

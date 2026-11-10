@@ -24,6 +24,10 @@ export default defineConfig({
                 target: localApiTarget(),
                 changeOrigin: true,
             },
+            '/media/avatars': {
+                target: localApiTarget(),
+                changeOrigin: true,
+            },
         },
     },
     test: { environment: 'node', include: ['src/**/*.test.ts'] },

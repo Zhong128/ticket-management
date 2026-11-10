@@ -2,6 +2,7 @@
 package org.example.ticketmanagement.service;
 
 import org.example.ticketmanagement.dto.SeckillOrderDTO;
+import org.example.ticketmanagement.dto.SeckillQualificationDTO;
 import org.example.ticketmanagement.vo.SeckillResultVO;
 
 /**
@@ -25,6 +26,9 @@ public interface SeckillService {
      * @return 是否具有抢票资格
      */
     boolean checkSeckillQualification(Long userId, Long tierId, Integer quantity);
+
+    /** 查询购票资格快照及具体原因，不锁库存或提交申请。 */
+    SeckillQualificationDTO getSeckillQualification(Long userId, Long tierId, Integer quantity);
 
     /**
      * 获取票档实时库存（从Redis）

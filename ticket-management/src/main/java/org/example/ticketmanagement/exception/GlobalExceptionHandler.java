@@ -3,6 +3,10 @@ package org.example.ticketmanagement.exception;
 
 import cn.dev33.satoken.exception.*;
 import lombok.extern.slf4j.Slf4j;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.example.ticketmanagement.pojo.Result;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
@@ -65,6 +69,16 @@ public class GlobalExceptionHandler {
         return Result.error(403, "账号已被封禁，剩余时间: " + e.getDisableTime() + "秒");
     }
 
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public Result<Void> handleUploadSizeExceeded(MaxUploadSizeExceededException e) {
+        return Result.error(400, "上传图片不能超过2MB");
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public Result<Void> handleMissingUploadPart(MissingServletRequestPartException e) {
+        return Result.error(400, "请选择要上传的图片文件");
+    }
+
     // ==================== 原有异常处理保持不变 ====================
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -94,7 +108,11 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
-    public Result<Void> handleNoResourceFound(NoResourceFoundException e) {
+    public Result<Void> handleNoResourceFound(NoResourceFoundException e, HttpServletRequest request,
+                                               HttpServletResponse response) {
+        if (request.getRequestURI().startsWith(request.getContextPath() + "/media/")) {
+            response.setStatus(404);
+        }
         log.warn("请求的路径不存在: {}", e.getMessage());
         return Result.error("接口路径错误，请检查请求地址是否合法");
     }

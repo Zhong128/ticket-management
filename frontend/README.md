@@ -1,5 +1,7 @@
 # 有戏 · 用户端
 
+个人资料现支持头像选择预览、独立保存和恢复默认，支持JPG/PNG、最大2MB，顶部账户菜单同步显示。后端存储、接口和测试见[头像说明](../docs/avatar-upload.md)。
+
 现已增加同项目管理端 `/admin`，沿用有戏浅色玫红风格。[使用与源码导读](../docs/admin-guide.md)、[后台接口](../docs/admin-api.md)、[验收记录](../docs/admin-validation.md)。原App公共外壳移至UserLayout，两端登录与布局分别管理。
 
 刚开始读代码请先看[前端目录与入门阅读指南](../docs/frontend-learning-guide.md)：逐个说明页面、组件、接口和工具文件，并给出适合薄弱三件套基础的阅读顺序。
@@ -60,7 +62,7 @@ npm run test:e2e
 
 第三阶段提供个人资料、密码修改、收货地址、退款记录和智能客服。顶栏进入个人中心或客服；订单与账户页面共用导航。全部业务页面调用后端真实API，没有自动mock回退；测试中的接口拦截仅存在于Playwright用例。
 
-资料保存仅更新资料列；登录邮箱只读。修改密码使用form请求体，不放URL或浏览器存储。默认地址不可删除，编辑保留默认标记。退款是最近100条只读记录，不提供后端不存在的退款申请。客服按用户隔离上下文，只开放查询工具；清空直接清服务器记忆，不调用模型；回复为纯文本。
+资料保存仅更新资料列；登录邮箱只读。修改密码使用form请求体，不放URL或浏览器存储。默认地址不可删除，编辑保留默认标记。退款是最近100条只读记录，不提供后端不存在的退款申请。客服只开放查询工具，2026-10-27升级为多会话持久历史、流式回复和原运行恢复；清空不调用模型，回复仍为纯文本。新版本需显式执行V7迁移，原库和客服维护开关未修改，详见[Agent设计](../docs/agent-design.md)。
 
 2026-10-26本次预览后端为8081，因8080被其他项目使用。重启当前预览请在frontend目录设置：
 
@@ -76,7 +78,7 @@ npm run dev
 
 最新页面与接口映射、三种运行环境及未验收边界见[整体验收说明](../docs/frontend-acceptance.md)。常规npm run test:e2e覆盖全部公开浏览、账户下拉、交易与个人中心；320/768px布局与迟到响应验收在tests/acceptance.spec.ts。
 
-真实业务API端到端由后端TradeApplicationIT.frontendBrowserCompletesRealPurchaseAndAccountJourney调用npm run test:e2e:live启动，不复用5173／原库后端。要求Java21、Docker和本机Edge；它启用一次性数据库交易、启动独立5183 Vite、模拟外部支付／邮件／模型，执行真实页面与后端写入。专用配置限制本机随机高端口及隔离标记，不是日常预览命令。测试产物test-results-live与普通测试输出分离并忽略。
+真实业务API端到端由后端TradeApplicationIT.frontendBrowserCompletesRealPurchaseAndAccountJourney调用npm run test:e2e:live启动，不复用5173／原库后端。要求Java21、Docker和本机Edge；先在 frontend 执行 npm ci 和 npm run build，再运行后端集成测试。浏览器直接访问一次性 Spring Boot 实例提供的构建产物和 API；支付、邮件和模型均使用测试替身。专用配置限制本机随机高端口及隔离标记，不是日常预览命令。测试产物test-results-live与普通测试输出分离并忽略。
 
 生产构建可运行：
 

@@ -26,7 +26,7 @@ public class FrontendResourcesConfig implements WebMvcConfigurer {
                         }
 
                         // 控制器仍优先匹配；未知API和资源保持原有错误响应。
-                        if (path.equals("api") || path.startsWith("api/") || path.startsWith("assets/")
+                        if (path.equals("api") || path.startsWith("api/") || path.startsWith("assets/") || path.equals("media") || path.startsWith("media/")
                                 || path.contains(".")) {
                             return null;
                         }

@@ -85,7 +85,7 @@ onMounted(() => {
             .profile()
             .then((profile) => {
                 if (auth.user?.token === current.token)
-                    auth.accept({ ...current, username: profile.username, email: profile.email })
+                    auth.accept({ ...current, username: profile.username, email: profile.email, avatar: profile.avatar })
             })
             .catch(() => {})
 })
@@ -97,7 +97,7 @@ onUnmounted(() => window.removeEventListener('youxi-auth-expired', expired))
         <div class="container utility-inner">
             <span>让喜欢发生在现场</span>
             <div class="header-account">
-                <AccountMenu :signed-in="auth.loggedIn" :username="auth.user?.username || auth.user?.email" :busy="loggingOut" @logout="logout"/>
+                <AccountMenu :signed-in="auth.loggedIn" :username="auth.user?.username || auth.user?.email" :avatar="auth.user?.avatar" :busy="loggingOut" @logout="logout"/>
                 <RouterLink to="/support">智能客服</RouterLink>
             </div>
         </div>

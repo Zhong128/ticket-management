@@ -10,7 +10,7 @@ export const trade = {
     resend: (email: string) =>
         post<void>('/public/verification/resend', { email, type: 'REGISTER' }),
     logout: () => post<void>('/auth/logout'),
-    profile: () => get<{ id: string; username: string; email: string }>('/user/profile'),
+    profile: () => get<{ id: string; username: string; email: string; avatar?: string | null }>('/user/profile'),
     reserve: (tierId: string, quantity: number, requestKey: string) =>
         post<Reservation>('/user/seckill', { tierId, quantity, requestKey }),
     reservation: (requestKey: string, signal?: AbortSignal) =>

@@ -176,18 +176,15 @@ test('客服消息纯文本渲染，清空成功前保留消息，失败可重�
     await setup(page)
     let fail = false,
         clears = 0
-    await page.route('**/api/user/ai-customer-service/chat', async (route) => {
-        expect(route.request().postDataJSON().message).toBeTruthy()
-        await route.fulfill({
-            json: fail
-                ? { code: 0, msg: '智能客服暂时不可用，请稍后重试' }
-                : {
-                      code: 1,
-                      data: '<img src=x onerror="window.__chatInjected=true">请查看我的订单。',
-                  },
-        })
+    await page.route('**/api/public/app-status', route => route.fulfill({ json: { code: 1, data: { customerServiceEnabled: true } } }))
+    await page.route('**/api/user/ai-customer-service/conversations?*', route => route.fulfill({ json: { code: 1, data: { records: [{ id: 'c1', title: '默认会话', activeRunId: null }], hasNext: false } } }))
+    await page.route('**/api/user/ai-customer-service/conversations/c1', route => route.fulfill({ json: { code: 1, data: { id: 'c1', title: '默认会话', activeRunId: null } } }))
+    await page.route('**/api/user/ai-customer-service/conversations/c1/messages?*', route => route.fulfill({ json: { code: 1, data: { records: [], hasNext: false } } }))
+    await page.route('**/api/user/ai-customer-service/conversations/c1/messages/stream', async route => {
+        const run = { id: 'r1', status: fail ? 'FAILED' : 'SUCCEEDED', reply: fail ? null : '<img src=x onerror="window.__chatInjected=true">请查看我的订单。', errorMessage: fail ? '智能客服暂时不可用，请稍后重试' : null }
+        await route.fulfill({ contentType: 'text/event-stream', body: `event: run_started\ndata: {"runId":"r1"}\n\nevent: done\ndata: ${JSON.stringify(run)}\n\n` })
     })
-    await page.route('**/api/user/ai-customer-service/clear-history', async (route) => {
+    await page.route('**/api/user/ai-customer-service/conversations/c1/messages', async route => {
         clears++
         await route.fulfill({ json: clears === 1 ? { code: 0, msg: '清空失败' } : { code: 1 } })
     })

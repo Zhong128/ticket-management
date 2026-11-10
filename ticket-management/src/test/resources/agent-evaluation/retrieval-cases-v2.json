@@ -1,0 +1,564 @@
+{
+  "version": 2,
+  "reviewedAt": "2026-10-28",
+  "modelMode": "NO_MODEL_RETRIEVAL_ONLY",
+  "thresholds": {
+    "paraphraseHit1": 0.7,
+    "paraphraseHit5": 0.9,
+    "negativeEmptyRate": 0.9
+  },
+  "cases": [
+    {
+      "id": "title-KB-PUR-001",
+      "group": "title",
+      "query": "演出、场次、票档分别是什么？",
+      "expectedEntryId": "KB-PUR-001"
+    },
+    {
+      "id": "title-KB-PUR-002",
+      "group": "title",
+      "query": "一次最多买几张？能连续下单凑更多张吗？",
+      "expectedEntryId": "KB-PUR-002"
+    },
+    {
+      "id": "title-KB-PUR-003",
+      "group": "title",
+      "query": "资格检查通过，是不是已经抢到票了？",
+      "expectedEntryId": "KB-PUR-003"
+    },
+    {
+      "id": "title-KB-PUR-004",
+      "group": "title",
+      "query": "页面看见有票，为什么提交时提示库存不足或暂不可售？",
+      "expectedEntryId": "KB-PUR-004"
+    },
+    {
+      "id": "title-KB-PUR-005",
+      "group": "title",
+      "query": "这个项目支持选座、改签或转赠吗？",
+      "expectedEntryId": "KB-PUR-005"
+    },
+    {
+      "id": "title-KB-PUR-006",
+      "group": "title",
+      "query": "展示的演出、日期和价格，是官方售票承诺吗？",
+      "expectedEntryId": "KB-PUR-006"
+    },
+    {
+      "id": "title-KB-ORD-001",
+      "group": "title",
+      "query": "显示申请已受理，为什么还没有订单？",
+      "expectedEntryId": "KB-ORD-001"
+    },
+    {
+      "id": "title-KB-ORD-002",
+      "group": "title",
+      "query": "提交超时、网络断开或显示结果未知，我该重新下单吗？",
+      "expectedEntryId": "KB-ORD-002"
+    },
+    {
+      "id": "title-KB-ORD-003",
+      "group": "title",
+      "query": "刷新或离开页面后，原购票申请还能找回来吗？",
+      "expectedEntryId": "KB-ORD-003"
+    },
+    {
+      "id": "title-KB-ORD-004",
+      "group": "title",
+      "query": "付款期限是多久？刷新或重新打开支付页会延长吗？",
+      "expectedEntryId": "KB-ORD-004"
+    },
+    {
+      "id": "title-KB-ORD-005",
+      "group": "title",
+      "query": "为什么订单金额和演出页的“起价”不同？付款金额以哪个为准？",
+      "expectedEntryId": "KB-ORD-005"
+    },
+    {
+      "id": "title-KB-ORD-006",
+      "group": "title",
+      "query": "订单待支付、已支付、取消确认中、已取消分别说明什么？",
+      "expectedEntryId": "KB-ORD-006"
+    },
+    {
+      "id": "title-KB-ORD-007",
+      "group": "title",
+      "query": "申请编号、订单号和支付流水号是同一个吗？",
+      "expectedEntryId": "KB-ORD-007"
+    },
+    {
+      "id": "title-KB-ORD-008",
+      "group": "title",
+      "query": "为什么用另一个账号登录后看不到原来的订单？",
+      "expectedEntryId": "KB-ORD-008"
+    },
+    {
+      "id": "title-KB-PAY-001",
+      "group": "title",
+      "query": "目前支持哪些支付方式？可以让客服帮我付款吗？",
+      "expectedEntryId": "KB-PAY-001"
+    },
+    {
+      "id": "title-KB-PAY-002",
+      "group": "title",
+      "query": "点了“前往支付宝支付”或生成了支付页面，是不是已经付款？",
+      "expectedEntryId": "KB-PAY-002"
+    },
+    {
+      "id": "title-KB-PAY-003",
+      "group": "title",
+      "query": "支付宝已经显示成功，订单为什么还没更新？",
+      "expectedEntryId": "KB-PAY-003"
+    },
+    {
+      "id": "title-KB-PAY-004",
+      "group": "title",
+      "query": "返回链接写着成功，或者没有自动跳回，我该相信哪个结果？",
+      "expectedEntryId": "KB-PAY-004"
+    },
+    {
+      "id": "title-KB-PAY-005",
+      "group": "title",
+      "query": "连续点击支付，会生成多笔付款吗？",
+      "expectedEntryId": "KB-PAY-005"
+    },
+    {
+      "id": "title-KB-PAY-006",
+      "group": "title",
+      "query": "为什么订单过期后不能继续支付？还能通过旧付款页面付款吗？",
+      "expectedEntryId": "KB-PAY-006"
+    },
+    {
+      "id": "title-KB-REF-001",
+      "group": "title",
+      "query": "哪些订单可以取消？已支付的订单也能直接取消吗？",
+      "expectedEntryId": "KB-REF-001"
+    },
+    {
+      "id": "title-KB-REF-002",
+      "group": "title",
+      "query": "点了取消，为什么还显示取消确认中？",
+      "expectedEntryId": "KB-REF-002"
+    },
+    {
+      "id": "title-KB-REF-003",
+      "group": "title",
+      "query": "取消后，为什么页面库存没有立刻增加？我能马上重新购买吗？",
+      "expectedEntryId": "KB-REF-003"
+    },
+    {
+      "id": "title-KB-REF-004",
+      "group": "title",
+      "query": "订单超时或正在取消时付款了，会怎样？",
+      "expectedEntryId": "KB-REF-004"
+    },
+    {
+      "id": "title-KB-REF-005",
+      "group": "title",
+      "query": "为什么有退款记录，却找不到“申请退款”按钮？",
+      "expectedEntryId": "KB-REF-005"
+    },
+    {
+      "id": "title-KB-REF-006",
+      "group": "title",
+      "query": "退款“结果确认中”“待人工”“成功”分别是什么意思？",
+      "expectedEntryId": "KB-REF-006"
+    },
+    {
+      "id": "title-KB-REF-007",
+      "group": "title",
+      "query": "退款多久能到账？会收退票手续费吗？",
+      "expectedEntryId": "KB-REF-007"
+    },
+    {
+      "id": "title-KB-REF-008",
+      "group": "title",
+      "query": "没有付款的订单取消后，为什么没有退款记录？",
+      "expectedEntryId": "KB-REF-008"
+    },
+    {
+      "id": "title-KB-ACC-001",
+      "group": "title",
+      "query": "用户端怎么登录？未注册邮箱怎么办？",
+      "expectedEntryId": "KB-ACC-001"
+    },
+    {
+      "id": "title-KB-ACC-002",
+      "group": "title",
+      "query": "下单前必须先填真实姓名、证件和收货地址吗？",
+      "expectedEntryId": "KB-ACC-002"
+    },
+    {
+      "id": "title-KB-ACC-003",
+      "group": "title",
+      "query": "怎么修改密码？可以把验证码或密码发给客服处理吗？",
+      "expectedEntryId": "KB-ACC-003"
+    },
+    {
+      "id": "title-KB-ACC-004",
+      "group": "title",
+      "query": "为什么默认地址不能删除？怎么换默认地址？",
+      "expectedEntryId": "KB-ACC-004"
+    },
+    {
+      "id": "title-KB-ACC-005",
+      "group": "title",
+      "query": "智能客服现在能做什么？可以代下单、取消或退款吗？",
+      "expectedEntryId": "KB-ACC-005"
+    },
+    {
+      "id": "title-KB-ACC-006",
+      "group": "title",
+      "query": "刷新后还能看到客服历史吗？离开页面会停止查询吗？",
+      "expectedEntryId": "KB-ACC-006"
+    },
+    {
+      "id": "title-KB-ACC-007",
+      "group": "title",
+      "query": "清空或删除客服会话，会把订单、购票申请一起取消吗？",
+      "expectedEntryId": "KB-ACC-007"
+    },
+    {
+      "id": "title-KB-ACC-008",
+      "group": "title",
+      "query": "客服显示维护中、查询超时或达到工具上限，是什么意思？",
+      "expectedEntryId": "KB-ACC-008"
+    },
+    {
+      "id": "title-KB-ACC-009",
+      "group": "title",
+      "query": "客服给出的确认卡片会锁库存吗？过期还能确认吗？",
+      "expectedEntryId": "KB-ACC-009"
+    },
+    {
+      "id": "title-KB-ACC-010",
+      "group": "title",
+      "query": "点击卡片后网络断开或结果未知，可以再买一遍吗？",
+      "expectedEntryId": "KB-ACC-010"
+    },
+    {
+      "id": "title-KB-ACC-011",
+      "group": "title",
+      "query": "确认时票价变化，客服会按新价格自动买票吗？",
+      "expectedEntryId": "KB-ACC-011"
+    },
+    {
+      "id": "v2-KB-PUR-001",
+      "group": "paraphrase",
+      "query": "演出的同一个名字下面为什么还有多个场次和票档？",
+      "expectedEntryId": "KB-PUR-001"
+    },
+    {
+      "id": "v2-KB-PUR-002",
+      "group": "paraphrase",
+      "query": "单次购票张数有限制吗，多点几次能不能多买几张？",
+      "expectedEntryId": "KB-PUR-002"
+    },
+    {
+      "id": "v2-KB-PUR-003",
+      "group": "paraphrase",
+      "query": "抢票资格验证成功后会直接给我锁定一张票吗？",
+      "expectedEntryId": "KB-PUR-003"
+    },
+    {
+      "id": "v2-KB-PUR-004",
+      "group": "paraphrase",
+      "query": "显示还有余票，抢票却失败，是库存实时变化了吗？",
+      "expectedEntryId": "KB-PUR-004"
+    },
+    {
+      "id": "v2-KB-PUR-005",
+      "group": "paraphrase",
+      "query": "演出票能改签吗，支持指定座位和转赠给亲友吗？",
+      "expectedEntryId": "KB-PUR-005"
+    },
+    {
+      "id": "v2-KB-PUR-006",
+      "group": "paraphrase",
+      "query": "这里的演出信息是练习数据还是正式售票承诺？",
+      "expectedEntryId": "KB-PUR-006"
+    },
+    {
+      "id": "v2-KB-ORD-001",
+      "group": "paraphrase",
+      "query": "购票申请已受理，但一直没生成订单，这两步不是一回事吗？",
+      "expectedEntryId": "KB-ORD-001"
+    },
+    {
+      "id": "v2-KB-ORD-002",
+      "group": "paraphrase",
+      "query": "购票接口超时而且没有确定结果，我怎么避免重复提交？",
+      "expectedEntryId": "KB-ORD-002"
+    },
+    {
+      "id": "v2-KB-ORD-003",
+      "group": "paraphrase",
+      "query": "上次买票的申请没处理完就关闭了页面，回来怎么恢复？",
+      "expectedEntryId": "KB-ORD-003"
+    },
+    {
+      "id": "v2-KB-ORD-004",
+      "group": "paraphrase",
+      "query": "付款的30分钟从什么时候开始算，刷新网页能续时吗？",
+      "expectedEntryId": "KB-ORD-004"
+    },
+    {
+      "id": "v2-KB-ORD-005",
+      "group": "paraphrase",
+      "query": "同一演出不同票档价格不一样，最终订单的金额怎么算？",
+      "expectedEntryId": "KB-ORD-005"
+    },
+    {
+      "id": "v2-KB-ORD-006",
+      "group": "paraphrase",
+      "query": "待支付和取消确认中这两种订单状态的含义是什么？",
+      "expectedEntryId": "KB-ORD-006"
+    },
+    {
+      "id": "v2-KB-ORD-007",
+      "group": "paraphrase",
+      "query": "查询申请时用的编号是不是支付流水号或者订单号？",
+      "expectedEntryId": "KB-ORD-007"
+    },
+    {
+      "id": "v2-KB-ORD-008",
+      "group": "paraphrase",
+      "query": "知道同学的订单编号就能从我的账号查到他的票吗？",
+      "expectedEntryId": "KB-ORD-008"
+    },
+    {
+      "id": "v2-KB-PAY-001",
+      "group": "paraphrase",
+      "query": "我买演出票时可选支付宝还是微信，客服可以直接支付吗？",
+      "expectedEntryId": "KB-PAY-001"
+    },
+    {
+      "id": "v2-KB-PAY-002",
+      "group": "paraphrase",
+      "query": "只生成了支付宝付款表单，订单就会自动显示已付款吗？",
+      "expectedEntryId": "KB-PAY-002"
+    },
+    {
+      "id": "v2-KB-PAY-003",
+      "group": "paraphrase",
+      "query": "实际扣款完成但本站订单仍然是待支付，我应该怎么核实？",
+      "expectedEntryId": "KB-PAY-003"
+    },
+    {
+      "id": "v2-KB-PAY-004",
+      "group": "paraphrase",
+      "query": "支付页没跳回本站，可以用返回URL中的状态作为付款凭证吗？",
+      "expectedEntryId": "KB-PAY-004"
+    },
+    {
+      "id": "v2-KB-PAY-005",
+      "group": "paraphrase",
+      "query": "支付页面卡住连续按了付款，会不会创建重复支付记录？",
+      "expectedEntryId": "KB-PAY-005"
+    },
+    {
+      "id": "v2-KB-PAY-006",
+      "group": "paraphrase",
+      "query": "订单已经过期，为何之前那张支付表单不能继续结账？",
+      "expectedEntryId": "KB-PAY-006"
+    },
+    {
+      "id": "v2-KB-REF-001",
+      "group": "paraphrase",
+      "query": "演唱会订单付钱后还能够普通取消吗，和酒店政策一样吗？",
+      "expectedEntryId": "KB-REF-001"
+    },
+    {
+      "id": "v2-KB-REF-002",
+      "group": "paraphrase",
+      "query": "未支付订单点取消后出现取消确认中，需要等什么结果？",
+      "expectedEntryId": "KB-REF-002"
+    },
+    {
+      "id": "v2-KB-REF-003",
+      "group": "paraphrase",
+      "query": "取消成功以后原票档库存还没恢复，多久可以再次购买？",
+      "expectedEntryId": "KB-REF-003"
+    },
+    {
+      "id": "v2-KB-REF-004",
+      "group": "paraphrase",
+      "query": "关闭订单时支付宝恰巧付钱成功，系统怎样处理这笔扣款？",
+      "expectedEntryId": "KB-REF-004"
+    },
+    {
+      "id": "v2-KB-REF-005",
+      "group": "paraphrase",
+      "query": "我能看退款记录但没有发起退票的入口，AI能替我申请吗？",
+      "expectedEntryId": "KB-REF-005"
+    },
+    {
+      "id": "v2-KB-REF-006",
+      "group": "paraphrase",
+      "query": "退款状态出现结果确认中或者待人工，它们代表成功了吗？",
+      "expectedEntryId": "KB-REF-006"
+    },
+    {
+      "id": "v2-KB-REF-007",
+      "group": "paraphrase",
+      "query": "本站演出退票也像机票一样收手续费吗，退款到账期限有承诺吗？",
+      "expectedEntryId": "KB-REF-007"
+    },
+    {
+      "id": "v2-KB-REF-008",
+      "group": "paraphrase",
+      "query": "待支付就取消的订单没有发生扣款，还应该有退款记录吗？",
+      "expectedEntryId": "KB-REF-008"
+    },
+    {
+      "id": "v2-KB-ACC-001",
+      "group": "paraphrase",
+      "query": "第一次用邮箱登录，需要另找一个注册页面吗？",
+      "expectedEntryId": "KB-ACC-001"
+    },
+    {
+      "id": "v2-KB-ACC-002",
+      "group": "paraphrase",
+      "query": "提交演出票申请之前，实名信息和默认收货地址是硬性条件吗？",
+      "expectedEntryId": "KB-ACC-002"
+    },
+    {
+      "id": "v2-KB-ACC-003",
+      "group": "paraphrase",
+      "query": "我想修改密码，客服需要拿到验证码和完整密码才能帮忙吗？",
+      "expectedEntryId": "KB-ACC-003"
+    },
+    {
+      "id": "v2-KB-ACC-004",
+      "group": "paraphrase",
+      "query": "已有默认收货地址不让删除，设置另一个默认地址后能删吗？",
+      "expectedEntryId": "KB-ACC-004"
+    },
+    {
+      "id": "v2-KB-ACC-005",
+      "group": "paraphrase",
+      "query": "客服可以查库存和订单，还能修改资料或者自动退款吗？",
+      "expectedEntryId": "KB-ACC-005"
+    },
+    {
+      "id": "v2-KB-ACC-006",
+      "group": "paraphrase",
+      "query": "浏览器刷新后能恢复聊天内容吗，关闭标签页是否结束后台咨询？",
+      "expectedEntryId": "KB-ACC-006"
+    },
+    {
+      "id": "v2-KB-ACC-007",
+      "group": "paraphrase",
+      "query": "删掉会话或清空记录会同时撤销已经确认的交易吗？",
+      "expectedEntryId": "KB-ACC-007"
+    },
+    {
+      "id": "v2-KB-ACC-008",
+      "group": "paraphrase",
+      "query": "客服维护中和运行超时分别表示什么，工具预算耗尽可以怎么处理？",
+      "expectedEntryId": "KB-ACC-008"
+    },
+    {
+      "id": "v2-KB-ACC-009",
+      "group": "paraphrase",
+      "query": "待确认的购票卡片多久过期，不点击是否已经预扣库存？",
+      "expectedEntryId": "KB-ACC-009"
+    },
+    {
+      "id": "v2-KB-ACC-010",
+      "group": "paraphrase",
+      "query": "确认卡片后一直结果待核实，换个会话重新申请安全吗？",
+      "expectedEntryId": "KB-ACC-010"
+    },
+    {
+      "id": "v2-KB-ACC-011",
+      "group": "paraphrase",
+      "query": "确认卡片展示的单价和受理时不一样，还会静默提交购票吗？",
+      "expectedEntryId": "KB-ACC-011"
+    },
+    {
+      "id": "v2-negative-01",
+      "group": "negative",
+      "subgroup": "ordinary",
+      "query": "帮我做一份周末健身计划",
+      "expectedEntryId": null
+    },
+    {
+      "id": "v2-negative-02",
+      "group": "negative",
+      "subgroup": "ordinary",
+      "query": "怎么烤一个巧克力蛋糕？",
+      "expectedEntryId": null
+    },
+    {
+      "id": "v2-negative-03",
+      "group": "negative",
+      "subgroup": "ordinary",
+      "query": "翻译这段英文并帮我润色",
+      "expectedEntryId": null
+    },
+    {
+      "id": "v2-negative-04",
+      "group": "negative",
+      "subgroup": "ordinary",
+      "query": "地球绕太阳一圈要多久？",
+      "expectedEntryId": null
+    },
+    {
+      "id": "v2-negative-05",
+      "group": "negative",
+      "subgroup": "ordinary",
+      "query": "九乘以九等于多少？",
+      "expectedEntryId": null
+    },
+    {
+      "id": "v2-negative-06",
+      "group": "negative",
+      "subgroup": "ordinary",
+      "query": "请帮我介绍猫咪的品种",
+      "expectedEntryId": null
+    },
+    {
+      "id": "v2-negative-07",
+      "group": "negative",
+      "subgroup": "ordinary",
+      "query": "写一篇关于海边的短文",
+      "expectedEntryId": null
+    },
+    {
+      "id": "v2-negative-08",
+      "group": "negative",
+      "subgroup": "ordinary",
+      "query": "手机摄像头为什么会模糊？",
+      "expectedEntryId": null
+    },
+    {
+      "id": "v2-negative-09",
+      "group": "negative",
+      "subgroup": "business_word",
+      "query": "民宿订房的订单退款几天到账？",
+      "expectedEntryId": null
+    },
+    {
+      "id": "v2-negative-10",
+      "group": "negative",
+      "subgroup": "business_word",
+      "query": "12306火车票改签会收手续费吗？",
+      "expectedEntryId": null
+    },
+    {
+      "id": "v2-negative-11",
+      "group": "negative",
+      "subgroup": "business_word",
+      "query": "淘宝买衣服重复付款怎么办？",
+      "expectedEntryId": null
+    },
+    {
+      "id": "v2-negative-12",
+      "group": "negative",
+      "subgroup": "business_word",
+      "query": "股票证券账户怎样注销和转赠资产？",
+      "expectedEntryId": null
+    }
+  ]
+}

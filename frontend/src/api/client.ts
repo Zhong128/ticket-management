@@ -42,7 +42,7 @@ const client = axios.create({
 })
 
 export async function request<T>(
-    method: 'get' | 'post' | 'put' | 'delete',
+    method: 'get' | 'post' | 'put' | 'patch' | 'delete',
     url: string,
     data?: object,
     params?: object,

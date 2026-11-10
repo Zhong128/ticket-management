@@ -5,7 +5,7 @@ test('客服维护状态不显示输入框，也不发出模型聊天请求',asy
     let chats=0
     await page.route(url=>url.pathname.startsWith('/api/'),route=>{
         const path=new URL(route.request().url()).pathname
-        if(path.endsWith('/chat'))chats++
+        if(path.includes('/ai-customer-service/'))chats++
         return route.fulfill({json:{code:1,data:path==='/api/public/app-status'?{ready:true,tradingEnabled:true,customerServiceEnabled:false}:path==='/api/user/profile'?{username:'维护验收',email:'maintenance@example.invalid'}:[]}})
     })
     await page.goto('/support')

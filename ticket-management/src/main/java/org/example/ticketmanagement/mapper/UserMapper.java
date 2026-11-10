@@ -15,6 +15,15 @@ import java.util.List;
  */
 @Mapper
 public interface UserMapper {
+    /** 仅更新启用账号的头像及修改时间，不覆盖其他资料或账户状态。 */
+    @Update("""
+            UPDATE user
+            SET avatar = #{avatar}, update_time = #{updateTime}
+            WHERE id = #{id} AND status = 1
+            """)
+    int updateAvatar(@Param("id") Long id, @Param("avatar") String avatar,
+                     @Param("updateTime") LocalDateTime updateTime);
+
     /** 显式本地初始化时只新增管理员，用户名冲突由唯一约束拒绝。 */
     @Insert("""
             INSERT INTO user(username, password, email, nickname, role, status, create_time, update_time)
@@ -69,7 +78,6 @@ public interface UserMapper {
                 email = COALESCE(#{profile.email}, email),
                 phone = COALESCE(#{profile.phone}, phone),
                 nickname = COALESCE(#{profile.nickname}, nickname),
-                avatar = COALESCE(#{profile.avatar}, avatar),
                 real_name = COALESCE(#{profile.realName}, real_name),
                 gender = COALESCE(#{profile.gender}, gender),
                 birthday = COALESCE(#{profile.birthday}, birthday),

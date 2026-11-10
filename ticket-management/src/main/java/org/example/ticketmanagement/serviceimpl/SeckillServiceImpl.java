@@ -12,7 +12,9 @@ import org.example.ticketmanagement.mapper.EventMapper;
 import org.example.ticketmanagement.mapper.EventSessionMapper;
 import org.example.ticketmanagement.mapper.TicketTierMapper;
 import org.example.ticketmanagement.service.SeckillService;
+import org.example.ticketmanagement.dto.SeckillQualificationDTO;
 import org.example.ticketmanagement.vo.SeckillResultVO;
+import org.example.ticketmanagement.exception.ReservationRejectedException;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -20,6 +22,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 @Slf4j
@@ -80,6 +83,20 @@ public class SeckillServiceImpl implements SeckillService {
 
     /** 分段锁只覆盖短受理流程，真实库存由Lua和持久化约束共同保护。 */
     public Map<String, Object> reserveApplication(long userId, long tierId, int quantity, String key) {
+        return reserveApplication(userId, tierId, quantity, key, null);
+    }
+
+    /** 仅供已确认卡片调用，单价随申请传入可靠受理事务。 */
+    public Map<String, Object> reserveConfirmedApplication(long userId, long tierId, int quantity,
+            String key, BigDecimal expectedPrice) {
+        if (expectedPrice == null || expectedPrice.signum() <= 0) {
+            throw new IllegalArgumentException("确认价格不合法");
+        }
+        return reserveApplication(userId, tierId, quantity, key, expectedPrice);
+    }
+
+    private Map<String, Object> reserveApplication(long userId, long tierId, int quantity, String key,
+            BigDecimal expectedPrice) {
         if (!enabled) {
             throw new IllegalStateException("交易功能尚未启用");
         }
@@ -89,12 +106,25 @@ public class SeckillServiceImpl implements SeckillService {
         }
         // 对照测试可关闭分段锁，Lua及数据库约束始终保留。
         if (!lockingEnabled) {
-            return acceptUnderLock(userId, tierId, quantity, key);
+            return acceptUnderLock(userId, tierId, quantity, key, expectedPrice);
         }
-        return locks.executeWithSegmentLock(userId, tierId, segments, () -> acceptUnderLock(userId, tierId, quantity, key));
+        // 只有确认入口可将尚未进入受理的锁拒绝判为确定未提交；执行开始后保留原未知语义。
+        AtomicBoolean admissionStarted = new AtomicBoolean();
+        try {
+            return locks.executeWithSegmentLock(userId, tierId, segments, () -> {
+                admissionStarted.set(true);
+                return acceptUnderLock(userId, tierId, quantity, key, expectedPrice);
+            });
+        } catch (RuntimeException failure) {
+            if (expectedPrice != null && !admissionStarted.get()) {
+                throw new ReservationRejectedException("受理入口暂不可用，尚未提交申请，请稍后重新确认");
+            }
+            throw failure;
+        }
     }
 
-    private Map<String, Object> acceptUnderLock(long userId, long tierId, int quantity, String key) {
+    private Map<String, Object> acceptUnderLock(long userId, long tierId, int quantity, String key,
+            BigDecimal expectedPrice) {
         RedisReservation pending;
         try {
             pending = stock.reserve(userId, tierId, quantity, key);
@@ -110,7 +140,7 @@ public class SeckillServiceImpl implements SeckillService {
 
         StockReservation accepted;
         try {
-            accepted = reservations.accept(pending);
+            accepted = expectedPrice == null ? reservations.accept(pending) : reservations.accept(pending, expectedPrice);
         } catch (RuntimeException failure) {
             // 即使提交响应丢失，也必须通过同一受理日志封存结果后才能回补。
             SeckillAdmission resolved;
@@ -175,27 +205,42 @@ public class SeckillServiceImpl implements SeckillService {
 
     @Override
     public boolean checkSeckillQualification(Long userId, Long tierId, Integer quantity) {
+        return getSeckillQualification(userId, tierId, quantity).qualified();
+    }
+
+    @Override
+    public SeckillQualificationDTO getSeckillQualification(Long userId, Long tierId, Integer quantity) {
+        // 沿用原有校验顺序和库存来源，仅为否定结果补充原因。
         if (quantity == null || quantity < 1 || quantity > 5) {
-            return false;
+            return SeckillQualificationDTO.denied("INVALID_QUANTITY", "购买数量须为1至5张");
         }
         var tier = tiers.selectById(tierId);
-        if (tier == null || !Integer.valueOf(1).equals(tier.getStatus()) || tier.getAvailableStock() < quantity) {
-            return false;
+        if (tier == null || !Integer.valueOf(1).equals(tier.getStatus())) {
+            return SeckillQualificationDTO.denied("TIER_UNAVAILABLE", "票档不存在或未启用");
+        }
+        if (tier.getAvailableStock() < quantity) {
+            return SeckillQualificationDTO.denied("INSUFFICIENT_STOCK", "当前票档库存不足");
         }
         var session = sessions.selectById(tier.getSessionId());
         var event = events.selectById(tier.getEventId());
         if (session == null || !Integer.valueOf(1).equals(session.getStatus()) || event == null
                 || !Integer.valueOf(1).equals(event.getStatus())) {
-            return false;
+            return SeckillQualificationDTO.denied("EVENT_UNAVAILABLE", "演出或场次不存在或未启用");
         }
         LocalDateTime now = LocalDateTime.now(clock);
         if (event.getSaleStartTime() != null && now.isBefore(event.getSaleStartTime())) {
-            return false;
+            return SeckillQualificationDTO.denied("SALE_NOT_STARTED", "演出尚未开始售票");
         }
         if (event.getSaleEndTime() != null && !now.isBefore(event.getSaleEndTime())) {
-            return false;
+            return SeckillQualificationDTO.denied("SALE_ENDED", "演出已结束售票");
         }
-        return !stock.hasUserSeckilled(userId, tierId) && stock.hasEnoughStock(tierId, quantity);
+        if (stock.hasUserSeckilled(userId, tierId)) {
+            return SeckillQualificationDTO.denied("ALREADY_PURCHASED", "当前用户已有该票档的购买占用，请查看订单或申请状态");
+        }
+        if (!stock.hasEnoughStock(tierId, quantity)) {
+            return SeckillQualificationDTO.denied("INSUFFICIENT_STOCK", "实时可用库存不足");
+        }
+        return SeckillQualificationDTO.allowed();
     }
 
     @Override

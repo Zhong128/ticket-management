@@ -122,6 +122,17 @@ for (const width of [320, 768]) {
             (url) => url.pathname.startsWith('/api/public/'),
             (route) => route.continue(),
         )
+        // 客服布局验收固定为可用状态，避免受本机维护配置影响。
+        await page.route('**/api/public/app-status', route => route.fulfill({
+            json: { code: 1, data: { customerServiceEnabled: true } },
+        }))
+        await page.route('**/api/user/ai-customer-service/conversations?*', route => route.fulfill({
+            json: { code: 1, data: { records: [{ id: 'support-layout', title: '布局验收', activeRunId: null }], hasNext: false } },
+        }))
+        await page.route('**/api/user/ai-customer-service/conversations/support-layout', route => route.fulfill({ json: { code: 1, data: { id: 'support-layout', title: '布局验收', activeRunId: null } } }))
+        await page.route('**/api/user/ai-customer-service/conversations/support-layout/messages?*', route => route.fulfill({
+            json: { code: 1, data: { records: [], hasNext: false } },
+        }))
         const api = await request.get(
             '/api/public/events/page?name=' + encodeURIComponent('奇妙萌可'),
         )

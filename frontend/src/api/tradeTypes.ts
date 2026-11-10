@@ -5,6 +5,7 @@ export interface LoginInfo {
     username: string
     email: string
     token: string
+    avatar?: string | null
 }
 export interface Reservation {
     requestKey?: string

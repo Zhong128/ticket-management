@@ -17,17 +17,12 @@ export default defineConfig({
     expect: { timeout: 25000 },
     reporter: 'list',
     use: {
-        baseURL: 'http://127.0.0.1:5183',
+        // 与交付 JAR 一样，从隔离 Spring Boot 实例同源访问页面与 API。
+        baseURL: target.origin,
         channel: 'msedge',
         actionTimeout: 15000,
         navigationTimeout: 20000,
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
-    },
-    webServer: {
-        command: 'npm run build && npm run preview -- --port 5183 --strictPort',
-        url: 'http://127.0.0.1:5183',
-        reuseExistingServer: false,
-        timeout: 30000,
     },
 })

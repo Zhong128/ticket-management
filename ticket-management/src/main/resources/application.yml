@@ -1,4 +1,8 @@
 spring:
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 3MB
   flyway:
     enabled: ${TRADE_MIGRATIONS_ENABLED:false}
     baseline-on-migrate: false
@@ -15,7 +19,11 @@ spring:
     openai:
       chat:
         options:
-          model: qwen3.6-plus
+          model: qwen3.8-flash
+          # 客服仅保留最终回复，关闭思考及思考内容保留，兼容持久多轮工具调用。
+          extra-body:
+            "[enable_thinking]": false
+            "[preserve_thinking]": false
       api-key: ${OPENAI_API_KEY:}
       base-url: https://dashscope.aliyuncs.com/compatible-mode
 

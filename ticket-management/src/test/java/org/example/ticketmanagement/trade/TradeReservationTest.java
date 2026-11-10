@@ -8,6 +8,7 @@ import org.apache.ibatis.session.SqlSessionFactoryBuilder;
 import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;
 import org.example.ticketmanagement.dto.OrderUpdateDTO;
 import org.example.ticketmanagement.dto.TicketTierDTO;
+import org.example.ticketmanagement.exception.ReservationRejectedException;
 import org.example.ticketmanagement.mapper.EventMapper;
 import org.example.ticketmanagement.mapper.EventSessionMapper;
 import org.example.ticketmanagement.mapper.OrderInfoMapper;
@@ -21,6 +22,9 @@ import org.example.ticketmanagement.mapper.UserMapper;
 import org.example.ticketmanagement.pojo.TicketTier;
 import org.example.ticketmanagement.serviceimpl.OrderServiceImpl;
 import org.example.ticketmanagement.serviceimpl.TicketTierServiceImpl;
+import org.example.ticketmanagement.serviceimpl.SeckillServiceImpl;
+import org.example.ticketmanagement.serviceimpl.ReservationServiceImpl;
+import org.example.ticketmanagement.serviceimpl.StockServiceImpl;
 import org.example.ticketmanagement.service.ReservationService;
 import org.example.ticketmanagement.trade.payment.TradePaymentPort;
 import org.example.ticketmanagement.trade.messaging.OutboxStore;
@@ -57,6 +61,8 @@ class TradeReservationTest {
     Object core;
     DataSourceTransactionManager manager;
     SqlSessionTemplate sessions;
+    SeckillServiceImpl confirmed;
+    StockServiceImpl stockService;
 
     <T> T mapper(Class<T> mapperType) {
         return sessions.getMapper(mapperType);
@@ -74,6 +80,11 @@ class TradeReservationTest {
         var fixture = ReservationFixture.create(sessions, new TransactionTemplate(manager), outbox,
                 IsolatedProtocolDatabase.redis, fixed);
         core = fixture.core();
+        stockService = fixture.stock();
+        confirmed = new SeckillServiceImpl(fixture.core(), fixture.stock(), null,
+                mapper(TicketTierMapper.class), mapper(EventSessionMapper.class), mapper(EventMapper.class), fixed);
+        ReflectionTestUtils.setField(confirmed, "enabled", true);
+        ReflectionTestUtils.setField(confirmed, "lockingEnabled", false);
         db.update("INSERT INTO city(id,name,code,province) VALUES(1,'Test city','IT','Test')");
         db.update("INSERT INTO event_category(id,name) VALUES(1,'Test category')");
         db.update("INSERT INTO event(id,name,category_id,city_id,venue,status,sale_start_time,sale_end_time,event_start_time,event_end_time) VALUES(1,'Test event',1,1,'Test',1,?,?,?,?)",
@@ -93,6 +104,46 @@ class TradeReservationTest {
 
     Object call(String name, long id) throws Exception {
         return core.getClass().getMethod(name, long.class).invoke(core, id);
+    }
+
+    @Test
+    void soldOutBeforeAdmissionIsDefiniteRejectionAndLaterCapacityCanServeANewCard() {
+        var other = confirmed.reserveConfirmedApplication(2, 1, 5, "other-one", new BigDecimal("100"));
+        confirmed.reserveConfirmedApplication(3, 1, 5, "other-two", new BigDecimal("100"));
+        assertThrows(ReservationRejectedException.class,
+                () -> confirmed.reserveConfirmedApplication(1, 1, 1, "sold-out-card", new BigDecimal("100")));
+        assertEquals(0, db.queryForObject("SELECT COUNT(*) FROM seckill_admission WHERE user_id=1", Integer.class));
+        long releasedId = ((Number) other.get("requestId")).longValue();
+        var reservations = (ReservationServiceImpl) core;
+        reservations.releaseUnordered(releasedId, "test release");
+        // 此fixture不启动消息监听，按真实消费者路径投影释放，仍执行原Redis Lua。
+        stockService.release(stockService.from(reservations.find(releasedId)));
+        var newCard = confirmed.reserveConfirmedApplication(1, 1, 1, "new-card", new BigDecimal("100"));
+        assertNotNull(newCard.get("requestId"));
+        assertEquals(1, db.queryForObject("SELECT COUNT(*) FROM stock_reservation WHERE user_id=1", Integer.class));
+    }
+
+    @Test
+    void confirmedPriceMismatchRejectsAtAdmissionAndReleasesOnlyItsProvisionalStock() {
+        db.update("UPDATE ticket_tier SET current_price=120 WHERE id=1");
+        assertThrows(IllegalArgumentException.class,
+                () -> confirmed.reserveConfirmedApplication(1, 1, 2, "confirm-price", new BigDecimal("100")));
+        assertEquals(0, db.queryForObject("SELECT COUNT(*) FROM stock_reservation", Integer.class));
+        assertEquals("REJECTED", db.queryForObject(
+                "SELECT admission_status FROM seckill_admission WHERE request_key='confirm-price'", String.class));
+        assertEquals(10, confirmed.getRealTimeStock(1L));
+        assertEquals(10, db.queryForObject("SELECT available_stock FROM ticket_tier WHERE id=1", Integer.class));
+    }
+
+    @Test
+    void acceptedConfirmedRequestKeepsOriginalAmountWhenPriceLaterChanges() {
+        var accepted = confirmed.reserveConfirmedApplication(1, 1, 2, "confirmed", new BigDecimal("100"));
+        db.update("UPDATE ticket_tier SET current_price=120 WHERE id=1");
+        var replay = confirmed.reserveConfirmedApplication(1, 1, 2, "confirmed", new BigDecimal("100"));
+        assertEquals(accepted.get("requestId"), replay.get("requestId"));
+        assertEquals(0, new BigDecimal("200").compareTo((BigDecimal) replay.get("totalAmount")));
+        assertEquals(1, db.queryForObject("SELECT COUNT(*) FROM stock_reservation", Integer.class));
+        assertEquals(8, confirmed.getRealTimeStock(1L));
     }
 
     @Test

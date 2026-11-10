@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ChevronDown, UserRound } from 'lucide-vue-next'
+import { ChevronDown } from 'lucide-vue-next'
+import AvatarImage from './AvatarImage.vue'
 
-const props = defineProps<{ signedIn: boolean; username?: string; busy?: boolean }>()
+const props = defineProps<{ signedIn: boolean; username?: string; busy?: boolean; avatar?: string | null }>()
 const emit = defineEmits<{ logout: [] }>()
 const route = useRoute()
 const open = ref(false)
@@ -66,7 +67,7 @@ onUnmounted(() => document.removeEventListener('pointerdown', outside))
             @click="toggle"
             @keydown.down.prevent="firstLink"
         >
-            <span class="account-avatar"><UserRound :size="16" /></span>
+            <span class="account-avatar"><AvatarImage :src="signedIn ? avatar : undefined" alt="账户头像" :icon-size="16" /></span>
             <span class="account-trigger-name">
                 {{ signedIn ? username || '我的账户' : '登录 / 注册' }}
             </span>

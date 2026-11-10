@@ -115,6 +115,11 @@ export const router = createRouter({
             meta: { title: '退款记录 · 有戏', requiresAuth: true },
         },
         {
+            path: '/support/knowledge/:entryId',
+            component: () => import('./pages/KnowledgePage.vue'),
+            meta: { title: '客服参考规则 · 有戏', requiresAuth: true },
+        },
+        {
             path: '/support',
             component: () => import('./pages/SupportPage.vue'),
             meta: { title: '智能客服 · 有戏', requiresAuth: true },
